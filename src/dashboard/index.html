@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XBookmark Manager</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="../../assets/fonts/inter/inter.css">
+    <link rel="stylesheet" href="../../assets/fonts/bootstrap-icons/bootstrap-icons.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="bi bi-bookmark-fill" style="color: var(--accent-color);"></i> XBookmark
+            </div>
+
+            <div class="search-wrapper">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" id="search-input" class="search-input" placeholder="Search...">
+            </div>
+
+            <!-- Simplified Menu - Removed Inbox/All List Items -->
+            <div class="tags-section" style="border-top: none; padding-top: 0;">
+                <div class="tags-header"><i class="bi bi-tags"></i> Tags</div>
+                <div class="tag-list" id="tag-list">
+                    <!-- Tags will be injected here -->
+                </div>
+            </div>
+
+            <div style="margin-top: auto; display:flex; flex-direction:column; gap:0.5rem">
+                <button id="export-all-btn" class="btn btn-primary w-100">
+                    <i class="bi bi-markdown"></i> Export All (MD)
+                </button>
+                <button id="export-json-btn" class="btn btn-secondary w-100">
+                    <i class="bi bi-filetype-json"></i> Export JSON
+                </button>
+            </div>
+
+            <div class="sidebar-footer"
+                style="margin-top: 1.5rem; border-top: 1px solid var(--card-border); padding-top: 1rem; font-size: 0.8rem; color: var(--text-secondary); text-align: center;">
+                <p>Made with ❤️ by <a href="https://x.com/a_lamparelli" target="_blank" rel="noopener noreferrer"
+                        style="color:var(--text-primary); text-decoration:none;">@a_lamparelli</a></p>
+                <a href="../privacy/index.html" target="_blank" rel="noopener noreferrer"
+                    style="display:inline-block; margin-top:0.4rem; font-size:0.75rem; color:var(--text-secondary); text-decoration:none; opacity:0.7;">Privacy & Terms</a>
+                <span style="display:block; margin-top:0.5rem; margin-bottom:0.5rem;">Creator of:</span>
+                <div class="og-carousel" style="position:relative; overflow:hidden; border-radius:8px;">
+                    <div class="og-carousel-track" id="og-carousel-track" style="display:flex; transition:transform 0.3s ease;">
+                        <a href="https://dicta.to?utm_source=xbookmark&utm_medium=bio&utm_campaign=generic" target="_blank" rel="noopener noreferrer" class="og-card" style="min-width:100%; display:block; text-decoration:none;">
+                            <img src="../../assets/images/dicta-og.png" alt="Dicta.to" style="width:100%; border-radius:8px; display:block;">
+                            <div style="display:none; align-items:center; justify-content:center; aspect-ratio:1200/630; background:linear-gradient(135deg,#e74c3c,#e67e22); border-radius:8px; color:#fff; font-weight:600; font-size:1rem;">Dicta.to</div>
+                        </a>
+                        <a href="https://quickpoll.cc?utm_source=xbookmark&utm_medium=bio&utm_campaign=generic" target="_blank" rel="noopener noreferrer" class="og-card" style="min-width:100%; display:block; text-decoration:none;">
+                            <img src="../../assets/images/quickpoll-og.png" alt="QuickPoll" style="width:100%; border-radius:8px; display:block;">
+                            <div style="display:none; align-items:center; justify-content:center; aspect-ratio:1200/630; background:linear-gradient(135deg,#9b59b6,#8e44ad); border-radius:8px; color:#fff; font-weight:600; font-size:1rem;">QuickPoll</div>
+                        </a>
+                        <a href="https://contacthive.app?utm_source=xbookmark&utm_medium=bio&utm_campaign=generic" target="_blank" rel="noopener noreferrer" class="og-card" style="min-width:100%; display:block; text-decoration:none;">
+                            <div style="display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1200/630; background:#fff; border-radius:8px; color:#111; font-weight:600; font-size:1.1rem;">contacthive.app</div>
+                        </a>
+                        <a href="https://lifetrophy.app?utm_source=xbookmark&utm_medium=bio&utm_campaign=generic" target="_blank" rel="noopener noreferrer" class="og-card" style="min-width:100%; display:block; text-decoration:none;">
+                            <div style="display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:1200/630; background:linear-gradient(135deg,#f1c40f,#e67e22); border-radius:8px; color:#fff; font-weight:600; font-size:1.1rem;">LifeTrophy.app</div>
+                        </a>
+                    </div>
+                    <div style="display:flex; justify-content:center; gap:6px; margin-top:8px;">
+                        <button class="og-dot active" data-index="0" style="width:8px;height:8px;border-radius:50%;border:none;background:var(--accent-color);cursor:pointer;padding:0;opacity:1;"></button>
+                        <button class="og-dot" data-index="1" style="width:8px;height:8px;border-radius:50%;border:none;background:var(--text-secondary);cursor:pointer;padding:0;opacity:0.5;"></button>
+                        <button class="og-dot" data-index="2" style="width:8px;height:8px;border-radius:50%;border:none;background:var(--text-secondary);cursor:pointer;padding:0;opacity:0.5;"></button>
+                        <button class="og-dot" data-index="3" style="width:8px;height:8px;border-radius:50%;border:none;background:var(--text-secondary);cursor:pointer;padding:0;opacity:0.5;"></button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="feed-header">
+                <h1 class="feed-title" id="feed-title">All Bookmarks</h1>
+                <div class="main-actions">
+                    <span id="total-count" style="color:var(--text-secondary); font-size:0.9rem;">0 items</span>
+                </div>
+            </header>
+
+            <div class="tweets-grid" id="tweets-grid">
+                <!-- Tweet Cards injected here -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Tagging Modal -->
+    <div class="modal-overlay" id="tag-modal">
+        <div class="modal">
+            <h2 class="modal-title"><i class="bi bi-pencil-square"></i> Edit Tags</h2>
+            <div style="margin-bottom: 1rem;">
+                <label style="display:block; margin-bottom:0.5rem;font-size:0.9rem;color:var(--text-secondary)">Tags
+                    (comma separated)</label>
+                <div class="tag-input-wrapper" id="tag-editor-container">
+                    <input type="text" id="tag-input-field" class="text-input" placeholder="dev, idea, news"
+                        autocomplete="off">
+                    <div id="tag-suggestions" class="tag-suggestions-list"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="close-modal">Cancel</button>
+                <button class="btn btn-primary" id="save-tags"><i class="bi bi-check-lg"></i> Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>

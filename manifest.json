@@ -1,0 +1,40 @@
+{
+   "action": {
+      "default_icon": {
+         "16": "assets/icons/icon-16.png",
+         "32": "assets/icons/icon-32.png",
+         "48": "assets/icons/icon-48.png"
+      },
+      "default_title": "XBookmark"
+   },
+   "background": {
+      "service_worker": "src/background/index.js",
+      "type": "module"
+   },
+   "content_scripts": [ {
+      "js": [ "src/content/index.js" ],
+      "matches": [ "https://twitter.com/*", "https://x.com/*" ],
+      "run_at": "document_idle"
+   } ],
+   "content_security_policy": {
+      "extension_pages": "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; font-src 'self'; img-src 'self' https://pbs.twimg.com https://abs.twimg.com"
+   },
+   "default_locale": "en",
+   "description": "__MSG_extensionDescription__",
+   "host_permissions": [ "https://twitter.com/*", "https://x.com/*" ],
+   "icons": {
+      "128": "assets/icons/icon-128.png",
+      "16": "assets/icons/icon-16.png",
+      "32": "assets/icons/icon-32.png",
+      "48": "assets/icons/icon-48.png"
+   },
+   "manifest_version": 3,
+   "name": "__MSG_extensionName__",
+   "permissions": [ "activeTab" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "0.1.0",
+   "web_accessible_resources": [ {
+      "matches": [ "https://x.com/*", "https://twitter.com/*" ],
+      "resources": [ "assets/icons/*" ]
+   } ]
+}
