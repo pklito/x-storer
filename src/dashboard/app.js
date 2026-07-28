@@ -21,6 +21,7 @@ const MEDIA_DB_NAME = 'media-folder-store';
 const MEDIA_DB_STORE = 'handles';
 const MEDIA_HANDLE_KEY = 'mediaRoot';
 let mediaRootHandle = null;       // FileSystemDirectoryHandle for the chosen root folder
+let mediaPermissionGranted = false; // whether we currently have read access to mediaRootHandle
 let mediaSubdirCache = new Map(); // authorHandle -> FileSystemDirectoryHandle | null
 let activeObjectUrls = [];        // object URLs created for the current render, revoked on next render
 let mediaFolderBtn = null;
@@ -68,7 +69,13 @@ function createMediaFolderButton() {
 
 function updateMediaFolderButton() {
     if (!mediaFolderBtn) return;
-    mediaFolderBtn.textContent = mediaRootHandle ? 'Change Media Folder' : 'Choose Media Folder';
+    if (!mediaRootHandle) {
+        mediaFolderBtn.textContent = 'Choose Media Folder';
+    } else if (!mediaPermissionGranted) {
+        mediaFolderBtn.textContent = 'Restore Media Folder Access';
+    } else {
+        mediaFolderBtn.textContent = 'Change Media Folder';
+    }
 }
 
 function openMediaDb() {
@@ -123,7 +130,10 @@ async function initMediaFolder() {
     }
     try {
         const stored = await loadMediaRootHandle();
-        if (stored) mediaRootHandle = stored; // permission may still need a click to restore
+        if (stored) {
+            mediaRootHandle = stored;
+            mediaPermissionGranted = (await stored.queryPermission({ mode: 'read' })) === 'granted';
+        }
     } catch (err) {
         console.error('Could not restore media folder handle:', err);
     }
@@ -132,22 +142,24 @@ async function initMediaFolder() {
 
 async function chooseMediaFolder() {
     try {
-        // If we already have a remembered handle, first try a quick, silent
-        // permission re-grant instead of forcing the user to re-pick the folder.
-        if (mediaRootHandle) {
+        // If we have a remembered handle but lost permission (typical after a
+        // browser restart), just re-confirm access to the SAME folder — no picker.
+        if (mediaRootHandle && !mediaPermissionGranted) {
             const granted = await ensureMediaPermission(mediaRootHandle);
+            mediaPermissionGranted = granted;
             if (granted) {
                 mediaSubdirCache.clear();
                 updateMediaFolderButton();
                 updateUI();
-                return;
             }
+            return;
         }
 
-        // No stored handle, or permission is gone for good — ask the user to pick
-        // (a fresh pick grants permission immediately, no extra step needed).
+        // No handle yet, or permission is already fine and the user explicitly
+        // clicked "Change Media Folder" — always show the picker in this case.
         const handle = await window.showDirectoryPicker();
         mediaRootHandle = handle;
+        mediaPermissionGranted = true; // showDirectoryPicker grants permission on selection
         mediaSubdirCache.clear();
         await saveMediaRootHandle(handle);
         updateMediaFolderButton();
