@@ -9,6 +9,13 @@ let currentEditTweetId = null;
 // New State for Tag Editor
 let currentQuoteTags = []; // Stores tags being edited in modal as Array of Strings
 
+// Batched async grid rendering (avoid building 5000 cards in one blocking pass)
+const RENDER_BATCH_SIZE = 100;
+let filteredTweetsCache = [];
+let renderedCount = 0;
+let masonryColumns = [];
+let renderToken = 0; // bumped every time a new render starts, so stale in-flight batches bail out
+
 const tweetsGrid = document.getElementById('tweets-grid');
 const feedTitle = document.getElementById('feed-title');
 const tagList = document.getElementById('tag-list');
@@ -197,14 +204,17 @@ function updateUI() {
         feedTitle.textContent = 'All Bookmarks';
     }
 
-    totalCount.textContent = `${tweets.length} items`;
-
     renderGrid(tweets);
     renderTagsSidebar();
 }
 
 function renderGrid(tweets) {
+    renderToken++; // invalidate any batch loop still running from a previous render
+    const myToken = renderToken;
+
     tweetsGrid.replaceChildren();
+    filteredTweetsCache = tweets;
+    renderedCount = 0;
 
     if (tweets.length === 0) {
         const empty = document.createElement('div');
@@ -216,12 +226,63 @@ function renderGrid(tweets) {
         empty.appendChild(document.createElement('br'));
         empty.appendChild(document.createTextNode('No bookmarks found.'));
         tweetsGrid.appendChild(empty);
+        updateRenderProgressUI();
         return;
     }
 
-    const fragment = document.createDocumentFragment();
+    // Balanced masonry: distribute cards into shortest column
+    // I do this at the start now rather than have it jump around during batching
+    const w = window.innerWidth;
+    const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : 4;
+    masonryColumns = Array.from({ length: colCount }, () => {
+        const col = document.createElement('div');
+        col.className = 'masonry-column';
+        tweetsGrid.appendChild(col);
+        return col;
+    });
 
-    tweets.forEach((tweet) => {
+    renderNextBatch(myToken);
+}
+
+// Renders one batch at a time.
+function renderNextBatch(token) {
+    // cancel if a newer token was issued 
+    if (token !== renderToken) return;
+
+    const batch = filteredTweetsCache.slice(renderedCount, renderedCount + RENDER_BATCH_SIZE);
+
+    batch.forEach((tweet) => {
+        const card = createTweetCard(tweet);
+
+        // Balanced masonry: drop into whichever column is currently shortest
+        let shortest = 0;
+        for (let c = 1; c < masonryColumns.length; c++) {
+            if (masonryColumns[c].offsetHeight < masonryColumns[shortest].offsetHeight) shortest = c;
+        }
+        masonryColumns[shortest].appendChild(card);
+    });
+
+    renderedCount += batch.length;
+    updateRenderProgressUI();
+
+    if (renderedCount < filteredTweetsCache.length) {
+        requestAnimationFrame(() => renderNextBatch(token));
+    }
+}
+
+
+function getRenderProgress() {
+    return { rendered: renderedCount, total: filteredTweetsCache.length };
+}
+
+function updateRenderProgressUI() {
+    const { rendered, total } = getRenderProgress();
+    totalCount.textContent = rendered < total
+        ? `${rendered} of ${total} items…`
+        : `${total} items`;
+}
+
+function createTweetCard(tweet) {
         const card = document.createElement('article');
         card.className = 'tweet-card animate-in';
         card.addEventListener('animationend', () => card.classList.remove('animate-in'), { once: true });
@@ -335,26 +396,7 @@ function renderGrid(tweets) {
         actions.appendChild(deleteBtn);
 
         card.appendChild(actions);
-        fragment.appendChild(card);
-    });
-
-    // Balanced masonry: distribute cards into shortest column
-    const w = window.innerWidth;
-    const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : 4;
-    const columns = Array.from({ length: colCount }, () => {
-        const col = document.createElement('div');
-        col.className = 'masonry-column';
-        tweetsGrid.appendChild(col);
-        return col;
-    });
-    const cards = Array.from(fragment.children);
-    cards.forEach(card => {
-        let shortest = 0;
-        for (let c = 1; c < columns.length; c++) {
-            if (columns[c].offsetHeight < columns[shortest].offsetHeight) shortest = c;
-        }
-        columns[shortest].appendChild(card);
-    });
+        return card;
 }
 
 function renderTagsSidebar() {
