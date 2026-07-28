@@ -456,6 +456,10 @@ function createTweetCard(tweet) {
         card.className = 'tweet-card animate-in';
         card.addEventListener('animationend', () => card.classList.remove('animate-in'), { once: true });
 
+        // Make Zooming faster, but causes some tweet jumping around
+        // card.style.contentVisibility = 'auto';
+        // card.style.containIntrinsicSize = '350px 480px';
+
         // Header
         const header = document.createElement('div');
         header.className = 'tweet-header';
