@@ -16,6 +16,15 @@ let renderedCount = 0;
 let masonryColumns = [];
 let renderToken = 0; // bumped every time a new render starts, so stale in-flight batches bail out
 
+// Local media folder access (load images from disk instead of the network)
+const MEDIA_DB_NAME = 'media-folder-store';
+const MEDIA_DB_STORE = 'handles';
+const MEDIA_HANDLE_KEY = 'mediaRoot';
+let mediaRootHandle = null;       // FileSystemDirectoryHandle for the chosen root folder
+let mediaSubdirCache = new Map(); // authorHandle -> FileSystemDirectoryHandle | null
+let activeObjectUrls = [];        // object URLs created for the current render, revoked on next render
+let mediaFolderBtn = null;
+
 const tweetsGrid = document.getElementById('tweets-grid');
 const feedTitle = document.getElementById('feed-title');
 const tagList = document.getElementById('tag-list');
@@ -29,6 +38,8 @@ const suggestionsBox = document.getElementById('tag-suggestions');
 document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
     setupEventListeners();
+    createMediaFolderButton();
+    await initMediaFolder();
 });
 
 async function loadData() {
@@ -39,6 +50,145 @@ async function loadData() {
         console.error('Failed to load tweets:', err);
     }
 }
+
+// --- Local Media Folder Access ---
+// Lets images load from a local "downloads" directory (one subfolder per
+// account, matching authorHandle, containing media files with their
+// original filenames) instead of hitting the network.
+
+function createMediaFolderButton() {
+    if (mediaFolderBtn || !totalCount.parentElement) return;
+    mediaFolderBtn = document.createElement('button');
+    mediaFolderBtn.id = 'media-folder-btn';
+    mediaFolderBtn.className = 'icon-btn';
+    mediaFolderBtn.textContent = 'Choose Media Folder';
+    mediaFolderBtn.addEventListener('click', chooseMediaFolder);
+    totalCount.parentElement.appendChild(mediaFolderBtn);
+}
+
+function updateMediaFolderButton() {
+    if (!mediaFolderBtn) return;
+    mediaFolderBtn.textContent = mediaRootHandle ? 'Change Media Folder' : 'Choose Media Folder';
+}
+
+function openMediaDb() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(MEDIA_DB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(MEDIA_DB_STORE);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function saveMediaRootHandle(handle) {
+    const db2 = await openMediaDb();
+    await new Promise((resolve, reject) => {
+        const tx = db2.transaction(MEDIA_DB_STORE, 'readwrite');
+        tx.objectStore(MEDIA_DB_STORE).put(handle, MEDIA_HANDLE_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+async function loadMediaRootHandle() {
+    const db2 = await openMediaDb();
+    return new Promise((resolve, reject) => {
+        const tx = db2.transaction(MEDIA_DB_STORE, 'readonly');
+        const req = tx.objectStore(MEDIA_DB_STORE).get(MEDIA_HANDLE_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+// queryPermission works anytime; requestPermission needs an active user
+// gesture (e.g. inside a click handler), or the browser will just deny it.
+async function ensureMediaPermission(handle) {
+    if (!handle) return false;
+    const opts = { mode: 'read' };
+    if ((await handle.queryPermission(opts)) === 'granted') return true;
+    try {
+        return (await handle.requestPermission(opts)) === 'granted';
+    } catch {
+        return false;
+    }
+}
+
+async function initMediaFolder() {
+    if (!window.showDirectoryPicker) {
+        if (mediaFolderBtn) {
+            mediaFolderBtn.disabled = true;
+            mediaFolderBtn.title = 'Local folder access isn\'t supported in this browser';
+        }
+        return;
+    }
+    try {
+        const stored = await loadMediaRootHandle();
+        if (stored) mediaRootHandle = stored; // permission may still need a click to restore
+    } catch (err) {
+        console.error('Could not restore media folder handle:', err);
+    }
+    updateMediaFolderButton();
+}
+
+async function chooseMediaFolder() {
+    try {
+        // If we already have a remembered handle, first try a quick, silent
+        // permission re-grant instead of forcing the user to re-pick the folder.
+        if (mediaRootHandle) {
+            const granted = await ensureMediaPermission(mediaRootHandle);
+            if (granted) {
+                mediaSubdirCache.clear();
+                updateMediaFolderButton();
+                updateUI();
+                return;
+            }
+        }
+
+        // No stored handle, or permission is gone for good — ask the user to pick
+        // (a fresh pick grants permission immediately, no extra step needed).
+        const handle = await window.showDirectoryPicker();
+        mediaRootHandle = handle;
+        mediaSubdirCache.clear();
+        await saveMediaRootHandle(handle);
+        updateMediaFolderButton();
+        updateUI();
+    } catch (err) {
+        if (err.name !== 'AbortError') console.error('Media folder selection failed:', err);
+    }
+}
+
+// Resolve a tweet's media file on disk. Returns a File, or null if it can't
+// be found locally (caller should fall back to the remote mediaUrl).
+async function resolveLocalMediaFile(tweet) {
+    if (!mediaRootHandle || !tweet.mediaUrl || !tweet.authorHandle) return null;
+    if (!(await ensureMediaPermission(mediaRootHandle))) return null;
+
+    let subDir = mediaSubdirCache.get(tweet.authorHandle);
+    if (subDir === undefined) {
+        try {
+            subDir = await mediaRootHandle.getDirectoryHandle(tweet.authorHandle);
+        } catch {
+            subDir = null; // no folder for this account
+        }
+        mediaSubdirCache.set(tweet.authorHandle, subDir);
+    }
+    if (!subDir) return null;
+
+    let filename;
+    try {
+        filename = decodeURIComponent(new URL(tweet.mediaUrl).pathname.split('/').pop());
+    } catch {
+        return null;
+    }
+
+    try {
+        const fileHandle = await subDir.getFileHandle(filename);
+        return await fileHandle.getFile();
+    } catch {
+        return null; // file not present locally
+    }
+}
+// --- End Local Media Folder Access ---
 
 function setupEventListeners() {
     let debounceTimer;
@@ -212,6 +362,10 @@ function renderGrid(tweets) {
     renderToken++; // invalidate any batch loop still running from a previous render
     const myToken = renderToken;
 
+    // Object URLs from the previous render's local media are no longer referenced
+    activeObjectUrls.forEach(url => URL.revokeObjectURL(url));
+    activeObjectUrls = [];
+
     tweetsGrid.replaceChildren();
     filteredTweetsCache = tweets;
     renderedCount = 0;
@@ -230,8 +384,6 @@ function renderGrid(tweets) {
         return;
     }
 
-    // Balanced masonry: distribute cards into shortest column
-    // I do this at the start now rather than have it jump around during batching
     const w = window.innerWidth;
     const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : 4;
     masonryColumns = Array.from({ length: colCount }, () => {
@@ -244,9 +396,13 @@ function renderGrid(tweets) {
     renderNextBatch(myToken);
 }
 
-// Renders one batch at a time.
+// Renders one batch, then schedules the next batch on a fresh animation frame
+// instead of doing all 5000 in one go. This keeps the tab responsive (input,
+// scrolling, painting all still happen between batches) without skipping any
+// tweets the way the scroll-based version did.
 function renderNextBatch(token) {
-    // cancel if a newer token was issued 
+    // A newer renderGrid() call superseded this one (e.g. user kept typing in
+    // search) — stop working on stale data.
     if (token !== renderToken) return;
 
     const batch = filteredTweetsCache.slice(renderedCount, renderedCount + RENDER_BATCH_SIZE);
@@ -270,7 +426,8 @@ function renderNextBatch(token) {
     }
 }
 
-
+// Query how much of the current filtered set has been rendered so far.
+// Useful for a progress indicator ("3400 of 5200 tweets done").
 function getRenderProgress() {
     return { rendered: renderedCount, total: filteredTweetsCache.length };
 }
@@ -326,13 +483,23 @@ function createTweetCard(tweet) {
             mediaDiv.className = 'tweet-media';
 
             const img = document.createElement('img');
-            img.src = tweet.mediaUrl;
+            img.src = tweet.mediaUrl; // remote URL as the immediate default
             img.loading = 'lazy';
             img.referrerPolicy = 'no-referrer';
             img.addEventListener('error', function () { this.parentElement.style.display = 'none'; });
 
             mediaDiv.appendChild(img);
             card.appendChild(mediaDiv);
+
+            // If a media folder is set up, swap in the local copy once it resolves
+            if (mediaRootHandle) {
+                resolveLocalMediaFile(tweet).then(file => {
+                    if (!file) return; // not found locally, keep the remote URL
+                    const objectUrl = URL.createObjectURL(file);
+                    activeObjectUrls.push(objectUrl);
+                    img.src = objectUrl;
+                });
+            }
         }
 
         // Meta
