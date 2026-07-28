@@ -94,6 +94,10 @@ body {
     gap: 0.5rem;
 }
 
+.accent-icon {
+    color: var(--accent-color);
+}
+
 .nav-menu {
     list-style: none;
     display: flex;
@@ -168,6 +172,11 @@ body {
 .tags-section {
     border-top: 1px solid var(--card-border);
     padding-top: 1rem;
+}
+
+.tags-section.no-border {
+    border-top: none;
+    padding-top: 0;
 }
 
 .tags-header {
@@ -574,4 +583,87 @@ body {
 
 .tag-suggestion-item:hover {
     background: rgba(127, 127, 127, 0.1);
+}
+
+.sidebar-footer {
+    margin-top: 1.5rem;
+    border-top: 1px solid var(--card-border);
+    padding-top: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.og-carousel.relative-border {
+    position:relative;
+     overflow:hidden;
+      border-radius:8px;
+}
+
+.og-carousel-track.track-flex {
+    display:flex;
+     transition:transform 0.3s ease;
+}
+
+.og-card.block-width {
+    min-width:100%;
+     display:block;
+      text-decoration:none;
+}
+
+.carousel-image {
+    width:100%; border-radius:8px; display:block;
+}
+
+.carousel-image-block {
+    align-items:center; justify-content:center;
+}
+
+.carousel-image-block.c-image-one {
+    display:none; aspect-ratio:1200/630; background:linear-gradient(135deg,#e74c3c,#e67e22); border-radius:8px; color:#fff; font-weight:600; font-size:1rem;
+}
+
+.carousel-image-block.c-image-two {
+    display:none; aspect-ratio:1200/630; background:linear-gradient(135deg,#9b59b6,#8e44ad); border-radius:8px; color:#fff; font-weight:600; font-size:1rem;
+}
+
+.carousel-image-block.c-image-three {
+    display:flex; width:100%; aspect-ratio:1200/630; background:#fff; border-radius:8px; color:#111; font-weight:600; font-size:1.1rem;
+}
+
+.carousel-image-block.c-image-four {
+    display:flex; width:100%; aspect-ratio:1200/630; background:linear-gradient(135deg,#f1c40f,#e67e22); border-radius:8px; color:#fff; font-weight:600; font-size:1.1rem;
+}
+
+.og-dots-group {
+    display:flex; justify-content:center; gap:6px; margin-top:8px;
+}
+
+.og-dot {
+    width:8px;height:8px;border-radius:50%;border:none;background:var(--text-secondary);cursor:pointer;padding:0;opacity:0.5;
+}
+
+.og-dot.active {
+    background:var(--accent-color); opacity:1;
+}
+
+
+.main-content-count {
+    color:var(--text-secondary); font-size:0.9rem;
+}
+
+.export-section {
+   margin-top: auto; display:flex; flex-direction:column; gap:0.5rem
+}
+
+.form-label {
+   display:block; margin-bottom:0.5rem;font-size:0.9rem;color:var(--text-secondary)
+}
+
+.form-label-margin {
+   margin-bottom:1rem
+}
+
+.carousel-title {
+    display:block; margin-top:0.5rem; margin-bottom:0.5rem;
 }
