@@ -25,10 +25,20 @@
 
             <!-- Simplified Menu - Removed Inbox/All List Items -->
             <div class="tags-section no-border">
-                <div class="tags-header"><i class="bi bi-tags"></i> Tags</div>
-                <div class="tag-list" id="tag-list">
-                    <!-- Tags will be injected here -->
+                <div class="tags-header-row">
+                    <div class="tags-header"><i class="bi bi-tags"></i> Tags</div>
+                    <button id="clear-tags-btn" class="clear-tags-btn">
+                        <i class="bi bi-x-lg"></i> Clear
+                    </button>
                 </div>
+                <div class="tag-list-scroll">
+                    <div class="tag-list" id="tag-list">
+                        <!-- Tag groups + tags will be injected here -->
+                    </div>
+                </div>
+                <button id="configure-tags-btn" class="btn btn-secondary w-100 configure-tags-btn">
+                    <i class="bi bi-gear"></i> Configure Groups
+                </button>
             </div>
 
             <div class="export-section">
@@ -80,6 +90,13 @@
                 </div>
             </header>
 
+            <div class="search-tabs" id="search-tabs">
+                <!-- Tabs injected here -->
+                <button id="add-tab-btn" class="add-tab-btn" title="Save current filters as a new tab">
+                    <i class="bi bi-plus-lg"></i>
+                </button>
+            </div>
+
             <div class="tweets-grid" id="tweets-grid">
                 <!-- Tweet Cards injected here -->
             </div>
@@ -102,6 +119,36 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" id="close-modal">Cancel</button>
                 <button class="btn btn-primary" id="save-tags"><i class="bi bi-check-lg"></i> Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tag Groups Modal -->
+    <div class="modal-overlay" id="tag-groups-modal">
+        <div class="modal modal-wide">
+            <h2 class="modal-title"><i class="bi bi-diagram-3"></i> Configure Tag Groups</h2>
+
+            <div class="form-label-margin">
+                <label class="form-label">New Group</label>
+                <div class="new-group-row">
+                    <input type="text" id="new-group-input" class="text-input" placeholder="Group name"
+                        autocomplete="off">
+                    <button id="add-group-btn" class="btn btn-primary"><i class="bi bi-plus-lg"></i></button>
+                </div>
+            </div>
+
+            <div class="form-label-margin">
+                <label class="form-label">Groups</label>
+                <div id="group-manage-list" class="group-manage-list"></div>
+            </div>
+
+            <div class="form-label-margin">
+                <label class="form-label">Assign Tags</label>
+                <div id="tag-assign-list" class="tag-assign-list"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="close-groups-modal">Close</button>
             </div>
         </div>
     </div>

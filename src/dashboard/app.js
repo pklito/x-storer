@@ -2,9 +2,21 @@ import { db } from '../utils/db.js';
 
 // State
 let allTweets = [];
-let selectedTags = new Set();
+let selectedTags = new Set();   // tags included via normal click
+let excludedTags = new Set();   // tags excluded via shift-click
 let searchTerm = '';
 let currentEditTweetId = null;
+
+// Tag Groups (categorization)
+const TAG_GROUPS_KEY = 'xbookmarks_tag_groups_v1';
+let tagGroups = ['Uncategorized'];     // ordered list of group names; 'Uncategorized' is implicit/default
+let tagGroupAssignments = {};          // tag -> groupName (absent = Uncategorized)
+let collapsedGroups = new Set();       // group names currently collapsed in the sidebar
+
+// Search Tabs (saved filter combinations)
+const SEARCH_TABS_KEY = 'xbookmarks_search_tabs_v1';
+let searchTabs = [{ id: 'default', name: 'All', selectedTags: [], excludedTags: [] }];
+let activeTabId = 'default';
 
 // New State for Tag Editor
 let currentQuoteTags = []; // Stores tags being edited in modal as Array of Strings
@@ -35,10 +47,24 @@ const tagEditorContainer = document.getElementById('tag-editor-container');
 const totalCount = document.getElementById('total-count');
 const searchInput = document.getElementById('search-input');
 const suggestionsBox = document.getElementById('tag-suggestions');
+const clearTagsBtn = document.getElementById('clear-tags-btn');
+const configureTagsBtn = document.getElementById('configure-tags-btn');
+const tagGroupsModal = document.getElementById('tag-groups-modal');
+const newGroupInput = document.getElementById('new-group-input');
+const addGroupBtn = document.getElementById('add-group-btn');
+const groupManageList = document.getElementById('group-manage-list');
+const tagAssignList = document.getElementById('tag-assign-list');
+const closeGroupsModalBtn = document.getElementById('close-groups-modal');
+const searchTabsEl = document.getElementById('search-tabs');
+const addTabBtn = document.getElementById('add-tab-btn');
 
 document.addEventListener('DOMContentLoaded', async () => {
+    loadTagGroupState();
+    loadSearchTabsState();
+    applyActiveTabSilently();
     await loadData();
     setupEventListeners();
+    renderSearchTabs();
     createMediaFolderButton();
     await initMediaFolder();
 });
@@ -51,6 +77,271 @@ async function loadData() {
         console.error('Failed to load tweets:', err);
     }
 }
+
+// --- Tag Groups (categorization) ---
+
+function loadTagGroupState() {
+    try {
+        const raw = localStorage.getItem(TAG_GROUPS_KEY);
+        if (raw) {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data.groups) && data.groups.length) tagGroups = data.groups;
+            if (data.assignments) tagGroupAssignments = data.assignments;
+            if (Array.isArray(data.collapsed)) collapsedGroups = new Set(data.collapsed);
+        }
+    } catch (err) {
+        console.error('Failed to load tag group settings:', err);
+    }
+    if (!tagGroups.includes('Uncategorized')) tagGroups.push('Uncategorized');
+}
+
+function saveTagGroupState() {
+    try {
+        localStorage.setItem(TAG_GROUPS_KEY, JSON.stringify({
+            groups: tagGroups,
+            assignments: tagGroupAssignments,
+            collapsed: Array.from(collapsedGroups)
+        }));
+    } catch (err) {
+        console.error('Failed to save tag group settings:', err);
+    }
+}
+
+function tagGroupOf(tag) {
+    return tagGroupAssignments[tag] || 'Uncategorized';
+}
+
+function getAllTagNames() {
+    const set = new Set();
+    allTweets.forEach(t => (t.tags || []).forEach(tag => set.add(tag)));
+    return Array.from(set).sort();
+}
+
+function addTagGroup(name) {
+    const clean = name.trim();
+    if (!clean) return;
+    const exists = tagGroups.some(g => g.toLowerCase() === clean.toLowerCase());
+    if (exists) return;
+    // Keep 'Uncategorized' at the end so custom groups list first
+    tagGroups = tagGroups.filter(g => g !== 'Uncategorized').concat(clean, 'Uncategorized');
+    saveTagGroupState();
+    renderGroupManageList();
+    renderTagAssignList();
+    renderTagsSidebar();
+}
+
+function deleteTagGroup(group) {
+    if (group === 'Uncategorized') return;
+    tagGroups = tagGroups.filter(g => g !== group);
+    Object.keys(tagGroupAssignments).forEach(tag => {
+        if (tagGroupAssignments[tag] === group) delete tagGroupAssignments[tag];
+    });
+    collapsedGroups.delete(group);
+    saveTagGroupState();
+    renderGroupManageList();
+    renderTagAssignList();
+    renderTagsSidebar();
+}
+
+function setTagGroup(tag, group) {
+    if (group === 'Uncategorized') {
+        delete tagGroupAssignments[tag];
+    } else {
+        tagGroupAssignments[tag] = group;
+    }
+    saveTagGroupState();
+    renderTagsSidebar();
+}
+
+function openTagGroupsModal() {
+    renderGroupManageList();
+    renderTagAssignList();
+    tagGroupsModal.classList.add('active');
+}
+
+function closeTagGroupsModal() {
+    tagGroupsModal.classList.remove('active');
+}
+
+function renderGroupManageList() {
+    groupManageList.replaceChildren();
+    const customGroups = tagGroups.filter(g => g !== 'Uncategorized');
+
+    if (customGroups.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'group-manage-empty';
+        empty.textContent = 'No custom groups yet — add one above.';
+        groupManageList.appendChild(empty);
+        return;
+    }
+
+    customGroups.forEach(group => {
+        const row = document.createElement('div');
+        row.className = 'group-manage-row';
+
+        const name = document.createElement('span');
+        name.textContent = group;
+        row.appendChild(name);
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'icon-btn danger';
+        delBtn.title = 'Delete group (tags return to Uncategorized)';
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-trash3';
+        delBtn.appendChild(icon);
+        delBtn.addEventListener('click', () => deleteTagGroup(group));
+        row.appendChild(delBtn);
+
+        groupManageList.appendChild(row);
+    });
+}
+
+function renderTagAssignList() {
+    tagAssignList.replaceChildren();
+    const tags = getAllTagNames();
+
+    if (tags.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'group-manage-empty';
+        empty.textContent = 'No tags yet.';
+        tagAssignList.appendChild(empty);
+        return;
+    }
+
+    tags.forEach(tag => {
+        const row = document.createElement('div');
+        row.className = 'tag-assign-row';
+
+        const label = document.createElement('span');
+        label.textContent = '#' + tag;
+        row.appendChild(label);
+
+        const select = document.createElement('select');
+        select.className = 'group-select';
+        const currentGroup = tagGroupOf(tag);
+        tagGroups.forEach(group => {
+            const opt = document.createElement('option');
+            opt.value = group;
+            opt.textContent = group;
+            if (group === currentGroup) opt.selected = true;
+            select.appendChild(opt);
+        });
+        select.addEventListener('change', () => setTagGroup(tag, select.value));
+        row.appendChild(select);
+
+        tagAssignList.appendChild(row);
+    });
+}
+
+// --- End Tag Groups ---
+
+// --- Search Tabs (saved filter combinations) ---
+
+function loadSearchTabsState() {
+    try {
+        const raw = localStorage.getItem(SEARCH_TABS_KEY);
+        if (raw) {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data.tabs) && data.tabs.length) searchTabs = data.tabs;
+            if (data.activeTabId) activeTabId = data.activeTabId;
+        }
+    } catch (err) {
+        console.error('Failed to load search tabs:', err);
+    }
+    if (!searchTabs.some(t => t.id === 'default')) {
+        searchTabs.unshift({ id: 'default', name: 'All', selectedTags: [], excludedTags: [] });
+    }
+}
+
+function saveSearchTabsState() {
+    try {
+        localStorage.setItem(SEARCH_TABS_KEY, JSON.stringify({ tabs: searchTabs, activeTabId }));
+    } catch (err) {
+        console.error('Failed to save search tabs:', err);
+    }
+}
+
+// Restores the active tab's filters into state WITHOUT re-rendering (tweets
+// haven't loaded yet at startup) — the first updateUI() call picks it up.
+function applyActiveTabSilently() {
+    const tab = searchTabs.find(t => t.id === activeTabId) || searchTabs[0];
+    selectedTags = new Set(tab.selectedTags || []);
+    excludedTags = new Set(tab.excludedTags || []);
+    activeTabId = tab.id;
+}
+
+function applySearchTab(id) {
+    const tab = searchTabs.find(t => t.id === id);
+    if (!tab) return;
+    activeTabId = id;
+    selectedTags = new Set(tab.selectedTags || []);
+    excludedTags = new Set(tab.excludedTags || []);
+    saveSearchTabsState();
+    updateUI();
+    renderSearchTabs();
+}
+
+function addSearchTab() {
+    const name = prompt('Name this search tab:', `Search ${searchTabs.length}`);
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    const tab = {
+        id: 'tab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+        name: trimmed,
+        selectedTags: Array.from(selectedTags),
+        excludedTags: Array.from(excludedTags)
+    };
+    searchTabs.push(tab);
+    activeTabId = tab.id;
+    saveSearchTabsState();
+    renderSearchTabs();
+}
+
+function deleteSearchTab(id) {
+    if (id === 'default') return;
+    searchTabs = searchTabs.filter(t => t.id !== id);
+    if (activeTabId === id) {
+        activeTabId = 'default';
+        selectedTags = new Set();
+        excludedTags = new Set();
+        updateUI();
+    }
+    saveSearchTabsState();
+    renderSearchTabs();
+}
+
+function renderSearchTabs() {
+    if (!searchTabsEl) return;
+    searchTabsEl.querySelectorAll('.search-tab').forEach(el => el.remove());
+
+    searchTabs.forEach(tab => {
+        const btn = document.createElement('button');
+        btn.className = 'search-tab' + (tab.id === activeTabId ? ' active' : '');
+
+        const label = document.createTextNode(tab.name);
+        btn.appendChild(label);
+
+        if (tab.id !== 'default') {
+            const closeBtn = document.createElement('span');
+            closeBtn.className = 'search-tab-close';
+            const icon = document.createElement('i');
+            icon.className = 'bi bi-x';
+            closeBtn.appendChild(icon);
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteSearchTab(tab.id);
+            });
+            btn.appendChild(closeBtn);
+        }
+
+        btn.addEventListener('click', () => applySearchTab(tab.id));
+        searchTabsEl.insertBefore(btn, addTabBtn);
+    });
+}
+
+// --- End Search Tabs ---
 
 // --- Local Media Folder Access ---
 // Lets images load from a local "downloads" directory (one subfolder per
@@ -219,6 +510,32 @@ function setupEventListeners() {
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
     document.getElementById('export-json-btn').addEventListener('click', () => exportJSON(getFilteredTweets()));
 
+    // Clear tag filters (now lives above the tag list, next to "Tags")
+    clearTagsBtn.addEventListener('click', () => {
+        selectedTags.clear();
+        excludedTags.clear();
+        updateUI();
+    });
+
+    // Tag Groups configuration modal
+    configureTagsBtn.addEventListener('click', openTagGroupsModal);
+    closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);
+    tagGroupsModal.addEventListener('click', (e) => { if (e.target === tagGroupsModal) closeTagGroupsModal(); });
+    addGroupBtn.addEventListener('click', () => {
+        addTagGroup(newGroupInput.value);
+        newGroupInput.value = '';
+    });
+    newGroupInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addTagGroup(newGroupInput.value);
+            newGroupInput.value = '';
+        }
+    });
+
+    // Search tabs
+    addTabBtn.addEventListener('click', addSearchTab);
+
     // --- Tag Editor Logic ---
 
     // Focus input when clicking anywhere in the container
@@ -346,6 +663,10 @@ function getFilteredTweets() {
         filtered = filtered.filter(t => t.tags && t.tags.some(tag => selectedTags.has(tag)));
     }
 
+    if (excludedTags.size > 0) {
+        filtered = filtered.filter(t => !(t.tags && t.tags.some(tag => excludedTags.has(tag))));
+    }
+
     if (searchTerm) {
         filtered = filtered.filter(t =>
             (t.text && t.text.toLowerCase().includes(searchTerm)) ||
@@ -360,11 +681,10 @@ function getFilteredTweets() {
 function updateUI() {
     const tweets = getFilteredTweets();
 
-    if (selectedTags.size > 0) {
-        feedTitle.textContent = `Filtered: ${Array.from(selectedTags).map(t => '#' + t).join(', ')}`;
-    } else {
-        feedTitle.textContent = 'All Bookmarks';
-    }
+    const parts = [];
+    if (selectedTags.size > 0) parts.push(Array.from(selectedTags).map(t => '#' + t).join(', '));
+    if (excludedTags.size > 0) parts.push(Array.from(excludedTags).map(t => '−#' + t).join(', '));
+    feedTitle.textContent = parts.length > 0 ? `Filtered: ${parts.join('  ')}` : 'All Bookmarks';
 
     renderGrid(tweets);
     renderTagsSidebar();
@@ -456,9 +776,14 @@ function createTweetCard(tweet) {
         card.className = 'tweet-card animate-in';
         card.addEventListener('animationend', () => card.classList.remove('animate-in'), { once: true });
 
-        // Make Zooming faster, but causes some tweet jumping around
-        // card.style.contentVisibility = 'auto';
-        // card.style.containIntrinsicSize = '350px 480px';
+        // Skip layout/paint for off-screen cards. Without this, every one of
+        // the (potentially thousands of) mounted cards gets fully re-measured
+        // on any full-page reflow — including browser zoom — which is what
+        // makes zooming slow. contain-intrinsic-size is a rough placeholder
+        // size used only while a card is skipped; tweak it if your cards run
+        // noticeably bigger/smaller than this on average.
+        card.style.contentVisibility = 'auto';
+        card.style.containIntrinsicSize = '350px 480px';
 
         // Header
         const header = document.createElement('div');
@@ -590,40 +915,86 @@ function renderTagsSidebar() {
         });
     });
 
+    // Clear button now lives in the header row above the list (see index.html);
+    // just toggle its visibility here.
+    clearTagsBtn.style.display = (selectedTags.size > 0 || excludedTags.size > 0) ? 'flex' : 'none';
+
     tagList.replaceChildren();
-    const sortedTags = Object.keys(tagCounts).sort();
+    const sortedTagNames = Object.keys(tagCounts).sort();
+    if (sortedTagNames.length === 0) return;
 
-    if (selectedTags.size > 0) {
-        const clearBtn = document.createElement('div');
-        clearBtn.className = 'tag-chip';
-        clearBtn.style.color = 'var(--text-secondary)';
-        clearBtn.style.borderColor = 'var(--card-border)';
-        const clearIcon = document.createElement('i');
-        clearIcon.className = 'bi bi-x-lg';
-        clearBtn.appendChild(clearIcon);
-        clearBtn.appendChild(document.createTextNode(' Clear'));
-        clearBtn.addEventListener('click', () => { selectedTags.clear(); updateUI(); });
-        tagList.appendChild(clearBtn);
-    }
+    // Bucket tags by their assigned group, in tagGroups order
+    const byGroup = new Map();
+    tagGroups.forEach(g => byGroup.set(g, []));
+    sortedTagNames.forEach(tag => {
+        const group = tagGroupOf(tag);
+        if (!byGroup.has(group)) byGroup.set(group, []); // safety net
+        byGroup.get(group).push(tag);
+    });
 
-    sortedTags.forEach(tag => {
-        const chip = document.createElement('div');
-        chip.className = 'tag-chip';
-        if (selectedTags.has(tag)) chip.classList.add('active');
+    tagGroups.forEach(group => {
+        const tagsInGroup = byGroup.get(group) || [];
+        if (tagsInGroup.length === 0) return; // hide empty groups from the sidebar
 
-        chip.textContent = `#${tag} (${tagCounts[tag]})`;
+        const groupEl = document.createElement('div');
+        groupEl.className = 'tag-group';
 
-        chip.addEventListener('click', () => {
+        const collapsed = collapsedGroups.has(group);
+        const header = document.createElement('div');
+        header.className = 'tag-group-header';
+        const caret = document.createElement('i');
+        caret.className = collapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
+        header.appendChild(caret);
+        header.appendChild(document.createTextNode(` ${group} (${tagsInGroup.length})`));
+        header.addEventListener('click', () => {
+            if (collapsedGroups.has(group)) collapsedGroups.delete(group);
+            else collapsedGroups.add(group);
+            saveTagGroupState();
+            renderTagsSidebar();
+        });
+        groupEl.appendChild(header);
+
+        if (!collapsed) {
+            const body = document.createElement('div');
+            body.className = 'tag-group-body';
+            tagsInGroup.forEach(tag => body.appendChild(createTagChip(tag, tagCounts[tag])));
+            groupEl.appendChild(body);
+        }
+
+        tagList.appendChild(groupEl);
+    });
+}
+
+// A single tag chip. Click toggles inclusion (selectedTags); shift-click
+// toggles exclusion (excludedTags), shown in red.
+function createTagChip(tag, count) {
+    const chip = document.createElement('div');
+    chip.className = 'tag-chip';
+    if (selectedTags.has(tag)) chip.classList.add('active');
+    if (excludedTags.has(tag)) chip.classList.add('excluded');
+
+    chip.textContent = `#${tag} (${count})`;
+
+    chip.addEventListener('click', (e) => {
+        if (e.shiftKey) {
+            if (excludedTags.has(tag)) {
+                excludedTags.delete(tag);
+            } else {
+                excludedTags.add(tag);
+                selectedTags.delete(tag); // exclusion overrides inclusion
+            }
+        } else {
             if (selectedTags.has(tag)) {
                 selectedTags.delete(tag);
             } else {
                 selectedTags.add(tag);
+                excludedTags.delete(tag); // inclusion overrides exclusion
             }
-            updateUI();
-        });
-
-        tagList.appendChild(chip);
+        }
+        updateUI();
     });
+
+    return chip;
 }
 
 async function deleteTweet(id) {
