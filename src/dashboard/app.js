@@ -460,10 +460,12 @@ async function chooseMediaFolder() {
     }
 }
 
-// Resolve a tweet's media file on disk. Returns a File, or null if it can't
-// be found locally (caller should fall back to the remote mediaUrl).
-async function resolveLocalMediaFile(tweet) {
-    if (!mediaRootHandle || !tweet.mediaUrl || !tweet.authorHandle) return null;
+// Resolve a specific media item's file on disk. Returns a File, or null if
+// it can't be found locally (caller should fall back to the remote URL).
+// `mediaUrl` is an individual item's url (tweet.media[i].url), not the
+// whole tweet, since a tweet can now have several media files.
+async function resolveLocalMediaFile(tweet, mediaUrl) {
+    if (!mediaRootHandle || !mediaUrl || !tweet.authorHandle) return null;
     if (!(await ensureMediaPermission(mediaRootHandle))) return null;
 
     let subDir = mediaSubdirCache.get(tweet.authorHandle);
@@ -479,7 +481,7 @@ async function resolveLocalMediaFile(tweet) {
 
     let filename;
     try {
-        filename = decodeURIComponent(new URL(tweet.mediaUrl).pathname.split('/').pop());
+        filename = decodeURIComponent(new URL(mediaUrl).pathname.split('/').pop());
     } catch {
         return null;
     }
@@ -818,29 +820,54 @@ function createTweetCard(tweet) {
         appendLinkifiedText(content, tweet.text);
         card.appendChild(content);
 
-        // Media
-        if (tweet.mediaUrl) {
+        // Media gallery (photos, videos, gifs). Falls back to the legacy
+        // single-mediaUrl shape for tweets saved before multi-media support.
+        const mediaItems = (tweet.media && tweet.media.length)
+            ? tweet.media
+            : (tweet.mediaUrl ? [{ type: 'photo', url: tweet.mediaUrl }] : []);
+
+        if (mediaItems.length) {
             const mediaDiv = document.createElement('div');
             mediaDiv.className = 'tweet-media';
+            if (mediaItems.length > 1) mediaDiv.classList.add('tweet-media-grid');
 
-            const img = document.createElement('img');
-            img.src = tweet.mediaUrl; // remote URL as the immediate default
-            img.loading = 'lazy';
-            img.referrerPolicy = 'no-referrer';
-            img.addEventListener('error', function () { this.parentElement.style.display = 'none'; });
+            mediaItems.forEach(item => {
+                const itemWrap = document.createElement('div');
+                itemWrap.className = 'tweet-media-item';
 
-            mediaDiv.appendChild(img);
+                const img = document.createElement('img');
+                img.src = item.url; // remote URL (or poster, for video/gif) as the immediate default
+                img.loading = 'lazy';
+                img.referrerPolicy = 'no-referrer';
+                img.addEventListener('error', function () { this.parentElement.style.display = 'none'; });
+                itemWrap.appendChild(img);
+
+                // Video/gif items keep their poster as the visible thumbnail
+                // (actual video streams can't be persisted from the DOM), but
+                // get a badge so they aren't mistaken for a plain photo.
+                if (item.type === 'video' || item.type === 'gif') {
+                    const badge = document.createElement('div');
+                    badge.className = 'media-type-badge';
+                    const icon = document.createElement('i');
+                    icon.className = item.type === 'gif' ? 'bi bi-filetype-gif' : 'bi bi-play-circle-fill';
+                    badge.appendChild(icon);
+                    itemWrap.appendChild(badge);
+                }
+
+                mediaDiv.appendChild(itemWrap);
+
+                // If a media folder is set up, swap in the local copy once it resolves
+                if (mediaRootHandle) {
+                    resolveLocalMediaFile(tweet, item.url).then(file => {
+                        if (!file) return; // not found locally, keep the remote URL
+                        const objectUrl = URL.createObjectURL(file);
+                        activeObjectUrls.push(objectUrl);
+                        img.src = objectUrl;
+                    });
+                }
+            });
+
             card.appendChild(mediaDiv);
-
-            // If a media folder is set up, swap in the local copy once it resolves
-            if (mediaRootHandle) {
-                resolveLocalMediaFile(tweet).then(file => {
-                    if (!file) return; // not found locally, keep the remote URL
-                    const objectUrl = URL.createObjectURL(file);
-                    activeObjectUrls.push(objectUrl);
-                    img.src = objectUrl;
-                });
-            }
         }
 
         // Meta
@@ -1055,7 +1082,17 @@ function exportTweets(tweets) {
     let content = "";
     tweets.forEach(tweet => {
         content += `---\nid: "${tweet.id}"\nauthor: "${tweet.authorName}"\nurl: "${tweet.url}"\ntags: [${(tweet.tags || []).join(', ')}]\n---\n\n${tweet.text}\n\n`;
-        if (tweet.mediaUrl) content += `![media](${tweet.mediaUrl})\n\n`;
+
+        const mediaItems = (tweet.media && tweet.media.length)
+            ? tweet.media
+            : (tweet.mediaUrl ? [{ type: 'photo', url: tweet.mediaUrl }] : []);
+        mediaItems.forEach((item, i) => {
+            const label = item.type === 'video' ? `video ${i + 1} (thumbnail)`
+                : item.type === 'gif' ? `gif ${i + 1} (thumbnail)`
+                : `media ${i + 1}`;
+            content += `![${label}](${item.url})\n\n`;
+        });
+
         content += `___\n\n`;
     });
 

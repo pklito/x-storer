@@ -9,12 +9,48 @@ const SELECTORS = {
     TWEET: 'article[data-testid="tweet"]',
     USER_NAME: '[data-testid="User-Name"]',
     TWEET_TEXT: '[data-testid="tweetText"]',
-    PHOTO: '[data-testid="tweetPhoto"] img',
-    VIDEO: '[data-testid="videoPlayer"] video',
+    MEDIA_ITEM: '[data-testid="tweetPhoto"]',
     CARD_LINK: '[data-testid="card.layoutLarge.detail"], [data-testid="card.layoutSmall.detail"]',
     ARTICLE_IMAGE: '[data-testid="article-cover-image"] img',
     TIMESTAMP: 'time'
 };
+
+/**
+ * Walks every media slot in the tweet (photos, videos, gifs) and returns
+ * them in DOM order. Kept in sync with src/utils/parseTweet.js's
+ * parseMediaItems — this file can't import that module directly (content
+ * script context), so the logic is duplicated here on purpose.
+ */
+function parseMediaItems(article) {
+    const items = [];
+    const nodes = article.querySelectorAll(SELECTORS.MEDIA_ITEM);
+
+    nodes.forEach(node => {
+        // Defensive: skip a tweetPhoto node nested inside another one.
+        const parent = node.parentElement ? node.parentElement.closest(SELECTORS.MEDIA_ITEM) : null;
+        if (parent) return;
+
+        const video = node.querySelector('video');
+        if (video) {
+            const isGif = video.hasAttribute('loop') || video.loop === true;
+            const source = video.querySelector('source');
+
+            items.push({
+                type: isGif ? 'gif' : 'video',
+                url: video.getAttribute('poster') || '',
+                videoSrc: source ? source.getAttribute('src') : null,
+            });
+            return;
+        }
+
+        const img = node.querySelector('img');
+        if (img && img.src) {
+            items.push({ type: 'photo', url: img.src });
+        }
+    });
+
+    return items;
+}
 
 let observer = null;
 let currentUrl = window.location.href;
@@ -238,21 +274,16 @@ function parseTweet(article) {
     const avatarImg = article.querySelector('[data-testid="Tweet-User-Avatar"] img');
     const authorAvatar = avatarImg ? avatarImg.src : '';
 
-    let mediaUrl = null;
+    // Full ordered list of media attachments: photos, videos, and gifs.
+    const media = parseMediaItems(article);
     let cardTitle = null;
 
-    const photo = article.querySelector(SELECTORS.PHOTO);
-    if (photo) {
-        mediaUrl = photo.src;
-    } else {
-        const video = article.querySelector('video');
-        if (video) mediaUrl = video.poster;
-    }
-
-    if (!mediaUrl) {
+    // Article/link-preview card image is only used as a fallback when the
+    // tweet has no actual photo/video/gif media.
+    if (media.length === 0) {
         const articleImg = article.querySelector(SELECTORS.ARTICLE_IMAGE);
         if (articleImg) {
-            mediaUrl = articleImg.src;
+            media.push({ type: 'photo', url: articleImg.src });
             const cardText = article.querySelector('[data-testid="card.layoutLarge.detail"]')?.innerText;
             if (cardText) cardTitle = cardText.split('\n')[0];
         }
@@ -266,7 +297,8 @@ function parseTweet(article) {
         authorHandle,
         authorAvatar,
         timestamp,
-        mediaUrl,
+        media, // [{ type: 'photo' | 'video' | 'gif', url, videoSrc? }, ...] in DOM order
+        mediaUrl: media[0] ? media[0].url : null, // back-compat: first media item's display url
     };
 }
 
