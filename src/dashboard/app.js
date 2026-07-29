@@ -77,31 +77,76 @@ document.addEventListener('DOMContentLoaded', async () => {
     createMediaFolderButton();
     await initMediaFolder();
     createMassTagButton();
+    createImportButton();
+    widenSidebarIfPossible();
 });
+
+// Best-effort layout fix for the sidebar's dead space: I don't have your
+// CSS/HTML file, so this can't target a specific selector. Instead it
+// walks up from the tag list at runtime looking for either (a) a CSS Grid
+// ancestor whose first (sidebar) column track is a fixed px width, or
+// (b) an ancestor that itself has a fixed px width in the typical sidebar
+// range (~120–480px), and widens whichever it finds by ~18%. If this
+// doesn't hit the right element, share style.css / index.html and I can
+// target it precisely instead.
+function widenSidebarIfPossible() {
+    let el = tagList.parentElement;
+    let hops = 0;
+    while (el && el !== document.body && hops < 8) {
+        const parent = el.parentElement;
+        if (parent) {
+            const pcs = getComputedStyle(parent);
+            if (pcs.display === 'grid' && pcs.gridTemplateColumns) {
+                const cols = pcs.gridTemplateColumns.trim().split(/\s+/);
+                if (cols.length >= 2 && /^[\d.]+px$/.test(cols[0])) {
+                    cols[0] = (parseFloat(cols[0]) * 1.18).toFixed(0) + 'px';
+                    parent.style.gridTemplateColumns = cols.join(' ');
+                    return;
+                }
+            }
+        }
+        const cs = getComputedStyle(el);
+        if (/^[\d.]+px$/.test(cs.width) && parseFloat(cs.width) > 120 && parseFloat(cs.width) < 480) {
+            const widened = (parseFloat(cs.width) * 1.18).toFixed(0) + 'px';
+            el.style.width = widened;
+            if (cs.flexBasis && cs.flexBasis !== 'auto') el.style.flexBasis = widened;
+            return;
+        }
+        el = parent;
+        hops++;
+    }
+}
 
 async function loadData() {
     try {
         allTweets = await db.getTweets();
-        allTweets.forEach(applyAutoMediaTags);
         updateUI();
     } catch (err) {
         console.error('Failed to load tweets:', err);
     }
 }
 
-// Adds (never removes) 'video', 'gif', and 'text-only' tags based on the
-// tweet's actual media, so they show up as normal filterable tags in the
-// sidebar. Additive only — won't strip a tag you added/removed by hand.
-function applyAutoMediaTags(tweet) {
+// 'video', 'gif', and 'text-only' are computed from a tweet's actual media
+// on the fly — never written to tweet.tags / the DB. They live in their
+// own 'Built-in' sidebar section but still work with select/exclude
+// filtering exactly like a normal tag (see getEffectiveTags below).
+const BUILT_IN_TAG_NAMES = ['video', 'gif', 'text-only'];
+
+function getBuiltInTagsForTweet(tweet) {
     const media = (tweet.media && tweet.media.length)
         ? tweet.media
         : (tweet.mediaUrl ? [{ type: 'photo', url: tweet.mediaUrl }] : []);
 
-    const tags = new Set(tweet.tags || []);
-    if (media.some(m => m.type === 'video')) tags.add('video');
-    if (media.some(m => m.type === 'gif')) tags.add('gif');
-    if (media.length === 0) tags.add('text-only');
-    tweet.tags = Array.from(tags);
+    const tags = [];
+    if (media.some(m => m.type === 'video')) tags.push('video');
+    if (media.some(m => m.type === 'gif')) tags.push('gif');
+    if (media.length === 0) tags.push('text-only');
+    return tags;
+}
+
+// Stored tags + computed built-in tags, for filtering/search purposes only.
+function getEffectiveTags(tweet) {
+    return (tweet.tags || []).concat(getBuiltInTagsForTweet(tweet));
 }
 
 // --- Tag Groups (categorization) ---
@@ -649,7 +694,7 @@ function buildMassTagSelectModal() {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMassTagSelectModal(); });
 
     const box = document.createElement('div');
-    box.style.cssText = 'background:var(--bg-secondary,#15202b);color:var(--text-primary,#fff);' +
+    box.style.cssText = 'background:#192734;color:#ffffff;' +
         'width:340px;max-width:90vw;max-height:80vh;border-radius:10px;padding:16px;' +
         'display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,0.4);';
     overlay.appendChild(box);
@@ -674,10 +719,11 @@ function buildMassTagSelectModal() {
     newTagInput.type = 'text';
     newTagInput.placeholder = 'Add a new tag…';
     newTagInput.style.cssText = 'flex:1;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);' +
-        'background:rgba(255,255,255,0.05);color:inherit;';
+        'background:rgba(255,255,255,0.08);color:#ffffff;';
     const addTagBtnEl = document.createElement('button');
-    addTagBtnEl.className = 'icon-btn';
     addTagBtnEl.textContent = 'Add';
+    addTagBtnEl.style.cssText = 'background:rgba(255,255,255,0.12);color:#ffffff;border:1px solid rgba(255,255,255,0.25);' +
+        'border-radius:6px;padding:6px 12px;cursor:pointer;';
     newTagRow.appendChild(newTagInput);
     newTagRow.appendChild(addTagBtnEl);
     box.appendChild(newTagRow);
@@ -692,11 +738,11 @@ function buildMassTagSelectModal() {
         const isChosen = chosen.has(tag);
         el.style.cssText = 'padding:5px 10px;border-radius:999px;font-size:13px;cursor:pointer;user-select:none;' +
             'border:1px solid rgba(255,255,255,0.25);' +
-            (isChosen ? 'background:var(--accent-color,#1d9bf0);color:#fff;' : 'background:rgba(255,255,255,0.05);');
+            (isChosen ? 'background:#1d9bf0;color:#ffffff;' : 'background:rgba(255,255,255,0.08);color:#ffffff;');
         el.addEventListener('click', () => {
             if (chosen.has(tag)) chosen.delete(tag); else chosen.add(tag);
-            el.style.background = chosen.has(tag) ? 'var(--accent-color,#1d9bf0)' : 'rgba(255,255,255,0.05)';
-            el.style.color = chosen.has(tag) ? '#fff' : 'inherit';
+            el.style.background = chosen.has(tag) ? '#1d9bf0' : 'rgba(255,255,255,0.08)';
+            el.style.color = '#ffffff';
         });
         return el;
     }
@@ -723,12 +769,14 @@ function buildMassTagSelectModal() {
     const footer = document.createElement('div');
     footer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:4px;';
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'icon-btn';
     cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'background:rgba(255,255,255,0.12);color:#ffffff;border:1px solid rgba(255,255,255,0.25);' +
+        'border-radius:6px;padding:6px 14px;cursor:pointer;';
     cancelBtn.addEventListener('click', closeMassTagSelectModal);
     const startBtn = document.createElement('button');
-    startBtn.className = 'icon-btn';
     startBtn.textContent = 'Start Tagging';
+    startBtn.style.cssText = 'background:#1d9bf0;color:#ffffff;border:none;border-radius:6px;' +
+        'padding:6px 14px;cursor:pointer;font-weight:600;';
     startBtn.addEventListener('click', () => {
         if (chosen.size === 0) return;
         startMassTagMode(Array.from(chosen));
@@ -745,8 +793,8 @@ function createMassTagStatusBar() {
     if (massTagStatusBar) return;
     massTagStatusBar = document.createElement('div');
     massTagStatusBar.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:999;' +
-        'background:var(--accent-color,#1d9bf0);color:#fff;padding:10px 16px;' +
-        'display:flex;align-items:center;justify-content:center;gap:14px;font-size:14px;' +
+        'background:#1d9bf0;color:#ffffff;padding:10px 16px;' +
+        'align-items:center;justify-content:center;gap:14px;font-size:14px;' +
         'box-shadow:0 2px 10px rgba(0,0,0,0.3);';
 
     const label = document.createElement('span');
@@ -784,6 +832,226 @@ function endMassTagMode() {
 }
 
 // --- End Mass Tagging Mode ---
+
+// --- Import ---
+// Import a previously exported JSON file (see exportJSON — tags are always
+// included there now). Two modes: 'append' upserts into the current
+// collection (existing ids are updated, new ones added, nothing else is
+// touched); 'replace' wipes the current collection first. Replace shows an
+// extra native confirm() on top of the inline warning before it runs.
+
+let importFileInput = null;
+let importModalEls = null; // built lazily on first use
+let pendingImportTweets = null;
+
+function createImportButton() {
+    if (!totalCount.parentElement || document.getElementById('import-btn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'import-btn';
+    btn.className = 'icon-btn';
+    btn.title = 'Import a previously exported JSON file';
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-upload';
+    btn.appendChild(icon);
+    btn.appendChild(document.createTextNode(' Import'));
+    btn.addEventListener('click', () => {
+        if (!importFileInput) {
+            importFileInput = document.createElement('input');
+            importFileInput.type = 'file';
+            importFileInput.accept = 'application/json,.json';
+            importFileInput.style.display = 'none';
+            importFileInput.addEventListener('change', handleImportFileSelected);
+            document.body.appendChild(importFileInput);
+        }
+        importFileInput.value = ''; // so re-selecting the same file still fires 'change'
+        importFileInput.click();
+    });
+    totalCount.parentElement.appendChild(btn);
+}
+
+async function handleImportFileSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    let data;
+    try {
+        data = JSON.parse(await file.text());
+    } catch (err) {
+        alert('Could not read that file as JSON: ' + err.message);
+        return;
+    }
+
+    if (!Array.isArray(data)) {
+        alert('Expected a JSON array of tweets (the format produced by "Export JSON").');
+        return;
+    }
+    const valid = data.filter(t => t && typeof t === 'object' && t.id);
+    if (valid.length === 0) {
+        alert('No valid tweets found in that file (each entry needs at least an "id").');
+        return;
+    }
+
+    pendingImportTweets = valid;
+    openImportModal(valid.length, data.length - valid.length);
+}
+
+function openImportModal(validCount, skippedCount) {
+    if (!importModalEls) importModalEls = buildImportModal();
+    importModalEls.reset(validCount, skippedCount);
+    importModalEls.overlay.style.display = 'flex';
+}
+
+function closeImportModal() {
+    if (importModalEls) importModalEls.overlay.style.display = 'none';
+    pendingImportTweets = null;
+}
+
+function buildImportModal() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.55);' +
+        'align-items:center;justify-content:center;';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeImportModal(); });
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#192734;color:#ffffff;width:360px;max-width:90vw;border-radius:10px;' +
+        'padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,0.4);';
+    overlay.appendChild(box);
+
+    const title = document.createElement('div');
+    title.textContent = 'Import Bookmarks';
+    title.style.cssText = 'font-weight:600;font-size:15px;';
+    box.appendChild(title);
+
+    const summary = document.createElement('div');
+    summary.style.cssText = 'font-size:13px;opacity:0.85;line-height:1.4;';
+    box.appendChild(summary);
+
+    let importMode = 'append';
+    const modeRow = document.createElement('div');
+    modeRow.style.cssText = 'display:flex;gap:16px;font-size:14px;';
+
+    function radioOption(value, labelText) {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:6px;cursor:pointer;';
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'import-mode';
+        radio.value = value;
+        radio.checked = value === 'append';
+        radio.addEventListener('change', () => {
+            importMode = value;
+            warningEl.style.display = (importMode === 'replace') ? 'block' : 'none';
+        });
+        label.appendChild(radio);
+        label.appendChild(document.createTextNode(labelText));
+        return label;
+    }
+    modeRow.appendChild(radioOption('append', 'Append (add/update)'));
+    modeRow.appendChild(radioOption('replace', 'Replace (wipe first)'));
+    box.appendChild(modeRow);
+
+    const warningEl = document.createElement('div');
+    warningEl.textContent = '⚠ This will permanently delete your entire current bookmark collection before importing.';
+    warningEl.style.cssText = 'display:none;font-size:12px;color:#ffb020;background:rgba(255,176,32,0.12);' +
+        'border:1px solid rgba(255,176,32,0.4);border-radius:6px;padding:8px 10px;line-height:1.4;';
+    box.appendChild(warningEl);
+
+    const statusEl = document.createElement('div');
+    statusEl.style.cssText = 'font-size:13px;opacity:0.85;min-height:16px;';
+    box.appendChild(statusEl);
+
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:4px;';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'background:rgba(255,255,255,0.12);color:#ffffff;border:1px solid rgba(255,255,255,0.25);' +
+        'border-radius:6px;padding:6px 14px;cursor:pointer;';
+    cancelBtn.addEventListener('click', closeImportModal);
+
+    const confirmBtn = document.createElement('button');
+    confirmBtn.textContent = 'Import';
+    confirmBtn.style.cssText = 'background:#1d9bf0;color:#ffffff;border:none;border-radius:6px;' +
+        'padding:6px 14px;cursor:pointer;font-weight:600;';
+    confirmBtn.addEventListener('click', async () => {
+        if (!pendingImportTweets) return;
+
+        // Extra explicit warning specifically for replace, on top of the
+        // inline banner, since it's destructive and irreversible.
+        if (importMode === 'replace') {
+            const ok = confirm(
+                `This will permanently delete all ${allTweets.length} bookmark(s) currently in your collection ` +
+                `and replace them with the ${pendingImportTweets.length} tweet(s) from this file. This cannot be undone. Continue?`
+            );
+            if (!ok) return;
+        }
+
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        statusEl.textContent = 'Importing…';
+
+        try {
+            const result = await runImport(pendingImportTweets, importMode);
+            statusEl.textContent = `Done — ${result.added} added, ${result.updated} updated` +
+                (importMode === 'replace' ? `, ${result.deleted} removed` : '') + '.';
+            await loadData();
+            setTimeout(closeImportModal, 1200);
+        } catch (err) {
+            console.error('Import failed:', err);
+            statusEl.textContent = 'Import failed — see console for details.';
+        } finally {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+        }
+    });
+
+    footer.appendChild(cancelBtn);
+    footer.appendChild(confirmBtn);
+    box.appendChild(footer);
+
+    document.body.appendChild(overlay);
+
+    return {
+        overlay,
+        reset: (validCount, skippedCount) => {
+            summary.textContent = `Found ${validCount} tweet(s) in this file` +
+                (skippedCount > 0 ? ` (${skippedCount} entr${skippedCount === 1 ? 'y' : 'ies'} skipped — missing an id).` : '.');
+            statusEl.textContent = '';
+            importMode = 'append';
+            box.querySelector('input[value="append"]').checked = true;
+            warningEl.style.display = 'none';
+        }
+    };
+}
+
+// Writes imported tweets into the DB.
+// ASSUMPTION FLAGGED: this calls `db.saveTweet(tweetObject)` as an upsert,
+// by analogy with the 'SAVE_TWEET' message the content script already
+// sends (src/content/index.js) — I don't have db.js in this conversation
+// to confirm the real method name/signature, so please double-check this
+// against your actual db.js and rename if needed.
+async function runImport(tweets, mode) {
+    let deleted = 0;
+    if (mode === 'replace') {
+        for (const existing of allTweets) {
+            await db.deleteTweet(existing.id, true);
+            deleted++;
+        }
+    }
+
+    const existingIds = new Set(mode === 'replace' ? [] : allTweets.map(t => t.id));
+    let added = 0, updated = 0;
+
+    for (const tweet of tweets) {
+        const isUpdate = existingIds.has(tweet.id);
+        await db.saveTweet({ ...tweet, tags: tweet.tags || [] });
+        if (isUpdate) updated++; else added++;
+    }
+
+    return { added, updated, deleted };
+}
+// --- End Import ---
 
 function setupEventListeners() {
     let debounceTimer;
@@ -952,11 +1220,11 @@ function getFilteredTweets() {
     let filtered = allTweets;
 
     if (selectedTags.size > 0) {
-        filtered = filtered.filter(t => t.tags && t.tags.some(tag => selectedTags.has(tag)));
+        filtered = filtered.filter(t => getEffectiveTags(t).some(tag => selectedTags.has(tag)));
     }
 
     if (excludedTags.size > 0) {
-        filtered = filtered.filter(t => !(t.tags && t.tags.some(tag => excludedTags.has(tag))));
+        filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => excludedTags.has(tag)));
     }
 
     if (searchTerm) {
@@ -1235,6 +1503,15 @@ function createTweetCard(tweet) {
             tagBadge.textContent = '#' + tag;
             tagsDiv.appendChild(tagBadge);
         });
+        // Built-in tags (video/gif/text-only) are computed, not stored —
+        // shown with a dashed outline so they read as distinct from real tags.
+        getBuiltInTagsForTweet(tweet).forEach(tag => {
+            const tagBadge = document.createElement('span');
+            tagBadge.className = 'tweet-tag-badge tweet-tag-badge-builtin';
+            tagBadge.style.cssText = 'border:1px dashed currentColor;opacity:0.75;';
+            tagBadge.textContent = '#' + tag;
+            tagsDiv.appendChild(tagBadge);
+        });
         meta.appendChild(tagsDiv);
         card.appendChild(meta);
 
@@ -1309,6 +1586,13 @@ function createTweetCard(tweet) {
                 tagBadge.textContent = '#' + tag;
                 tagsDiv.appendChild(tagBadge);
             });
+            getBuiltInTagsForTweet(tweet).forEach(tag => {
+                const tagBadge = document.createElement('span');
+                tagBadge.className = 'tweet-tag-badge tweet-tag-badge-builtin';
+                tagBadge.style.cssText = 'border:1px dashed currentColor;opacity:0.75;';
+                tagBadge.textContent = '#' + tag;
+                tagsDiv.appendChild(tagBadge);
+            });
 
             // Brief flash so it's obvious the click registered: green for
             // "tagged", red for "untagged".
@@ -1339,6 +1623,47 @@ function renderTagsSidebar() {
     clearTagsBtn.style.display = (selectedTags.size > 0 || excludedTags.size > 0) ? 'flex' : 'none';
 
     tagList.replaceChildren();
+
+    // --- Built-in tags (video / gif / text-only) ---
+    // Computed from media, never stored in the DB — kept in their own
+    // section so they can't be edited/deleted like a real tag, but still
+    // work with the same select/exclude click behavior via createTagChip.
+    const builtInCounts = {};
+    BUILT_IN_TAG_NAMES.forEach(name => { builtInCounts[name] = 0; });
+    allTweets.forEach(t => {
+        getBuiltInTagsForTweet(t).forEach(name => { builtInCounts[name]++; });
+    });
+    const builtInWithCounts = BUILT_IN_TAG_NAMES.filter(name => builtInCounts[name] > 0);
+
+    if (builtInWithCounts.length) {
+        const groupEl = document.createElement('div');
+        groupEl.className = 'tag-group';
+
+        const collapsed = collapsedGroups.has('Built-in');
+        const header = document.createElement('div');
+        header.className = 'tag-group-header';
+        const caret = document.createElement('i');
+        caret.className = collapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
+        header.appendChild(caret);
+        header.appendChild(document.createTextNode(` Built-in (${builtInWithCounts.length})`));
+        header.addEventListener('click', () => {
+            if (collapsedGroups.has('Built-in')) collapsedGroups.delete('Built-in');
+            else collapsedGroups.add('Built-in');
+            saveTagGroupState();
+            renderTagsSidebar();
+        });
+        groupEl.appendChild(header);
+
+        if (!collapsed) {
+            const body = document.createElement('div');
+            body.className = 'tag-group-body';
+            builtInWithCounts.forEach(name => body.appendChild(createTagChip(name, builtInCounts[name])));
+            groupEl.appendChild(body);
+        }
+
+        tagList.appendChild(groupEl);
+    }
+
     const sortedTagNames = Object.keys(tagCounts).sort();
     if (sortedTagNames.length === 0) return;
 
@@ -1498,7 +1823,11 @@ function exportTweets(tweets) {
 }
 
 function exportJSON(tweets) {
-    const jsonStr = JSON.stringify(tweets, null, 2);
+    // Guarantee `tags` is always present (even if empty) so a re-import
+    // never has to guess — built-in tags (video/gif/text-only) are
+    // intentionally NOT included since they're computed, not stored.
+    const exportData = tweets.map(t => ({ ...t, tags: t.tags || [] }));
+    const jsonStr = JSON.stringify(exportData, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
