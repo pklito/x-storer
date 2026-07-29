@@ -37,6 +37,15 @@ let mediaPermissionGranted = false; // whether we currently have read access to 
 let mediaSubdirCache = new Map(); // authorHandle -> FileSystemDirectoryHandle | null
 let activeObjectUrls = [];        // object URLs created for the current render, revoked on next render
 let mediaFolderBtn = null;
+let mediaFolderClearBtn = null;
+
+// Mass tagging mode: pick a set of tags once, then click tweets to
+// toggle that whole set on/off per tweet without opening the tag editor.
+let massTagModeActive = false;
+let massTagSelectedTags = [];
+let massTagBtn = null;
+let massTagStatusBar = null;
+let massTagSelectModal = null; // built lazily on first open
 
 const tweetsGrid = document.getElementById('tweets-grid');
 const feedTitle = document.getElementById('feed-title');
@@ -67,15 +76,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderSearchTabs();
     createMediaFolderButton();
     await initMediaFolder();
+    createMassTagButton();
 });
 
 async function loadData() {
     try {
         allTweets = await db.getTweets();
+        allTweets.forEach(applyAutoMediaTags);
         updateUI();
     } catch (err) {
         console.error('Failed to load tweets:', err);
     }
+}
+
+// Adds (never removes) 'video', 'gif', and 'text-only' tags based on the
+// tweet's actual media, so they show up as normal filterable tags in the
+// sidebar. Additive only — won't strip a tag you added/removed by hand.
+function applyAutoMediaTags(tweet) {
+    const media = (tweet.media && tweet.media.length)
+        ? tweet.media
+        : (tweet.mediaUrl ? [{ type: 'photo', url: tweet.mediaUrl }] : []);
+
+    const tags = new Set(tweet.tags || []);
+    if (media.some(m => m.type === 'video')) tags.add('video');
+    if (media.some(m => m.type === 'gif')) tags.add('gif');
+    if (media.length === 0) tags.add('text-only');
+    tweet.tags = Array.from(tags);
 }
 
 // --- Tag Groups (categorization) ---
@@ -356,6 +382,18 @@ function createMediaFolderButton() {
     mediaFolderBtn.textContent = 'Choose Media Folder';
     mediaFolderBtn.addEventListener('click', chooseMediaFolder);
     totalCount.parentElement.appendChild(mediaFolderBtn);
+
+    mediaFolderClearBtn = document.createElement('button');
+    mediaFolderClearBtn.id = 'media-folder-clear-btn';
+    mediaFolderClearBtn.className = 'icon-btn';
+    mediaFolderClearBtn.title = 'Stop using the local media folder and load media from the network instead';
+    const clearIcon = document.createElement('i');
+    clearIcon.className = 'bi bi-x-circle';
+    mediaFolderClearBtn.appendChild(clearIcon);
+    mediaFolderClearBtn.appendChild(document.createTextNode(' Cancel Media Folder'));
+    mediaFolderClearBtn.style.display = 'none'; // only shown once a folder is set
+    mediaFolderClearBtn.addEventListener('click', clearMediaFolder);
+    totalCount.parentElement.appendChild(mediaFolderClearBtn);
 }
 
 function updateMediaFolderButton() {
@@ -367,6 +405,30 @@ function updateMediaFolderButton() {
     } else {
         mediaFolderBtn.textContent = 'Change Media Folder';
     }
+    if (mediaFolderClearBtn) {
+        mediaFolderClearBtn.style.display = mediaRootHandle ? '' : 'none';
+    }
+}
+
+// Forgets the chosen media folder entirely (not just permission) and falls
+// back to loading all media from the network again.
+async function clearMediaFolder() {
+    mediaRootHandle = null;
+    mediaPermissionGranted = false;
+    mediaSubdirCache.clear();
+    try {
+        const db2 = await openMediaDb();
+        await new Promise((resolve, reject) => {
+            const tx = db2.transaction(MEDIA_DB_STORE, 'readwrite');
+            tx.objectStore(MEDIA_DB_STORE).delete(MEDIA_HANDLE_KEY);
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (err) {
+        console.error('Failed to clear stored media folder handle:', err);
+    }
+    updateMediaFolderButton();
+    updateUI();
 }
 
 function openMediaDb() {
@@ -494,6 +556,234 @@ async function resolveLocalMediaFile(tweet, mediaUrl) {
     }
 }
 // --- End Local Media Folder Access ---
+
+// Best-effort lookup for an actual playable video/gif file in the local
+// media folder, for a video/gif media item whose `url` is only a poster
+// thumbnail (the real video source can't be recovered from the DOM — see
+// parseTweet.js). This can't know the real filename your downloader used,
+// so it guesses: same basename as the poster image, common video
+// extensions. If your local files are named differently, this simply
+// won't find a match and the poster + "open on X to watch" fallback is
+// used instead.
+const LOCAL_VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'm4v', 'gif'];
+
+async function resolveLocalVideoFile(tweet, posterUrl) {
+    if (!mediaRootHandle || !posterUrl || !tweet.authorHandle) return null;
+    if (!(await ensureMediaPermission(mediaRootHandle))) return null;
+
+    let subDir = mediaSubdirCache.get(tweet.authorHandle);
+    if (subDir === undefined) {
+        try {
+            subDir = await mediaRootHandle.getDirectoryHandle(tweet.authorHandle);
+        } catch {
+            subDir = null;
+        }
+        mediaSubdirCache.set(tweet.authorHandle, subDir);
+    }
+    if (!subDir) return null;
+
+    let baseName;
+    try {
+        const posterFilename = decodeURIComponent(new URL(posterUrl).pathname.split('/').pop());
+        baseName = posterFilename.replace(/\.[a-zA-Z0-9]+$/, ''); // strip extension
+    } catch {
+        return null;
+    }
+    if (!baseName) return null;
+
+    for (const ext of LOCAL_VIDEO_EXTENSIONS) {
+        try {
+            const fileHandle = await subDir.getFileHandle(`${baseName}.${ext}`);
+            return await fileHandle.getFile();
+        } catch {
+            // try the next extension
+        }
+    }
+    return null;
+}
+
+// --- Mass Tagging Mode ---
+// Pick a set of tags once in a small selection window, then click tweets
+// (anywhere on the card) to toggle that whole tag set on/off for each one,
+// without opening the per-tweet tag editor each time.
+
+function createMassTagButton() {
+    if (massTagBtn || !totalCount.parentElement) return;
+    massTagBtn = document.createElement('button');
+    massTagBtn.id = 'mass-tag-btn';
+    massTagBtn.className = 'icon-btn';
+    massTagBtn.title = 'Pick tags, then click tweets to apply/remove them in bulk';
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-tags';
+    massTagBtn.appendChild(icon);
+    massTagBtn.appendChild(document.createTextNode(' Mass Tag'));
+    massTagBtn.addEventListener('click', () => {
+        if (massTagModeActive) {
+            endMassTagMode();
+        } else {
+            openMassTagSelectModal();
+        }
+    });
+    totalCount.parentElement.appendChild(massTagBtn);
+}
+
+// Builds (once) and shows the tag-selection window used to choose which
+// tags mass tagging mode will apply.
+function openMassTagSelectModal() {
+    if (!massTagSelectModal) {
+        massTagSelectModal = buildMassTagSelectModal();
+        document.body.appendChild(massTagSelectModal.overlay);
+    }
+    massTagSelectModal.refresh();
+    massTagSelectModal.overlay.style.display = 'flex';
+}
+
+function closeMassTagSelectModal() {
+    if (massTagSelectModal) massTagSelectModal.overlay.style.display = 'none';
+}
+
+function buildMassTagSelectModal() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.55);' +
+        'align-items:center;justify-content:center;';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMassTagSelectModal(); });
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--bg-secondary,#15202b);color:var(--text-primary,#fff);' +
+        'width:340px;max-width:90vw;max-height:80vh;border-radius:10px;padding:16px;' +
+        'display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 30px rgba(0,0,0,0.4);';
+    overlay.appendChild(box);
+
+    const title = document.createElement('div');
+    title.textContent = 'Mass Tagging — choose tags';
+    title.style.cssText = 'font-weight:600;font-size:15px;';
+    box.appendChild(title);
+
+    const hint = document.createElement('div');
+    hint.textContent = 'Select existing tags and/or add new ones, then start tagging. Click any tweet to apply all of them; click it again to remove them.';
+    hint.style.cssText = 'font-size:12px;opacity:0.75;line-height:1.4;';
+    box.appendChild(hint);
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;overflow-y:auto;max-height:220px;padding:4px 0;';
+    box.appendChild(list);
+
+    const newTagRow = document.createElement('div');
+    newTagRow.style.cssText = 'display:flex;gap:6px;';
+    const newTagInput = document.createElement('input');
+    newTagInput.type = 'text';
+    newTagInput.placeholder = 'Add a new tag…';
+    newTagInput.style.cssText = 'flex:1;padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);' +
+        'background:rgba(255,255,255,0.05);color:inherit;';
+    const addTagBtnEl = document.createElement('button');
+    addTagBtnEl.className = 'icon-btn';
+    addTagBtnEl.textContent = 'Add';
+    newTagRow.appendChild(newTagInput);
+    newTagRow.appendChild(addTagBtnEl);
+    box.appendChild(newTagRow);
+
+    const pendingNewTags = new Set(); // typed-in tags not yet in getAllTagNames()
+    const chosen = new Set(); // currently checked tag names
+
+    function chip(tag) {
+        const el = document.createElement('div');
+        el.textContent = '#' + tag;
+        el.dataset.tag = tag;
+        const isChosen = chosen.has(tag);
+        el.style.cssText = 'padding:5px 10px;border-radius:999px;font-size:13px;cursor:pointer;user-select:none;' +
+            'border:1px solid rgba(255,255,255,0.25);' +
+            (isChosen ? 'background:var(--accent-color,#1d9bf0);color:#fff;' : 'background:rgba(255,255,255,0.05);');
+        el.addEventListener('click', () => {
+            if (chosen.has(tag)) chosen.delete(tag); else chosen.add(tag);
+            el.style.background = chosen.has(tag) ? 'var(--accent-color,#1d9bf0)' : 'rgba(255,255,255,0.05)';
+            el.style.color = chosen.has(tag) ? '#fff' : 'inherit';
+        });
+        return el;
+    }
+
+    function refresh() {
+        list.replaceChildren();
+        const names = new Set([...getAllTagNames(), ...pendingNewTags]);
+        Array.from(names).sort().forEach(tag => list.appendChild(chip(tag)));
+    }
+
+    function addNewTag() {
+        const val = newTagInput.value.trim().replace(/^#/, '');
+        if (!val) return;
+        pendingNewTags.add(val);
+        chosen.add(val);
+        newTagInput.value = '';
+        refresh();
+    }
+    addTagBtnEl.addEventListener('click', addNewTag);
+    newTagInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addNewTag(); }
+    });
+
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin-top:4px;';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'icon-btn';
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.addEventListener('click', closeMassTagSelectModal);
+    const startBtn = document.createElement('button');
+    startBtn.className = 'icon-btn';
+    startBtn.textContent = 'Start Tagging';
+    startBtn.addEventListener('click', () => {
+        if (chosen.size === 0) return;
+        startMassTagMode(Array.from(chosen));
+        closeMassTagSelectModal();
+    });
+    footer.appendChild(cancelBtn);
+    footer.appendChild(startBtn);
+    box.appendChild(footer);
+
+    return { overlay, refresh: () => { chosen.clear(); pendingNewTags.clear(); refresh(); } };
+}
+
+function createMassTagStatusBar() {
+    if (massTagStatusBar) return;
+    massTagStatusBar = document.createElement('div');
+    massTagStatusBar.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:999;' +
+        'background:var(--accent-color,#1d9bf0);color:#fff;padding:10px 16px;' +
+        'display:flex;align-items:center;justify-content:center;gap:14px;font-size:14px;' +
+        'box-shadow:0 2px 10px rgba(0,0,0,0.3);';
+
+    const label = document.createElement('span');
+    label.id = 'mass-tag-status-label';
+    massTagStatusBar.appendChild(label);
+
+    const stopBtn = document.createElement('button');
+    stopBtn.textContent = 'Stop Mass Tagging';
+    stopBtn.style.cssText = 'background:rgba(0,0,0,0.25);color:#fff;border:none;border-radius:6px;' +
+        'padding:4px 10px;cursor:pointer;font-size:13px;';
+    stopBtn.addEventListener('click', endMassTagMode);
+    massTagStatusBar.appendChild(stopBtn);
+
+    document.body.appendChild(massTagStatusBar);
+}
+
+function startMassTagMode(tags) {
+    massTagSelectedTags = tags;
+    massTagModeActive = true;
+    createMassTagStatusBar();
+    document.getElementById('mass-tag-status-label').textContent =
+        `Mass Tagging: ${tags.map(t => '#' + t).join(' ')} — click tweets to toggle`;
+    massTagStatusBar.style.display = 'flex';
+    if (massTagBtn) massTagBtn.classList.add('active');
+    document.body.style.paddingTop = '42px'; // room for the fixed status bar
+}
+
+function endMassTagMode() {
+    massTagModeActive = false;
+    massTagSelectedTags = [];
+    if (massTagStatusBar) massTagStatusBar.style.display = 'none';
+    if (massTagBtn) massTagBtn.classList.remove('active');
+    document.body.style.paddingTop = '';
+    renderTagsSidebar(); // tag counts may have drifted while blitzing through tweets
+}
+
+// --- End Mass Tagging Mode ---
 
 function setupEventListeners() {
     let debounceTimer;
@@ -786,6 +1076,21 @@ function createTweetCard(tweet) {
         // noticeably bigger/smaller than this on average.
         card.style.contentVisibility = 'auto';
         card.style.containIntrinsicSize = '350px 480px';
+        card.style.position = 'relative'; // positioning context for the local-media badge below
+
+        // Shown when at least one of this tweet's media items successfully
+        // loaded from the local media folder instead of the network.
+        const localMediaBadge = document.createElement('div');
+        localMediaBadge.className = 'local-media-badge';
+        localMediaBadge.title = 'Loaded from your local media folder';
+        localMediaBadge.style.cssText = 'display:none;position:absolute;top:8px;right:8px;z-index:5;' +
+            'width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;' +
+            'align-items:center;justify-content:center;font-size:13px;pointer-events:none;';
+        const localMediaBadgeIcon = document.createElement('i');
+        localMediaBadgeIcon.className = 'bi bi-hdd-fill';
+        localMediaBadge.appendChild(localMediaBadgeIcon);
+        card.appendChild(localMediaBadge);
+        const showLocalMediaBadge = () => { localMediaBadge.style.display = 'flex'; };
 
         // Header
         const header = document.createElement('div');
@@ -829,42 +1134,86 @@ function createTweetCard(tweet) {
         if (mediaItems.length) {
             const mediaDiv = document.createElement('div');
             mediaDiv.className = 'tweet-media';
-            if (mediaItems.length > 1) mediaDiv.classList.add('tweet-media-grid');
+            mediaDiv.style.display = 'grid';
+            mediaDiv.style.gap = '4px';
+            if (mediaItems.length > 1) {
+                mediaDiv.classList.add('tweet-media-grid');
+                mediaDiv.style.gridTemplateColumns = '1fr 1fr';
+            }
 
             mediaItems.forEach(item => {
                 const itemWrap = document.createElement('div');
                 itemWrap.className = 'tweet-media-item';
+                itemWrap.style.position = 'relative';
+                itemWrap.style.overflow = 'hidden';
 
                 const img = document.createElement('img');
                 img.src = item.url; // remote URL (or poster, for video/gif) as the immediate default
                 img.loading = 'lazy';
                 img.referrerPolicy = 'no-referrer';
+                img.style.width = '100%';
+                img.style.display = 'block';
                 img.addEventListener('error', function () { this.parentElement.style.display = 'none'; });
                 itemWrap.appendChild(img);
 
-                // Video/gif items keep their poster as the visible thumbnail
-                // (actual video streams can't be persisted from the DOM), but
-                // get a badge so they aren't mistaken for a plain photo.
                 if (item.type === 'video' || item.type === 'gif') {
+                    // Overlay badge sitting ON TOP of the thumbnail (not
+                    // pushed below it — inline-styled so it renders
+                    // correctly with or without extra stylesheet rules).
                     const badge = document.createElement('div');
                     badge.className = 'media-type-badge';
+                    badge.style.cssText = 'position:absolute;bottom:6px;right:6px;z-index:3;' +
+                        'width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,0.65);color:#fff;' +
+                        'display:flex;align-items:center;justify-content:center;font-size:16px;pointer-events:none;';
                     const icon = document.createElement('i');
                     icon.className = item.type === 'gif' ? 'bi bi-filetype-gif' : 'bi bi-play-circle-fill';
                     badge.appendChild(icon);
                     itemWrap.appendChild(badge);
-                }
 
-                mediaDiv.appendChild(itemWrap);
+                    // We can't recover the real video stream from the DOM
+                    // (see parseTweet.js), so by default a video/gif item is
+                    // just a poster — make it clickable so it's not a dead
+                    // end, opening the original tweet to actually watch it.
+                    itemWrap.style.cursor = 'pointer';
+                    itemWrap.title = 'Click to watch on X';
+                    const openOnX = () => window.open(tweet.url, '_blank', 'noopener,noreferrer');
+                    itemWrap.addEventListener('click', openOnX);
 
-                // If a media folder is set up, swap in the local copy once it resolves
-                if (mediaRootHandle) {
+                    // Best-effort: if a matching local video file exists,
+                    // replace the static poster with an actual playable
+                    // <video>, so it becomes watchable in place.
+                    if (mediaRootHandle) {
+                        resolveLocalVideoFile(tweet, item.url).then(videoFile => {
+                            if (!videoFile) return; // no local match — keep the click-to-watch poster
+                            const videoEl = document.createElement('video');
+                            videoEl.controls = true;
+                            videoEl.preload = 'metadata';
+                            videoEl.poster = item.url;
+                            videoEl.style.width = '100%';
+                            videoEl.style.display = 'block';
+                            const objectUrl = URL.createObjectURL(videoFile);
+                            activeObjectUrls.push(objectUrl);
+                            videoEl.src = objectUrl;
+
+                            itemWrap.replaceChild(videoEl, img);
+                            badge.style.display = 'none'; // it's genuinely playable now, badge no longer needed
+                            itemWrap.style.cursor = 'default';
+                            itemWrap.removeEventListener('click', openOnX);
+                            showLocalMediaBadge();
+                        });
+                    }
+                } else if (mediaRootHandle) {
+                    // Photo item: swap in the local copy once it resolves.
                     resolveLocalMediaFile(tweet, item.url).then(file => {
                         if (!file) return; // not found locally, keep the remote URL
                         const objectUrl = URL.createObjectURL(file);
                         activeObjectUrls.push(objectUrl);
                         img.src = objectUrl;
+                        showLocalMediaBadge();
                     });
                 }
+
+                mediaDiv.appendChild(itemWrap);
             });
 
             card.appendChild(mediaDiv);
@@ -931,6 +1280,49 @@ function createTweetCard(tweet) {
         actions.appendChild(deleteBtn);
 
         card.appendChild(actions);
+
+        // Mass tagging mode: when active, a click anywhere on the card
+        // toggles the whole selected tag set on this tweet instead of
+        // triggering the normal buttons/links underneath. Capture phase so
+        // it runs before — and can suppress — those other click handlers.
+        card.addEventListener('click', async (e) => {
+            if (!massTagModeActive || massTagSelectedTags.length === 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const currentTags = new Set(tweet.tags || []);
+            const hasAll = massTagSelectedTags.every(t => currentTags.has(t));
+            if (hasAll) {
+                massTagSelectedTags.forEach(t => currentTags.delete(t));
+            } else {
+                massTagSelectedTags.forEach(t => currentTags.add(t));
+            }
+            const newTags = Array.from(currentTags);
+            tweet.tags = newTags; // optimistic local update
+
+            // Refresh just this card's tag badges — avoid a full grid
+            // re-render so scroll position holds while blitzing through tweets.
+            tagsDiv.replaceChildren();
+            newTags.forEach(tag => {
+                const tagBadge = document.createElement('span');
+                tagBadge.className = 'tweet-tag-badge';
+                tagBadge.textContent = '#' + tag;
+                tagsDiv.appendChild(tagBadge);
+            });
+
+            // Brief flash so it's obvious the click registered: green for
+            // "tagged", red for "untagged".
+            card.style.outline = hasAll ? '3px solid #e0245e' : '3px solid #17bf63';
+            card.style.outlineOffset = '-3px';
+            setTimeout(() => { card.style.outline = ''; card.style.outlineOffset = ''; }, 250);
+
+            try {
+                await db.updateTweetTags(tweet.id, newTags);
+            } catch (err) {
+                console.error('Mass tag update failed:', err);
+            }
+        }, true); // capture phase
+
         return card;
 }
 
