@@ -78,8 +78,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initMediaFolder();
     createMassTagButton();
     createImportButton();
+    widenSidebarIfPossible();
 });
 
+// Best-effort layout fix for the sidebar's dead space: I don't have your
+// CSS/HTML file, so this can't target a specific selector. Instead it
+// walks up from the tag list at runtime looking for either (a) a CSS Grid
+// ancestor whose first (sidebar) column track is a fixed px width, or
+// (b) an ancestor that itself has a fixed px width in the typical sidebar
+// range (~120–480px), and widens whichever it finds by ~18%. If this
+// doesn't hit the right element, share style.css / index.html and I can
+// target it precisely instead.
+function widenSidebarIfPossible() {
+    let el = tagList.parentElement;
+    let hops = 0;
+    while (el && el !== document.body && hops < 8) {
+        const parent = el.parentElement;
+        if (parent) {
+            const pcs = getComputedStyle(parent);
+            if (pcs.display === 'grid' && pcs.gridTemplateColumns) {
+                const cols = pcs.gridTemplateColumns.trim().split(/\s+/);
+                if (cols.length >= 2 && /^[\d.]+px$/.test(cols[0])) {
+                    cols[0] = (parseFloat(cols[0]) * 1.18).toFixed(0) + 'px';
+                    parent.style.gridTemplateColumns = cols.join(' ');
+                    return;
+                }
+            }
+        }
+        const cs = getComputedStyle(el);
+        if (/^[\d.]+px$/.test(cs.width) && parseFloat(cs.width) > 120 && parseFloat(cs.width) < 480) {
+            const widened = (parseFloat(cs.width) * 1.18).toFixed(0) + 'px';
+            el.style.width = widened;
+            if (cs.flexBasis && cs.flexBasis !== 'auto') el.style.flexBasis = widened;
+            return;
+        }
+        el = parent;
+        hops++;
+    }
+}
 
 async function loadData() {
     try {
@@ -958,7 +994,8 @@ function buildImportModal() {
         try {
             const result = await runImport(pendingImportTweets, importMode);
             statusEl.textContent = `Done — ${result.added} added, ${result.updated} updated` +
-                (importMode === 'replace' ? `, ${result.deleted} removed` : '') + '.';
+                (importMode === 'replace' ? `, ${result.deleted} removed` : '') +
+                (result.skipped > 0 ? `, ${result.skipped} skipped (previously deleted permanently)` : '') + '.';
             await loadData();
             setTimeout(closeImportModal, 1200);
         } catch (err) {
@@ -989,31 +1026,56 @@ function buildImportModal() {
     };
 }
 
-// Writes imported tweets into the DB.
-// ASSUMPTION FLAGGED: this calls `db.saveTweet(tweetObject)` as an upsert,
-// by analogy with the 'SAVE_TWEET' message the content script already
-// sends (src/content/index.js) — I don't have db.js in this conversation
-// to confirm the real method name/signature, so please double-check this
-// against your actual db.js and rename if needed.
+// Writes imported tweets into the DB using db.js's real API.
+//
+// Two things to know about db.js's addTweet() that this works around:
+// 1. For a tweet that already exists, addTweet() *keeps the old tags* and
+//    ignores whatever tags are on the object you pass it (it's built for
+//    the content script refreshing a tweet's content, not for importing
+//    tag data). So for updates we call addTweet() first for the content,
+//    then updateTweetTags() to force the tags to the imported value.
+// 2. addTweet() checks the permanent-delete blacklist (deleted_tweets) and
+//    silently no-ops (returns null) for a blacklisted id unless the
+//    incoming tweet's `source` is 'manual_click'. That's respected here —
+//    if you'd previously hit "Delete & Unbookmark" on a tweet, importing
+//    it again won't quietly resurrect it, and gets reported as skipped.
+//
+// For 'replace' mode, the existing collection is cleared with
+// deleteTweet(id, false) — a plain removal, NOT permanent=true. Permanent
+// delete blacklists the id, which would immediately block the very
+// tweets we're about to reimport (and any future auto-scan of them too).
 async function runImport(tweets, mode) {
     let deleted = 0;
     if (mode === 'replace') {
         for (const existing of allTweets) {
-            await db.deleteTweet(existing.id, true);
+            await db.deleteTweet(existing.id, false);
             deleted++;
         }
     }
 
     const existingIds = new Set(mode === 'replace' ? [] : allTweets.map(t => t.id));
-    let added = 0, updated = 0;
+    let added = 0, updated = 0, skipped = 0;
 
-    for (const tweet of tweets) {
+    for (const raw of tweets) {
+        const tweet = { ...raw, tags: raw.tags || [] };
         const isUpdate = existingIds.has(tweet.id);
-        await db.saveTweet({ ...tweet, tags: tweet.tags || [] });
-        if (isUpdate) updated++; else added++;
+
+        const result = await db.addTweet(tweet);
+        if (result === null) {
+            skipped++; // previously deleted permanently — addTweet declined to resurrect it
+            continue;
+        }
+
+        if (isUpdate) {
+            // Force the tags to the imported value (addTweet kept the old ones above).
+            await db.updateTweetTags(tweet.id, tweet.tags);
+            updated++;
+        } else {
+            added++;
+        }
     }
 
-    return { added, updated, deleted };
+    return { added, updated, deleted, skipped };
 }
 // --- End Import ---
 
