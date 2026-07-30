@@ -238,8 +238,6 @@ function closeTagGroupsModal() {
 function renderGroupManageList() {
     groupManageList.replaceChildren();
     tagAssignList.replaceChildren();
-    if (tagAssignList) tagAssignList.style.display = 'none'; // superseded by the per-group cards below
-
     // Union of tags that currently exist on a tweet AND tags that were
     // pre-assigned to a group but aren't in use yet (so an assignment you
     // just made doesn't seem to vanish before any tweet has that tag).
@@ -275,6 +273,7 @@ function buildGroupManageCard(group, tagsInGroup) {
     const name = document.createElement('span');
     name.textContent = `${group} (${tagsInGroup.length})`;
     name.style.fontWeight = '600';
+    name.style.fontSize = '1.5em';
     header.appendChild(name);
 
     const delBtn = document.createElement('button');

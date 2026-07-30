@@ -529,6 +529,7 @@ body {
 }
 
 .modal {
+    overscroll-behavior: contain;
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 12px;
@@ -588,8 +589,7 @@ body {
     flex: 1;
 }
 
-.group-manage-list,
-.tag-assign-list {
+.group-manage-list {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -597,6 +597,10 @@ body {
     max-height: 500px;
     overflow-y: auto;
     padding-right: 4px;
+}
+
+.tag-assign-list{
+    display: block;
 }
 
 .group-manage-row,
@@ -618,7 +622,7 @@ body {
 }
 
 .group-manage-card {
-    border:1px solid var(--card-border);
+    border:1px solid rgba(127,127,127,0.08);
     border-radius:3px;
     padding:5px;
     margin-bottom:3px;
@@ -679,7 +683,8 @@ body {
 
 .tag-input-wrapper.smaller {
     padding: 4px;
-    min-height: 36px;
+    min-height: 24px;
+    max-width: 12em;
 }
 
 .tag-input-wrapper:focus-within {
