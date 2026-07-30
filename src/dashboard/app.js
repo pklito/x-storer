@@ -77,6 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     createMediaFolderButton();
     await initMediaFolder();
     createImportButton();
+    createRecentlyRemovedButton();
     widenSidebarIfPossible();
 });
 
@@ -236,24 +237,41 @@ function closeTagGroupsModal() {
 
 function renderGroupManageList() {
     groupManageList.replaceChildren();
-    const customGroups = tagGroups.filter(g => g !== 'Uncategorized');
+    if (tagAssignList) tagAssignList.style.display = 'none'; // superseded by the per-group cards below
 
-    if (customGroups.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'group-manage-empty';
-        empty.textContent = 'No custom groups yet — add one above.';
-        groupManageList.appendChild(empty);
-        return;
-    }
+    // Union of tags that currently exist on a tweet AND tags that were
+    // pre-assigned to a group but aren't in use yet (so an assignment you
+    // just made doesn't seem to vanish before any tweet has that tag).
+    const allTagNames = new Set([...getAllTagNames(), ...Object.keys(tagGroupAssignments)]);
 
-    customGroups.forEach(group => {
-        const row = document.createElement('div');
-        row.className = 'group-manage-row';
+    const tagsByGroup = new Map();
+    tagGroups.forEach(g => tagsByGroup.set(g, []));
+    allTagNames.forEach(tag => {
+        const g = tagGroupOf(tag);
+        if (!tagsByGroup.has(g)) tagsByGroup.set(g, []);
+        tagsByGroup.get(g).push(tag);
+    });
 
+    // Custom groups first, 'Uncategorized' last — matches the sidebar.
+    const orderedGroups = tagGroups.filter(g => g !== 'Uncategorized').concat('Uncategorized');
+    orderedGroups.forEach(group => {
+        groupManageList.appendChild(buildGroupManageCard(group, (tagsByGroup.get(group) || []).sort()));
+    });
+}
+
+function buildGroupManageCard(group, tagsInGroup) {
+    const card = document.createElement('div');
+    card.className = 'group-manage-card';
+    card.style.cssText = 'border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:10px;margin-bottom:10px;';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
         const name = document.createElement('span');
-        name.textContent = group;
-        row.appendChild(name);
+    name.textContent = `${group} (${tagsInGroup.length})`;
+    name.style.fontWeight = '600';
+    header.appendChild(name);
 
+    if (group !== 'Uncategorized') {
         const delBtn = document.createElement('button');
         delBtn.className = 'icon-btn danger';
         delBtn.title = 'Delete group (tags return to Uncategorized)';
@@ -261,47 +279,132 @@ function renderGroupManageList() {
         icon.className = 'bi bi-trash3';
         delBtn.appendChild(icon);
         delBtn.addEventListener('click', () => deleteTagGroup(group));
-        row.appendChild(delBtn);
+        header.appendChild(delBtn);
+    }
+    card.appendChild(header);
 
-        groupManageList.appendChild(row);
+    // Chips for the tags currently in this group.
+    const chipsRow = document.createElement('div');
+    chipsRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;';
+    if (tagsInGroup.length === 0) {
+        const empty = document.createElement('span');
+        empty.textContent = group === 'Uncategorized' ? 'Nothing uncategorized.' : 'No tags in this group yet.';
+        empty.style.cssText = 'font-size:12px;opacity:0.6;';
+        chipsRow.appendChild(empty);
+    } else {
+        tagsInGroup.forEach(tag => {
+            const chip = document.createElement('span');
+            chip.className = 'group-manage-tag-chip';
+            chip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:3px 8px;' +
+                'border-radius:999px;background:rgba(255,255,255,0.08);font-size:12px;';
+            chip.appendChild(document.createTextNode('#' + tag));
+
+            // Only real (non-Uncategorized) groups need a remove button —
+            // removing FROM Uncategorized doesn't mean anything.
+            if (group !== 'Uncategorized') {
+                const remove = document.createElement('button');
+                remove.textContent = '×';
+                remove.title = 'Remove from this group';
+                remove.style.cssText = 'background:none;border:none;color:inherit;cursor:pointer;' +
+                    'font-size:14px;line-height:1;padding:0;opacity:0.7;';
+                remove.addEventListener('click', () => { setTagGroup(tag, 'Uncategorized'); renderGroupManageList(); });
+                chip.appendChild(remove);
+            }
+            chipsRow.appendChild(chip);
+        });
+    }
+    card.appendChild(chipsRow);
+
+    // Autocomplete input to add another tag to this group.
+    if (group !== 'Uncategorized') {
+        card.appendChild(buildGroupTagAddInput(group));
+    }
+
+    return card;
+    }
+
+// Self-contained type-to-add autocomplete for assigning a tag to `group` —
+// same interaction as the per-tweet tag editor (type, see matches, click or
+// Enter to add), built fresh here since that editor's suggestion box is a
+// singleton bound to its own input/state.
+function buildGroupTagAddInput(group) {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Add a tag to this group…';
+    input.style.cssText = 'width:100%;box-sizing:border-box;padding:6px 8px;border-radius:6px;' +
+        'border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:inherit;font-size:13px;';
+    wrap.appendChild(input);
+
+    const suggestions = document.createElement('div');
+    suggestions.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;z-index:10;margin-top:2px;' +
+        'background:#192734;border:1px solid rgba(255,255,255,0.2);border-radius:6px;max-height:160px;' +
+        'overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,0.4);';
+    wrap.appendChild(suggestions);
+
+    function commit(tagName) {
+        const clean = tagName.trim().replace(/^#/, '');
+        if (!clean) return;
+        setTagGroup(clean, group);
+        renderGroupManageList();
+    }
+
+    function showSuggestions(query) {
+        const q = query.trim().toLowerCase();
+        suggestions.style.display = 'none';
+        if (!q) return;
+
+        const allTagNames = new Set([...getAllTagNames(), ...Object.keys(tagGroupAssignments)]);
+        const matches = Array.from(allTagNames)
+            .filter(t => t.toLowerCase().includes(q) && tagGroupOf(t) !== group)
+            .sort();
+        if (matches.length === 0) return;
+
+        suggestions.replaceChildren();
+        matches.forEach(t => {
+            const item = document.createElement('div');
+            item.textContent = '#' + t;
+            item.style.cssText = 'padding:6px 10px;cursor:pointer;font-size:13px;';
+            item.addEventListener('mouseenter', () => { item.style.background = 'rgba(255,255,255,0.08)'; });
+            item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+            item.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus so 'blur' doesn't fire first
+            item.addEventListener('click', () => {
+                input.value = '';
+                suggestions.style.display = 'none';
+                commit(t);
+            });
+            suggestions.appendChild(item);
+        });
+        suggestions.style.display = 'block';
+    }
+
+    input.addEventListener('input', () => showSuggestions(input.value));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = input.value.trim();
+            if (val) {
+                input.value = '';
+                suggestions.style.display = 'none';
+                commit(val);
+            }
+        } else if (e.key === 'Escape') {
+            suggestions.style.display = 'none';
+        }
     });
+    input.addEventListener('blur', () => { suggestions.style.display = 'none'; });
+
+    return wrap;
 }
 
 function renderTagAssignList() {
-    tagAssignList.replaceChildren();
-    const tags = getAllTagNames();
-
-    if (tags.length === 0) {
-        const empty = document.createElement('div');
-        empty.className = 'group-manage-empty';
-        empty.textContent = 'No tags yet.';
-        tagAssignList.appendChild(empty);
-        return;
-    }
-
-    tags.forEach(tag => {
-        const row = document.createElement('div');
-        row.className = 'tag-assign-row';
-
-        const label = document.createElement('span');
-        label.textContent = '#' + tag;
-        row.appendChild(label);
-
-        const select = document.createElement('select');
-        select.className = 'group-select';
-        const currentGroup = tagGroupOf(tag);
-        tagGroups.forEach(group => {
-            const opt = document.createElement('option');
-            opt.value = group;
-            opt.textContent = group;
-            if (group === currentGroup) opt.selected = true;
-            select.appendChild(opt);
-        });
-        select.addEventListener('change', () => setTagGroup(tag, select.value));
-        row.appendChild(select);
-
-        tagAssignList.appendChild(row);
-    });
+    // Replaced by the per-group cards in renderGroupManageList(), which
+    // show each group's tags inline with an add-tag autocomplete instead
+    // of one flat list of every tag with a dropdown. Kept as a no-op (with
+    // its container hidden) since it's still called from a few places.
+    if (tagAssignList) tagAssignList.style.display = 'none';
 }
 
 // --- End Tag Groups ---
@@ -1059,6 +1162,195 @@ async function runImport(tweets, mode) {
 }
 // --- End Import ---
 
+// --- Recently Removed (safety net for the unbookmark-detection heuristic) ---
+// The content script's "did they unbookmark this on X?" detection is a DOM
+// heuristic, not a real signal — it has misfired before and wiped tweets
+// from the local collection (see index.js's click-detection fix). The
+// background script now stashes a tweet's full data, tags included, before
+// deleting it in response to a REMOVE_TWEET message. This panel lists those
+// stashes and lets you restore any of them with one click.
+
+const RECENTLY_REMOVED_KEY = 'xb_recently_removed';
+let recentlyRemovedBtn = null;
+let recentlyRemovedModalEls = null; // built lazily on first use
+
+function createRecentlyRemovedButton() {
+    if (!totalCount.parentElement || document.getElementById('recently-removed-btn')) return;
+    if (!(chrome && chrome.storage && chrome.storage.local)) return; // needs the storage permission
+
+    recentlyRemovedBtn = document.createElement('button');
+    recentlyRemovedBtn.id = 'recently-removed-btn';
+    recentlyRemovedBtn.className = 'icon-btn';
+    recentlyRemovedBtn.title = 'Undo tweets removed by the unbookmark detection on X';
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-arrow-counterclockwise';
+    recentlyRemovedBtn.appendChild(icon);
+    recentlyRemovedBtn.appendChild(document.createTextNode(' Recently Removed'));
+    recentlyRemovedBtn.addEventListener('click', openRecentlyRemovedModal);
+    totalCount.parentElement.appendChild(recentlyRemovedBtn);
+}
+
+async function getRecentlyRemoved() {
+    const result = await chrome.storage.local.get(RECENTLY_REMOVED_KEY);
+    return result[RECENTLY_REMOVED_KEY] || [];
+}
+
+async function setRecentlyRemoved(list) {
+    await chrome.storage.local.set({ [RECENTLY_REMOVED_KEY]: list });
+}
+
+async function openRecentlyRemovedModal() {
+    if (!recentlyRemovedModalEls) recentlyRemovedModalEls = buildRecentlyRemovedModal();
+    await recentlyRemovedModalEls.refresh();
+    recentlyRemovedModalEls.overlay.style.display = 'flex';
+}
+
+function closeRecentlyRemovedModal() {
+    if (recentlyRemovedModalEls) recentlyRemovedModalEls.overlay.style.display = 'none';
+}
+
+function buildRecentlyRemovedModal() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.55);' +
+        'align-items:center;justify-content:center;';
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeRecentlyRemovedModal(); });
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#192734;color:#ffffff;width:420px;max-width:92vw;max-height:80vh;' +
+        'border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;' +
+        'box-shadow:0 10px 30px rgba(0,0,0,0.4);';
+    overlay.appendChild(box);
+
+    const title = document.createElement('div');
+    title.textContent = 'Recently Removed';
+    title.style.cssText = 'font-weight:600;font-size:15px;';
+    box.appendChild(title);
+
+    const hint = document.createElement('div');
+    hint.textContent = 'Tweets removed via the unbookmark detection on X, most recent first. Undo restores the tweet with its original tags.';
+    hint.style.cssText = 'font-size:12px;opacity:0.75;line-height:1.4;';
+    box.appendChild(hint);
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;overflow-y:auto;max-height:340px;';
+    box.appendChild(list);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.cssText = 'align-self:flex-end;background:rgba(255,255,255,0.12);color:#ffffff;' +
+        'border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:6px 14px;cursor:pointer;';
+    closeBtn.addEventListener('click', closeRecentlyRemovedModal);
+    box.appendChild(closeBtn);
+
+    document.body.appendChild(overlay);
+
+    async function refresh() {
+        const entries = await getRecentlyRemoved();
+        list.replaceChildren();
+
+        if (entries.length === 0) {
+            const empty = document.createElement('div');
+            empty.textContent = 'Nothing removed recently.';
+            empty.style.cssText = 'font-size:13px;opacity:0.7;padding:8px 0;';
+            list.appendChild(empty);
+            return;
+        }
+
+        entries.forEach((entry, idx) => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;' +
+                'background:rgba(255,255,255,0.05);';
+
+            const info = document.createElement('div');
+            info.style.cssText = 'flex:1;min-width:0;font-size:13px;';
+            const authorLine = document.createElement('div');
+            authorLine.style.cssText = 'font-weight:600;';
+            authorLine.textContent = entry.tweet.authorName || entry.tweet.authorHandle || 'Unknown';
+            const textLine = document.createElement('div');
+            textLine.style.cssText = 'opacity:0.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+            textLine.textContent = (entry.tweet.text || '').slice(0, 80);
+            const timeLine = document.createElement('div');
+            timeLine.style.cssText = 'opacity:0.5;font-size:11px;';
+            timeLine.textContent = new Date(entry.removedAt).toLocaleString();
+            info.appendChild(authorLine);
+            info.appendChild(textLine);
+            info.appendChild(timeLine);
+            row.appendChild(info);
+
+            const undoBtn = document.createElement('button');
+            undoBtn.textContent = 'Undo';
+            undoBtn.style.cssText = 'background:#1d9bf0;color:#ffffff;border:none;border-radius:6px;' +
+                'padding:5px 12px;cursor:pointer;font-weight:600;flex-shrink:0;';
+            undoBtn.addEventListener('click', async () => {
+                undoBtn.disabled = true;
+                try {
+                    await db.addTweet(entry.tweet);
+                    const remaining = (await getRecentlyRemoved()).filter((_, i) => i !== idx);
+                    await setRecentlyRemoved(remaining);
+                    await loadData();
+                    await refresh();
+                } catch (err) {
+                    console.error('Undo failed:', err);
+                    undoBtn.disabled = false;
+                }
+            });
+            row.appendChild(undoBtn);
+
+            list.appendChild(row);
+        });
+    }
+
+    return { overlay, refresh };
+}
+// --- End Recently Removed ---
+
+// --- Image Lightbox ---
+// Click a photo to view it enlarged. Built as a single reused overlay
+// (not one per card) so there's only ever one in the DOM.
+let lightboxEls = null; // built lazily on first use
+
+function openLightbox(src, alt) {
+    if (!lightboxEls) lightboxEls = buildLightbox();
+    lightboxEls.img.src = src;
+    lightboxEls.img.alt = alt || '';
+    lightboxEls.overlay.style.display = 'flex';
+}
+
+function closeLightbox() {
+    if (!lightboxEls) return;
+    lightboxEls.overlay.style.display = 'none';
+    lightboxEls.img.src = ''; // release the decoded image rather than holding it in memory
+}
+
+function buildLightbox() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.88);' +
+        'align-items:center;justify-content:center;cursor:zoom-out;';
+    overlay.addEventListener('click', closeLightbox);
+
+    const img = document.createElement('img');
+    img.style.cssText = 'max-width:92vw;max-height:92vh;object-fit:contain;' +
+        'box-shadow:0 10px 40px rgba(0,0,0,0.6);cursor:default;';
+    img.addEventListener('click', (e) => e.stopPropagation()); // clicking the image itself shouldn't close it
+    overlay.appendChild(img);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    closeBtn.title = 'Close';
+    closeBtn.style.cssText = 'position:fixed;top:16px;right:20px;z-index:2001;' +
+        'background:rgba(255,255,255,0.12);color:#fff;border:none;border-radius:50%;' +
+        'width:36px;height:36px;cursor:pointer;font-size:16px;';
+    closeBtn.addEventListener('click', (e) => { e.stopPropagation(); closeLightbox(); });
+    overlay.appendChild(closeBtn);
+
+    document.body.appendChild(overlay);
+    return { overlay, img };
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lightboxEls && lightboxEls.overlay.style.display === 'flex') closeLightbox();
+});
+
 function setupEventListeners() {
     let debounceTimer;
     searchInput.addEventListener('input', (e) => {
@@ -1482,8 +1774,15 @@ function createTweetCard(tweet) {
                             showLocalMediaBadge();
                         });
                     }
-                } else if (mediaRootHandle) {
-                    // Photo item: swap in the local copy once it resolves.
+                } else {
+                    // Photo item: click to enlarge in a lightbox.
+                    itemWrap.style.cursor = 'zoom-in';
+                    itemWrap.addEventListener('click', () => openLightbox(img.src, tweet.text || ''));
+
+                    if (mediaRootHandle) {
+                        // Swap in the local copy once it resolves — openLightbox
+                        // reads img.src live at click time, so it'll pick up
+                        // this swap automatically if it happens before the click.
                     resolveLocalMediaFile(tweet, item.url).then(file => {
                         if (!file) return; // not found locally, keep the remote URL
                         const objectUrl = URL.createObjectURL(file);
@@ -1492,6 +1791,7 @@ function createTweetCard(tweet) {
                         img.draggable = false;
                         showLocalMediaBadge();
                     });
+                    }
                 }
 
                 mediaDiv.appendChild(itemWrap);
