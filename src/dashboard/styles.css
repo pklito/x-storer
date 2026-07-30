@@ -619,8 +619,8 @@ body {
 
 .group-manage-card {
     border:1px solid var(--card-border);
-    border-radius:2px;
-    padding:3px;
+    border-radius:3px;
+    padding:5px;
     margin-bottom:3px;
 }
 
@@ -629,6 +629,23 @@ body {
     align-items:center;
     justify-content:space-between;
     margin-bottom:3px;
+}
+
+.group-manage-chips-row {
+     display:flex;
+     flex-wrap:wrap;
+     gap:6px;
+     margin-bottom:8px;
+}
+
+.group-manage-tag-chip {
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    padding:3px 8px;
+    border-radius:999px;
+    background:rgba(255,255,255,0.08);
+    font-size:12px;
 }
 
 .group-select {
@@ -658,6 +675,11 @@ body {
     border-radius: 6px;
     min-height: 42px;
     cursor: text;
+}
+
+.tag-input-wrapper.smaller {
+    padding: 4px;
+    min-height: 36px;
 }
 
 .tag-input-wrapper:focus-within {
@@ -898,6 +920,10 @@ body {
 
 .form-label-margin {
    margin-bottom:1rem
+}
+
+.form-label-margin.top-margin {
+   margin-top:1rem
 }
 
 .carousel-title {

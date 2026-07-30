@@ -254,9 +254,15 @@ function renderGroupManageList() {
     });
 
     // Custom groups first, 'Uncategorized' last — matches the sidebar.
-    const orderedGroups = tagGroups.filter(g => g !== 'Uncategorized')
+    const orderedGroups = tagGroups.filter(g => g !== 'Uncategorized');
     orderedGroups.forEach(group => {
         groupManageList.appendChild(buildGroupManageCard(group, (tagsByGroup.get(group) || []).sort()));
+    });
+    tagsByGroup.get('Uncategorized').sort().forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'group-manage-tag-chip';
+        chip.appendChild(document.createTextNode('#' + tag));
+        tagAssignList.appendChild(chip);
     });
 }
 
@@ -271,21 +277,20 @@ function buildGroupManageCard(group, tagsInGroup) {
     name.style.fontWeight = '600';
     header.appendChild(name);
 
-    if (group !== 'Uncategorized') {
-        const delBtn = document.createElement('button');
-        delBtn.className = 'icon-btn danger';
-        delBtn.title = 'Delete group (tags return to Uncategorized)';
-        const icon = document.createElement('i');
-        icon.className = 'bi bi-trash3';
-        delBtn.appendChild(icon);
-        delBtn.addEventListener('click', () => deleteTagGroup(group));
-        header.appendChild(delBtn);
-    }
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn danger';
+    delBtn.title = 'Delete group (tags return to Uncategorized)';
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-trash3';
+    delBtn.appendChild(icon);
+    delBtn.addEventListener('click', () => deleteTagGroup(group));
+    header.appendChild(delBtn);
+    
     card.appendChild(header);
 
     // Chips for the tags currently in this group.
     const chipsRow = document.createElement('div');
-    chipsRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;';
+    chipsRow.className = 'group-manage-chips-row';
     if (tagsInGroup.length === 0) {
         const empty = document.createElement('span');
         empty.textContent = group === 'Uncategorized' ? 'Nothing uncategorized.' : 'No tags in this group yet.';
@@ -295,21 +300,15 @@ function buildGroupManageCard(group, tagsInGroup) {
         tagsInGroup.forEach(tag => {
             const chip = document.createElement('span');
             chip.className = 'group-manage-tag-chip';
-            chip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:3px 8px;' +
-                'border-radius:999px;background:rgba(255,255,255,0.08);font-size:12px;';
             chip.appendChild(document.createTextNode('#' + tag));
 
-            // Only real (non-Uncategorized) groups need a remove button —
-            // removing FROM Uncategorized doesn't mean anything.
-            if (group !== 'Uncategorized') {
-                const remove = document.createElement('button');
-                remove.textContent = '×';
-                remove.title = 'Remove from this group';
-                remove.style.cssText = 'background:none;border:none;color:inherit;cursor:pointer;' +
-                    'font-size:14px;line-height:1;padding:0;opacity:0.7;';
-                remove.addEventListener('click', () => { setTagGroup(tag, 'Uncategorized'); renderGroupManageList(); });
-                chip.appendChild(remove);
-            }
+            const remove = document.createElement('button');
+            remove.textContent = '×';
+            remove.title = 'Remove from this group';
+            remove.style.cssText = 'background:none;border:none;color:inherit;cursor:pointer;' +
+                'font-size:14px;line-height:1;padding:0;opacity:0.7;';
+            remove.addEventListener('click', () => { setTagGroup(tag, 'Uncategorized'); renderGroupManageList(); });
+            chip.appendChild(remove);
             chipsRow.appendChild(chip);
         });
     }
@@ -334,14 +333,11 @@ function buildGroupTagAddInput(group) {
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = 'Add a tag to this group…';
-    input.style.cssText = 'width:100%;box-sizing:border-box;padding:6px 8px;border-radius:6px;' +
-        'border:1px solid rgba(255,255,255,0.2);background:rgba(255,255,255,0.06);color:inherit;font-size:13px;';
+    input.className = 'tag-input-wrapper smaller';
     wrap.appendChild(input);
 
     const suggestions = document.createElement('div');
-    suggestions.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;z-index:10;margin-top:2px;' +
-        'background:#192734;border:1px solid rgba(255,255,255,0.2);border-radius:6px;max-height:160px;' +
-        'overflow-y:auto;box-shadow:0 6px 16px rgba(0,0,0,0.4);';
+    suggestions.className = 'tag-suggestions-list';
     wrap.appendChild(suggestions);
 
     function commit(tagName) {
@@ -400,11 +396,6 @@ function buildGroupTagAddInput(group) {
 }
 
 function renderTagAssignList() {
-    // Replaced by the per-group cards in renderGroupManageList(), which
-    // show each group's tags inline with an add-tag autocomplete instead
-    // of one flat list of every tag with a dropdown. Kept as a no-op (with
-    // its container hidden) since it's still called from a few places.
-    if (tagAssignList) tagAssignList.style.display = 'none';
 }
 
 // --- End Tag Groups ---
