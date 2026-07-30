@@ -83,44 +83,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initMediaFolder();
     createImportButton();
     createRecentlyRemovedButton();
-    widenSidebarIfPossible();
 });
-
-// Best-effort layout fix for the sidebar's dead space: I don't have your
-// CSS/HTML file, so this can't target a specific selector. Instead it
-// walks up from the tag list at runtime looking for either (a) a CSS Grid
-// ancestor whose first (sidebar) column track is a fixed px width, or
-// (b) an ancestor that itself has a fixed px width in the typical sidebar
-// range (~120–480px), and widens whichever it finds by ~18%. If this
-// doesn't hit the right element, share style.css / index.html and I can
-// target it precisely instead.
-function widenSidebarIfPossible() {
-    let el = tagList.parentElement;
-    let hops = 0;
-    while (el && el !== document.body && hops < 8) {
-        const parent = el.parentElement;
-        if (parent) {
-            const pcs = getComputedStyle(parent);
-            if (pcs.display === 'grid' && pcs.gridTemplateColumns) {
-                const cols = pcs.gridTemplateColumns.trim().split(/\s+/);
-                if (cols.length >= 2 && /^[\d.]+px$/.test(cols[0])) {
-                    cols[0] = (parseFloat(cols[0]) * 1.18).toFixed(0) + 'px';
-                    parent.style.gridTemplateColumns = cols.join(' ');
-                    return;
-                }
-            }
-        }
-        const cs = getComputedStyle(el);
-        if (/^[\d.]+px$/.test(cs.width) && parseFloat(cs.width) > 120 && parseFloat(cs.width) < 480) {
-            const widened = (parseFloat(cs.width) * 1.18).toFixed(0) + 'px';
-            el.style.width = widened;
-            if (cs.flexBasis && cs.flexBasis !== 'auto') el.style.flexBasis = widened;
-            return;
-        }
-        el = parent;
-        hops++;
-    }
-}
 
 async function loadData() {
     try {
@@ -202,6 +165,7 @@ function getAllTagCounts() {
             tagCounts[tag] = (tagCounts[tag] || 0) + 1;
         });
     });
+    if(!showHiddenTags) hiddenTags.forEach(tag => delete tagCounts[tag]);
     return tagCounts;
 }
 
@@ -266,7 +230,7 @@ function renderGroupManageList() {
     // pre-assigned to a group but aren't in use yet (so an assignment you
     // just made doesn't seem to vanish before any tweet has that tag).
     const allTagNames = new Set([...getAllTagNames(), ...Object.keys(tagGroupAssignments)]);
-
+    if(!showHiddenTags) hiddenTags.forEach(tag => allTagNames.delete(tag));
     const tagsByGroup = new Map();
     tagGroups.forEach(g => tagsByGroup.set(g, []));
     allTagNames.forEach(tag => {
@@ -1454,8 +1418,8 @@ function setupEventListeners() {
         }
 
         // Suggestions logic
-        const allTags = new Set();
-        allTweets.forEach(t => (t.tags || []).forEach(tag => allTags.add(tag)));
+        const allTags = getAllTagNames();
+    
 
         // Filter matches (exclude already added tags)
         const matches = Array.from(allTags).filter(tag =>
@@ -1557,7 +1521,7 @@ function getFilteredTweets() {
         filtered = filtered.filter(t => getEffectiveTags(t).some(tag => getSelectedTags().has(tag)));
     }
 
-    if (excludedTags.size > 0) {
+    if (getExcludedOrHiddenTags().size > 0) {
         filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => getExcludedOrHiddenTags().has(tag)));
     }
 
