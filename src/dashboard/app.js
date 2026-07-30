@@ -18,6 +18,10 @@ const SEARCH_TABS_KEY = 'xbookmarks_search_tabs_v1';
 let searchTabs = [{ id: 'default', name: 'All', selectedTags: [], excludedTags: [] }];
 let activeTabId = 'default';
 
+const HIDDEN_TAGS_KEY = 'xbookmarks_hidden_tags_v1';
+let hiddenTags = new Set(); // tags the user has chosen to hide from the sidebar
+let showHiddenTags = false; // whether the sidebar is currently showing hidden tags
+
 // New State for Tag Editor
 let currentQuoteTags = []; // Stores tags being edited in modal as Array of Strings
 
@@ -66,6 +70,7 @@ const tagAssignList = document.getElementById('tag-assign-list');
 const closeGroupsModalBtn = document.getElementById('close-groups-modal');
 const searchTabsEl = document.getElementById('search-tabs');
 const addTabBtn = document.getElementById('add-tab-btn');
+const toggleHiddenTagsBtn = document.getElementById('toggle-hidden-tags-btn');
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadTagGroupState();
@@ -186,7 +191,27 @@ function tagGroupOf(tag) {
 function getAllTagNames() {
     const set = new Set();
     allTweets.forEach(t => (t.tags || []).forEach(tag => set.add(tag)));
+    if(!showHiddenTags) hiddenTags.forEach(tag => set.delete(tag));
     return Array.from(set).sort();
+}
+
+function getAllTagCounts() {
+    const tagCounts = {};
+    allTweets.forEach(t => {
+        (t.tags || []).forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        });
+    });
+    return tagCounts;
+}
+
+function getSelectedTags() {
+    return selectedTags
+}
+
+function getExcludedOrHiddenTags() {
+    if(showHiddenTags) return excludedTags;
+    return new Set([...excludedTags, ...hiddenTags]);
 }
 
 function addTagGroup(name) {
@@ -227,7 +252,6 @@ function setTagGroup(tag, group) {
 
 function openTagGroupsModal() {
     renderGroupManageList();
-    renderTagAssignList();
     tagGroupsModal.classList.add('active');
 }
 
@@ -262,6 +286,15 @@ function renderGroupManageList() {
         chip.appendChild(document.createTextNode('#' + tag));
         tagAssignList.appendChild(chip);
     });
+    // Change icon of hiddenbutton child.
+    const icon = toggleHiddenTagsBtn.querySelector("i");
+    if(showHiddenTags) {
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye-fill');
+    } else {
+        icon.classList.remove('bi-eye-fill');
+        icon.classList.add('bi-eye-slash');
+    }
 }
 
 function buildGroupManageCard(group, tagsInGroup) {
@@ -392,9 +425,6 @@ function buildGroupTagAddInput(group) {
     input.addEventListener('blur', () => { suggestions.style.display = 'none'; });
 
     return wrap;
-}
-
-function renderTagAssignList() {
 }
 
 // --- End Tag Groups ---
@@ -1462,6 +1492,14 @@ function setupEventListeners() {
             suggestionsBox.classList.remove('active');
         }
     });
+
+    toggleHiddenTagsBtn.addEventListener('click', () => {
+        showHiddenTags = !showHiddenTags;
+        hiddenTags.forEach(tag => {excludedTags.add(tag);});
+        //update where tags are used
+        renderTagsSidebar();
+        renderGroupManageList();
+    });
 }
 
 // --- Tag Editor Helpers ---
@@ -1516,11 +1554,11 @@ function getFilteredTweets() {
     let filtered = allTweets;
 
     if (selectedTags.size > 0) {
-        filtered = filtered.filter(t => getEffectiveTags(t).some(tag => selectedTags.has(tag)));
+        filtered = filtered.filter(t => getEffectiveTags(t).some(tag => getSelectedTags().has(tag)));
     }
 
     if (excludedTags.size > 0) {
-        filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => excludedTags.has(tag)));
+        filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => getExcludedOrHiddenTags().has(tag)));
     }
 
     if (searchTerm) {
@@ -1920,12 +1958,7 @@ function createTweetCard(tweet) {
 }
 
 function renderTagsSidebar() {
-    const tagCounts = {};
-    allTweets.forEach(t => {
-        (t.tags || []).forEach(tag => {
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-        });
-    });
+    const tagCounts = getAllTagCounts();
 
     // Clear button now lives in the header row above the list (see index.html);
     // just toggle its visibility here.

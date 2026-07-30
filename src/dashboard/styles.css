@@ -561,6 +561,11 @@ body {
     gap: 0.5rem;
 }
 
+.modal-header {
+    justify-content: space-between;
+    display: flex;
+}
+
 .text-input {
     width: 100%;
     padding: 0.7rem;
