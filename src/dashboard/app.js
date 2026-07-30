@@ -130,7 +130,7 @@ async function loadData() {
 // on the fly — never written to tweet.tags / the DB. They live in their
 // own 'Built-in' sidebar section but still work with select/exclude
 // filtering exactly like a normal tag (see getEffectiveTags below).
-const BUILT_IN_TAG_NAMES = ['video', 'gif', 'text-only'];
+const BUILT_IN_TAG_NAMES = ['video', 'gif', 'text-only', 'cw'];
 
 function getBuiltInTagsForTweet(tweet) {
     const media = (tweet.media && tweet.media.length)
@@ -141,6 +141,7 @@ function getBuiltInTagsForTweet(tweet) {
     if (media.some(m => m.type === 'video')) tags.push('video');
     if (media.some(m => m.type === 'gif')) tags.push('gif');
     if (media.length === 0) tags.push('text-only');
+    if (tweet.isSensitive) tags.push('cw');
     return tags;
 }
 
@@ -1303,7 +1304,7 @@ function renderGrid(tweets) {
     }
 
     const w = window.innerWidth;
-    const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : 4;
+    const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : w <= 1900 ? 4 : 5;
     masonryColumns = Array.from({ length: colCount }, () => {
         const col = document.createElement('div');
         col.className = 'masonry-column';
@@ -1362,14 +1363,9 @@ function createTweetCard(tweet) {
         card.className = 'tweet-card animate-in';
         card.addEventListener('animationend', () => card.classList.remove('animate-in'), { once: true });
 
-        // Skip layout/paint for off-screen cards. Without this, every one of
-        // the (potentially thousands of) mounted cards gets fully re-measured
-        // on any full-page reflow — including browser zoom — which is what
-        // makes zooming slow. contain-intrinsic-size is a rough placeholder
-        // size used only while a card is skipped; tweak it if your cards run
-        // noticeably bigger/smaller than this on average.
-        card.style.contentVisibility = 'auto';
-        card.style.containIntrinsicSize = '350px 480px';
+        
+        // card.style.contentVisibility = 'auto';
+        // card.style.containIntrinsicSize = '350px 480px';
         card.style.position = 'relative'; // positioning context for the local-media badge below
 
         // Shown when at least one of this tweet's media items successfully

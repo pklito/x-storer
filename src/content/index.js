@@ -289,6 +289,12 @@ function parseTweet(article) {
         }
     }
 
+    const isSensitive = Array.from(article.querySelectorAll("button"))
+    .some(button => {
+        const text = button.textContent.trim();
+        return text === "Show" || text === "Hide";
+    });
+
     return {
         id: tweetId,
         text: cardTitle ? `${text}\n\n[Article: ${cardTitle}]` : text,
@@ -299,6 +305,7 @@ function parseTweet(article) {
         timestamp,
         media, // [{ type: 'photo' | 'video' | 'gif', url, videoSrc? }, ...] in DOM order
         mediaUrl: media[0] ? media[0].url : null, // back-compat: first media item's display url
+        isSensitive,
     };
 }
 
