@@ -1577,6 +1577,12 @@ function createTweetCard(tweet) {
         // it runs before — and can suppress — those other click handlers.
         card.addEventListener('click', async (e) => {
             if (!massTagModeActive || massTagSelectedTags.length === 0) return;
+
+            // Don't mass-tag if a button, link, input, etc. was clicked.
+            if (e.target.closest('button, a, input, textarea, select, .delete-btn')) {
+                return;
+            }
+
             e.preventDefault();
             e.stopPropagation();
 
