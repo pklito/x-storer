@@ -1351,8 +1351,8 @@ function createTweetCard(tweet) {
         card.addEventListener('animationend', () => card.classList.remove('animate-in'), { once: true });
 
         
-        // card.style.contentVisibility = 'auto';
-        // card.style.containIntrinsicSize = '350px 480px';
+        card.style.contentVisibility = 'auto';
+        card.style.containIntrinsicSize = '350px 480px';
         card.style.position = 'relative'; // positioning context for the local-media badge below
 
         // Shown when at least one of this tweet's media items successfully
