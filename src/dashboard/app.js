@@ -6,6 +6,7 @@ let selectedTags = new Set();   // tags included via normal click
 let excludedTags = new Set();   // tags excluded via shift-click
 let searchTerm = '';
 let currentEditTweetId = null;
+let currentEditTagsDiv = null;
 
 // Tag Groups (categorization)
 const TAG_GROUPS_KEY = 'xbookmarks_tag_groups_v1';
@@ -1802,6 +1803,7 @@ function createTweetCard(tweet) {
 
         const tagsDiv = document.createElement('div');
         tagsDiv.className = 'tweet-tags';
+        tagsDiv.id = 'tweet-tags-div';
         (tweet.tags || []).forEach(tag => {
             const tagBadge = document.createElement('span');
             tagBadge.className = 'tweet-tag-badge';
@@ -1835,7 +1837,7 @@ function createTweetCard(tweet) {
             return btn;
         };
 
-        const editBtn = mkBtn('bi bi-tag', 'Edit Tags', () => openTagModal(tweet.id));
+        const editBtn = mkBtn('bi bi-tag', 'Edit Tags', () => openTagModal(tweet.id, tagsDiv));
         editBtn.classList.add('edit-tags-btn');
         actions.appendChild(editBtn);
 
@@ -1890,26 +1892,13 @@ function createTweetCard(tweet) {
 
             // Refresh just this card's tag badges — avoid a full grid
             // re-render so scroll position holds while blitzing through tweets.
-            tagsDiv.replaceChildren();
-            newTags.forEach(tag => {
-                const tagBadge = document.createElement('span');
-                tagBadge.className = 'tweet-tag-badge';
-                tagBadge.textContent = '#' + tag;
-                tagsDiv.appendChild(tagBadge);
-            });
-            getBuiltInTagsForTweet(tweet).forEach(tag => {
-                const tagBadge = document.createElement('span');
-                tagBadge.className = 'tweet-tag-badge tweet-tag-badge-builtin';
-                tagBadge.style.cssText = 'border:1px dashed currentColor;opacity:0.75;';
-                tagBadge.textContent = '#' + tag;
-                tagsDiv.appendChild(tagBadge);
-            });
+            refreshTweet(tagsDiv, newTags, getBuiltInTagsForTweet(tweet));
 
             // Brief flash so it's obvious the click registered: green for
             // "tagged", red for "untagged".
-            card.style.outline = hasAll ? '3px solid #e0245e' : '3px solid #17bf63';
+            card.style.outline = hasAll ? '3px solid #e0245e' : '9px solid #5f62e4';
             card.style.outlineOffset = '-3px';
-            setTimeout(() => { card.style.outline = ''; card.style.outlineOffset = ''; }, 250);
+            setTimeout(() => { card.style.outline = ''; card.style.outlineOffset = ''; }, hasAll ? 400 : 250);
 
             try {
                 await db.updateTweetTags(tweet.id, newTags);
@@ -1919,6 +1908,23 @@ function createTweetCard(tweet) {
         }, true); // capture phase
 
         return card;
+}
+
+function refreshTweet(tagsDiv, newTags, builtInTags) {
+    tagsDiv.replaceChildren();
+            newTags.forEach(tag => {
+                const tagBadge = document.createElement('span');
+                tagBadge.className = 'tweet-tag-badge';
+                tagBadge.textContent = '#' + tag;
+                tagsDiv.appendChild(tagBadge);
+            });
+            builtInTags.forEach(tag => {
+                const tagBadge = document.createElement('span');
+                tagBadge.className = 'tweet-tag-badge tweet-tag-badge-builtin';
+                tagBadge.style.cssText = 'border:1px dashed currentColor;opacity:0.75;';
+                tagBadge.textContent = '#' + tag;
+                tagsDiv.appendChild(tagBadge);
+            });
 }
 
 function renderTagsSidebar() {
@@ -2058,9 +2064,10 @@ async function deleteTweet(id) {
     }
 }
 
-function openTagModal(tweetId) {
+function openTagModal(tweetId, tagsDiv = null) {
     currentEditTweetId = tweetId;
-    const tweet = allTweets.find(t => t.id === tweetId);
+    currentEditTagsDiv = tagsDiv;
+    const tweet = allTweets.find(t => t.id === tweetId);    // TODO: check if passing tweet to openTagModal is better.
     if (tweet) {
         currentQuoteTags = [...(tweet.tags || [])]; // Load existing tags into editor state
         renderTagCapsules();
@@ -2093,7 +2100,11 @@ async function saveTags() {
     try {
         await db.updateTweetTags(currentEditTweetId, tags);
         const tweet = allTweets.find(t => t.id === currentEditTweetId);
-        if (tweet) tweet.tags = tags;
+        if (tweet) {
+            tweet.tags = tags;
+            if(currentEditTagsDiv)
+                refreshTweet(currentEditTagsDiv, tags, getBuiltInTagsForTweet(tweet));
+        }
         closeTagModal();
         // updateUI(); i dont want this, makes me jump to the
     } catch (err) {
