@@ -237,6 +237,7 @@ function closeTagGroupsModal() {
 
 function renderGroupManageList() {
     groupManageList.replaceChildren();
+    tagAssignList.replaceChildren();
     if (tagAssignList) tagAssignList.style.display = 'none'; // superseded by the per-group cards below
 
     // Union of tags that currently exist on a tweet AND tags that were
@@ -253,7 +254,7 @@ function renderGroupManageList() {
     });
 
     // Custom groups first, 'Uncategorized' last — matches the sidebar.
-    const orderedGroups = tagGroups.filter(g => g !== 'Uncategorized').concat('Uncategorized');
+    const orderedGroups = tagGroups.filter(g => g !== 'Uncategorized')
     orderedGroups.forEach(group => {
         groupManageList.appendChild(buildGroupManageCard(group, (tagsByGroup.get(group) || []).sort()));
     });
@@ -262,11 +263,10 @@ function renderGroupManageList() {
 function buildGroupManageCard(group, tagsInGroup) {
     const card = document.createElement('div');
     card.className = 'group-manage-card';
-    card.style.cssText = 'border:1px solid rgba(255,255,255,0.14);border-radius:8px;padding:10px;margin-bottom:10px;';
 
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
-        const name = document.createElement('span');
+    header.className = 'group-manage-card-header';
+    const name = document.createElement('span');
     name.textContent = `${group} (${tagsInGroup.length})`;
     name.style.fontWeight = '600';
     header.appendChild(name);
