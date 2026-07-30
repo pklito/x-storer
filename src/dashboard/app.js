@@ -1377,6 +1377,7 @@ function createTweetCard(tweet) {
         avatar.className = 'avatar';
         avatar.src = tweet.authorAvatar || '';
         avatar.referrerPolicy = 'no-referrer';
+        avatar.draggable = false;
         avatar.addEventListener('error', function () { this.style.backgroundColor = '#333'; });
         header.appendChild(avatar);
 
@@ -1430,6 +1431,7 @@ function createTweetCard(tweet) {
                 img.referrerPolicy = 'no-referrer';
                 img.style.width = '100%';
                 img.style.display = 'block';
+                img.draggable = false;
                 img.addEventListener('error', function () { this.parentElement.style.display = 'none'; });
                 itemWrap.appendChild(img);
 
@@ -1468,6 +1470,7 @@ function createTweetCard(tweet) {
                             videoEl.poster = item.url;
                             videoEl.style.width = '100%';
                             videoEl.style.display = 'block';
+                            videoEl.draggable = false;
                             const objectUrl = URL.createObjectURL(videoFile);
                             activeObjectUrls.push(objectUrl);
                             videoEl.src = objectUrl;
@@ -1486,6 +1489,7 @@ function createTweetCard(tweet) {
                         const objectUrl = URL.createObjectURL(file);
                         activeObjectUrls.push(objectUrl);
                         img.src = objectUrl;
+                        img.draggable = false;
                         showLocalMediaBadge();
                     });
                 }
@@ -1798,7 +1802,7 @@ async function saveTags() {
         const tweet = allTweets.find(t => t.id === currentEditTweetId);
         if (tweet) tweet.tags = tags;
         closeTagModal();
-        updateUI();
+        // updateUI(); i dont want this, makes me jump to the
     } catch (err) {
         console.error(err);
     }
