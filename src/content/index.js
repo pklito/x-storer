@@ -115,14 +115,69 @@ function stopAutoScan() {
     }
 }
 
+// --- Removal Diagnostics ---
+// A real, account-level bookmark got removed on X during an unattended
+// scroll pass, and the cause hasn't been confirmed yet (it may not even be
+// this heuristic — see the isTrusted note below). Every removal decision
+// gets logged here — including whether the triggering click was genuinely
+// user-initiated — so this can be inspected forensically after the fact
+// instead of guessed at. Read it from the dashboard/devtools console via:
+//   chrome.storage.local.get('xb_remove_log', r => console.table(r.xb_remove_log))
+const REMOVE_LOG_KEY = 'xb_remove_log';
+const REMOVE_LOG_MAX = 100;
+
+function logRemovalDecision(entry) {
+    try {
+        if (!(chrome && chrome.storage && chrome.storage.local)) return;
+        chrome.storage.local.get(REMOVE_LOG_KEY, (result) => {
+            const existing = (result && result[REMOVE_LOG_KEY]) || [];
+            const updated = [entry, ...existing].slice(0, REMOVE_LOG_MAX);
+            chrome.storage.local.set({ [REMOVE_LOG_KEY]: updated });
+        });
+    } catch (e) { /* best-effort only, never block the actual removal on this */ }
+}
+
 // --- Manual Click Detection (Heuristic) ---
 document.addEventListener('click', (event) => {
+    // TEMPORARY DIAGNOSTIC — logs every single click this listener ever
+    // receives, regardless of whether anything below matches it as a
+    // bookmark action. Point: get hard proof of whether ANY click fires
+    // during an auto-scroll run, instead of reasoning about it. Check via:
+    //   chrome.storage.local.get('xb_click_log', r => console.table(r.xb_click_log))
+    // Safe to remove once this question is settled.
+    try {
+        if (chrome && chrome.storage && chrome.storage.local) {
+            chrome.storage.local.get('xb_click_log', (result) => {
+                const existing = (result && result.xb_click_log) || [];
+                const updated = [{
+                    at: new Date().toISOString(),
+                    isTrusted: event.isTrusted,
+                    targetTag: event.target.tagName,
+                    targetTestId: event.target.getAttribute ? event.target.getAttribute('data-testid') : null,
+                    x: event.clientX,
+                    y: event.clientY,
+                    pageUrl: window.location.href,
+                }, ...existing].slice(0, 200);
+                chrome.storage.local.set({ xb_click_log: updated });
+            });
+        }
+    } catch (e) { /* best-effort only */ }
+
     let element = event.target;
     let foundRef = null;
 
-    // Go up max 7 parent levels
+    // The bookmark button is always inside the clicked tweet's own
+    // <article> — bound the walk to that boundary so it can never escape
+    // into an OUTER page landmark (e.g. the "Timeline: Bookmarks" region
+    // wrapping the whole /i/bookmarks feed, which legitimately mentions
+    // "Bookmarks" in its own accessible name but has nothing to do with
+    // any single tweet's bookmark button). This was previously causing
+    // shallow-DOM tweets (plain text, no media) to get falsely matched.
+    const containingArticle = event.target.closest ? event.target.closest('article') : null;
+
     for (let i = 0; i < 7; i++) {
         if (!element) break;
+        if (containingArticle && !containingArticle.contains(element)) break; // never leave the tweet's own article
 
         // A. CHeck test-id
         const testId = element.getAttribute ? element.getAttribute('data-testid') : '';
@@ -131,9 +186,11 @@ document.addEventListener('click', (event) => {
             break;
         }
 
-        // B. Check aria-label
+        // B. Check aria-label — only trust this on an actual button, not
+        // any ancestor wrapper/landmark that happens to mention the word.
+        const role = element.getAttribute ? element.getAttribute('role') : '';
         const label = element.getAttribute ? element.getAttribute('aria-label') : '';
-        if (label && (label.includes('Bookmark') || label.includes('Signet'))) {
+        if (role === 'button' && label && (label.includes('Bookmark') || label.includes('Signet'))) {
             foundRef = element;
             break;
         }
@@ -151,8 +208,10 @@ document.addEventListener('click', (event) => {
     }
 
     if (foundRef) {
-        // Now determine if it's REMOVE or ADD
-        const buttonEl = foundRef.getAttribute('role') === 'button' ? foundRef : foundRef.closest('[role="button"]');
+        // Now determine if it's REMOVE or ADD — also bounded to the same
+        // article, for the same reason as above.
+        let buttonEl = foundRef.getAttribute('role') === 'button' ? foundRef : foundRef.closest('[role="button"]');
+        if (buttonEl && containingArticle && !containingArticle.contains(buttonEl)) buttonEl = null;
 
         let isRemoveAction = false;
         if (buttonEl) {
@@ -171,6 +230,29 @@ document.addEventListener('click', (event) => {
         if (tweetArticle) {
             if (isRemoveAction) {
                 const data = parseTweet(tweetArticle);
+
+                // NOTE ON isTrusted: this only tells you whether the browser
+                // considers the click "real" input (mouse/touch/keyboard),
+                // vs. dispatched via event.dispatchEvent()/element.click()
+                // from a script. It does NOT distinguish "the user clicked
+                // this" from "an automation tool drove the real mouse (or
+                // used a trusted input API) and happened to click this
+                // element" — both read as isTrusted: true. So a false
+                // isTrusted:true here does not rule out an auto-scroll/
+                // auto-click tool as the cause; it only rules out our own
+                // code (or some other script on the page) synthesizing the
+                // click. Logged for forensic purposes, not as a filter.
+                logRemovalDecision({
+                    at: new Date().toISOString(),
+                    isTrusted: event.isTrusted,
+                    matchedTestId: buttonEl ? (buttonEl.getAttribute('data-testid') || '') : '',
+                    matchedLabel: buttonEl ? (buttonEl.getAttribute('aria-label') || '') : '',
+                    tweetId: data ? data.id : null,
+                    tweetTextSnippet: data ? (data.text || '').slice(0, 80) : null,
+                    tweetUrl: data ? data.url : null,
+                    pageUrl: window.location.href,
+                });
+
                 if (data && data.id) {
                     safelySendMessage({ type: 'REMOVE_TWEET', payload: { id: data.id } });
                     showDebugToast('Tweet Removed 🗑️');
@@ -226,14 +308,7 @@ function parseTweet(article) {
     let tweetId = null;
     let url = window.location.href;
 
-    if (window.location.pathname.includes('/status/')) {
-        const parts = window.location.pathname.split('/');
-        const statusIdx = parts.indexOf('status');
-        if (statusIdx !== -1 && parts[statusIdx + 1]) {
-            tweetId = parts[statusIdx + 1];
-        }
-    }
-
+    // Strategy 1: Timestamp link (article-specific — always tried first)
     if (!tweetId) {
         const timeLink = timeEl?.closest('a') || article.querySelector('a[href*="/status/"][dir="ltr"]');
         if (timeLink) {
@@ -259,6 +334,18 @@ function parseTweet(article) {
                     break;
                 }
             }
+        }
+    }
+
+    // Last resort: the page's own pathname. This can't tell the
+    // difference between the main tweet on a permalink page and any
+    // reply/quote-tweet also visible on that same page — only trust it
+    // once the article-specific strategies above have both failed.
+    if (!tweetId && window.location.pathname.includes('/status/')) {
+        const parts = window.location.pathname.split('/');
+        const statusIdx = parts.indexOf('status');
+        if (statusIdx !== -1 && parts[statusIdx + 1]) {
+            tweetId = parts[statusIdx + 1];
         }
     }
 
