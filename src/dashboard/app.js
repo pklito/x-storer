@@ -43,10 +43,10 @@ let mediaFolderClearBtn = null;
 // toggle that whole set on/off per tweet without opening the tag editor.
 let massTagModeActive = false;
 let massTagSelectedTags = [];
-let massTagBtn = null;
 let massTagStatusBar = null;
 let massTagSelectModal = null; // built lazily on first open
 
+const massTagBtn = document.getElementById('mass-tags-btn');
 const tweetsGrid = document.getElementById('tweets-grid');
 const feedTitle = document.getElementById('feed-title');
 const tagList = document.getElementById('tag-list');
@@ -76,7 +76,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderSearchTabs();
     createMediaFolderButton();
     await initMediaFolder();
-    createMassTagButton();
     createImportButton();
     widenSidebarIfPossible();
 });
@@ -653,26 +652,6 @@ async function resolveLocalVideoFile(tweet, posterUrl) {
 // (anywhere on the card) to toggle that whole tag set on/off for each one,
 // without opening the per-tweet tag editor each time.
 
-function createMassTagButton() {
-    if (massTagBtn || !totalCount.parentElement) return;
-    massTagBtn = document.createElement('button');
-    massTagBtn.id = 'mass-tag-btn';
-    massTagBtn.className = 'icon-btn';
-    massTagBtn.title = 'Pick tags, then click tweets to apply/remove them in bulk';
-    const icon = document.createElement('i');
-    icon.className = 'bi bi-tags';
-    massTagBtn.appendChild(icon);
-    massTagBtn.appendChild(document.createTextNode(' Mass Tag'));
-    massTagBtn.addEventListener('click', () => {
-        if (massTagModeActive) {
-            endMassTagMode();
-        } else {
-            openMassTagSelectModal();
-        }
-    });
-    totalCount.parentElement.appendChild(massTagBtn);
-}
-
 // Builds (once) and shows the tag-selection window used to choose which
 // tags mass tagging mode will apply.
 function openMassTagSelectModal() {
@@ -1102,6 +1081,14 @@ function setupEventListeners() {
         selectedTags.clear();
         excludedTags.clear();
         updateUI();
+    });
+
+    massTagBtn.addEventListener('click', () => {
+        if (massTagModeActive) {
+            endMassTagMode();
+        } else {
+            openMassTagSelectModal();
+        }
     });
 
     // Tag Groups configuration modal
