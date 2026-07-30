@@ -2042,6 +2042,8 @@ function createTagChip(tag, count) {
         } else {
             if (selectedTags.has(tag)) {
                 selectedTags.delete(tag);
+            } else if(excludedTags.has(tag)) {
+                excludedTags.delete(tag);
             } else {
                 selectedTags.add(tag);
                 excludedTags.delete(tag); // inclusion overrides exclusion
