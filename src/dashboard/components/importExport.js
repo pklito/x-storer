@@ -7,7 +7,7 @@
 import { db } from '../../utils/db.js';
 import { state } from './state.js';
 import { totalCount } from './dom.js';
-import { loadData } from './render.js';
+import { loadData } from './tweets.js';
 
 let importFileInput = null;
 let importModalEls = null; // built lazily on first use

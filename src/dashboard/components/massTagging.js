@@ -4,7 +4,7 @@
 
 import { state } from './state.js';
 import { massTagBtn } from './dom.js';
-import { getAllTagNames } from './tags.js';
+import { getAllTagNames } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 
 let massTagStatusBar = null;

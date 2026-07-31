@@ -4,7 +4,7 @@
 
 import { state, MEDIA_DB_NAME, MEDIA_DB_STORE, MEDIA_HANDLE_KEY } from './state.js';
 import { totalCount } from './dom.js';
-import { updateUI } from './render.js';
+import { updateUI } from './tweets.js';
 
 let mediaFolderBtn = null;
 let mediaFolderClearBtn = null;

@@ -5,7 +5,7 @@ import {
     newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn
 } from './components/dom.js';
 
-import { loadData, updateUI, getFilteredTweets } from './components/render.js';
+import { loadData, updateUI, getFilteredTweets } from './components/tweets.js';
 import { initCarousel } from './components/carousel.js';
 
 import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from './components/tagGroups.js';

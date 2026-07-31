@@ -8,7 +8,7 @@
 import { db } from '../../utils/db.js';
 import { RECENTLY_REMOVED_KEY } from './state.js';
 import { totalCount } from './dom.js';
-import { loadData } from './render.js';
+import { loadData } from './tweets.js';
 
 let recentlyRemovedBtn = null;
 let recentlyRemovedModalEls = null; // built lazily on first use

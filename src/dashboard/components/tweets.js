@@ -1,7 +1,6 @@
 import { db } from '../../utils/db.js';
 import { state } from './state.js';
 import { feedTitle } from './dom.js';
-import { getEffectiveTags } from './tags.js';
 import { renderGrid } from './grid.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 
@@ -46,4 +45,31 @@ export function updateUI() {
 
     renderGrid(tweets);
     renderTagsSidebar();
+}
+
+
+// TAGS
+
+export function getBuiltInTagsForTweet(tweet) {
+    const media = (tweet.media && tweet.media.length)
+        ? tweet.media
+        : (tweet.mediaUrl ? [{ type: 'photo', url: tweet.mediaUrl }] : []);
+
+    const tags = [];
+    if (media.some(m => m.type === 'video')) tags.push('video');
+    if (media.some(m => m.type === 'gif')) tags.push('gif');
+    if (media.length === 0) tags.push('text-only');
+    if (tweet.isSensitive) tags.push('cw');
+    return tags;
+}
+
+// Stored tags + computed built-in tags, for filtering/search purposes only.
+export function getEffectiveTags(tweet) {
+    return (tweet.tags || []).concat(getBuiltInTagsForTweet(tweet));
+}
+
+export function getAllTagNames() {
+    const set = new Set();
+    state.allTweets.forEach(t => (t.tags || []).forEach(tag => set.add(tag)));
+    return Array.from(set).sort();
 }

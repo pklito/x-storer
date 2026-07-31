@@ -1,6 +1,6 @@
 import { state, SEARCH_TABS_KEY } from './state.js';
 import { searchTabsEl, addTabBtn } from './dom.js';
-import { updateUI } from './render.js';
+import { updateUI } from './tweets.js';
 
 export function loadSearchTabsState() {
     try {

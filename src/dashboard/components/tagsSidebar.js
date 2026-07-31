@@ -1,8 +1,7 @@
 import { state, BUILT_IN_TAG_NAMES } from './state.js';
 import { tagList, clearTagsBtn } from './dom.js';
-import { getBuiltInTagsForTweet } from './tags.js';
 import { tagGroupOf, saveTagGroupState } from './tagGroups.js';
-import { updateUI } from './render.js';
+import { updateUI, getBuiltInTagsForTweet } from './tweets.js';
 
 export function renderTagsSidebar() {
     const tagCounts = {};
