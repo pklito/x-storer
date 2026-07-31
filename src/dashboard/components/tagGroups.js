@@ -1,7 +1,7 @@
-import { state, TAG_GROUPS_KEY } from './state.js';
-import { tagGroupsModal, groupManageList, tagAssignList } from './dom.js';
-import { getAllTagNames } from './tweets.js';
-import { renderTagsSidebar } from './tagsSidebar.js';
+import { state, TAG_GROUPS_KEY } from '@components/state.js';
+import { tagGroupsModal, groupManageList, tagAssignList } from '@components/dom.js';
+import { getAllTagNames } from '@components/tweets.js';
+import { renderTagsSidebar } from '@components/tagsSidebar.js';
 
 export function loadTagGroupState() {
     try {

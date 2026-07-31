@@ -2,10 +2,10 @@
 // (anywhere on the card) to toggle that whole tag set on/off for each one,
 // without opening the per-tweet tag editor each time.
 
-import { state } from './state.js';
-import { massTagBtn } from './dom.js';
-import { getAllTagNames } from './tweets.js';
-import { renderTagsSidebar } from './tagsSidebar.js';
+import { state } from '@components/state.js';
+import { massTagBtn } from '@components/dom.js';
+import { getAllTagNames } from '@components/tweets.js';
+import { renderTagsSidebar } from '@components/tagsSidebar.js';
 
 let massTagStatusBar = null;
 let massTagSelectModal = null; // built lazily on first open

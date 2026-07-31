@@ -1,21 +1,21 @@
-import { state } from './components/state.js';
+import { state } from '@components/state.js';
 import {
     massTagBtn, tagModal, tagInput, tagEditorContainer, searchInput,
     suggestionsBox, clearTagsBtn, configureTagsBtn, tagGroupsModal,
     newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn
-} from './components/dom.js';
+} from '@components/dom.js';
 
-import { loadData, updateUI, getFilteredTweets } from './components/tweets.js';
-import { initCarousel } from './components/carousel.js';
+import { loadData, updateUI, getFilteredTweets } from '@components/tweets.js';
+import { initCarousel } from '@components/carousel.js';
 
-import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from './components/tagGroups.js';
-import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from './components/searchTabs.js';
-import { createMediaFolderButton, initMediaFolder } from './components/mediaFolder.js';
-import { openMassTagSelectModal, endMassTagMode } from './components/massTagging.js';
-import { createImportButton, exportTweets, exportJSON } from './components/importExport.js';
-import { createRecentlyRemovedButton } from './components/recentlyRemoved.js';
-import { closeTagModal, saveTags } from './components/tagModal.js';
-import { addTagToEditor, removeTagFromEditor } from './components/tagEditor.js';
+import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from '@components/tagGroups.js';
+import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from '@components/searchTabs.js';
+import { createMediaFolderButton, initMediaFolder } from '@components/mediaFolder.js';
+import { openMassTagSelectModal, endMassTagMode } from '@components/massTagging.js';
+import { createImportButton, exportTweets, exportJSON } from '@components/importExport.js';
+import { createRecentlyRemovedButton } from '@components/recentlyRemoved.js';
+import { closeTagModal, saveTags } from '@components/tagModal.js';
+import { addTagToEditor, removeTagFromEditor } from '@components/tagEditor.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadTagGroupState();

@@ -1,5 +1,5 @@
-import { state } from './state.js';
-import { tagEditorContainer, tagInput } from './dom.js';
+import { state } from '@components/state.js';
+import { tagEditorContainer, tagInput } from '@components/dom.js';
 
 export function renderTagCapsules() {
     // Keep the input at the end, remove old capsules, re-append fresh ones.

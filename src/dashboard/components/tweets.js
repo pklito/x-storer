@@ -1,8 +1,8 @@
-import { db } from '../../utils/db.js';
-import { state } from './state.js';
-import { feedTitle } from './dom.js';
-import { renderGrid } from './grid.js';
-import { renderTagsSidebar } from './tagsSidebar.js';
+import { db } from '@utils/db.js';
+import { state } from '@components/state.js';
+import { feedTitle } from '@components/dom.js';
+import { renderGrid } from '@components/grid.js';
+import { renderTagsSidebar } from '@components/tagsSidebar.js';
 
 export async function loadData() {
     try {

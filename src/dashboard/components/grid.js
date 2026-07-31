@@ -1,11 +1,11 @@
-import { db } from '../../utils/db.js';
-import { state, RENDER_BATCH_SIZE } from './state.js';
-import { tweetsGrid, totalCount } from './dom.js';
-import { openLightbox } from './lightbox.js';
-import { openTagModal } from './tagModal.js';
-import { exportTweets } from './importExport.js';
-import { resolveLocalMediaFile, resolveLocalVideoFile } from './mediaFolder.js';
-import { updateUI, getBuiltInTagsForTweet } from './tweets.js';
+import { db } from '@utils/db.js';
+import { state, RENDER_BATCH_SIZE } from '@components/state.js';
+import { tweetsGrid, totalCount } from '@components/dom.js';
+import { openLightbox } from '@components/lightbox.js';
+import { openTagModal } from '@components/tagModal.js';
+import { exportTweets } from '@components/importExport.js';
+import { resolveLocalMediaFile, resolveLocalVideoFile } from '@components/mediaFolder.js';
+import { updateUI, getBuiltInTagsForTweet } from '@components/tweets.js';
 
 export function renderGrid(tweets) {
     state.renderToken++; // invalidate any batch loop still running from a previous render
