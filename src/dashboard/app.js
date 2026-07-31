@@ -6,7 +6,6 @@ import {
 } from './components/dom.js';
 
 import { loadData, updateUI, getFilteredTweets } from './components/render.js';
-import { widenSidebarIfPossible } from './components/utils.js';
 import { initCarousel } from './components/carousel.js';
 
 import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from './components/tagGroups.js';
@@ -29,8 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await initMediaFolder();
     createImportButton();
     createRecentlyRemovedButton();
-    widenSidebarIfPossible();
-    initCarousel();
+        initCarousel();
 });
 
 function setupEventListeners() {

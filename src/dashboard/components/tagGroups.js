@@ -72,7 +72,6 @@ export function setTagGroup(tag, group) {
 
 export function openTagGroupsModal() {
     renderGroupManageList();
-    renderTagAssignList();
     tagGroupsModal.classList.add('active');
 }
 
@@ -233,10 +232,4 @@ function buildGroupTagAddInput(group) {
     input.addEventListener('blur', () => { suggestions.style.display = 'none'; });
 
     return wrap;
-}
-
-export function renderTagAssignList() {
-    // Reserved: the "Uncategorized" chips are actually rendered as part of
-    // renderGroupManageList() above (into tagAssignList). Kept as an
-    // exported no-op so callers don't need to change if that changes later.
 }
