@@ -1,4 +1,4 @@
-import { db } from '../utils/db.js';
+import { db } from '../../utils/db.js';
 import { state } from './state.js';
 import { feedTitle } from './dom.js';
 import { getEffectiveTags } from './tags.js';

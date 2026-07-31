@@ -1,4 +1,4 @@
-import { db } from '../utils/db.js';
+import { db } from '../../utils/db.js';
 import { state } from './state.js';
 import { tagModal, tagInput } from './dom.js';
 import { renderTagCapsules, addTagToEditor } from './tagEditor.js';

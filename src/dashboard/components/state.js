@@ -49,6 +49,7 @@ export const MEDIA_DB_STORE = 'handles';
 export const MEDIA_HANDLE_KEY = 'mediaRoot';
 export const RECENTLY_REMOVED_KEY = 'xb_recently_removed';
 
+
 // 'video', 'gif', and 'text-only' are computed from a tweet's actual media
 // on the fly — never written to tweet.tags / the DB. They live in their
 // own 'Built-in' sidebar section but still work with select/exclude

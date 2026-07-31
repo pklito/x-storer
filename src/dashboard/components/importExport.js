@@ -4,7 +4,7 @@
 // touched); 'replace' wipes the current collection first. Replace shows an
 // extra native confirm() on top of the inline warning before it runs.
 
-import { db } from '../utils/db.js';
+import { db } from '../../utils/db.js';
 import { state } from './state.js';
 import { totalCount } from './dom.js';
 import { loadData } from './render.js';

@@ -1,4 +1,4 @@
-import { db } from '../utils/db.js';
+import { db } from '../../utils/db.js';
 import { state, RENDER_BATCH_SIZE } from './state.js';
 import { tweetsGrid, totalCount } from './dom.js';
 import { getBuiltInTagsForTweet } from './tags.js';
