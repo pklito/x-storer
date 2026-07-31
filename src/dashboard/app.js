@@ -1,7 +1,7 @@
 import { state } from '@components/state.js';
 import {
-    massTagBtn, tagModal, tagInput, tagEditorContainer, searchInput,
-    suggestionsBox, clearTagsBtn, configureTagsBtn, tagGroupsModal,
+    tagModal, tagInput, tagEditorContainer, 
+    suggestionsBox,  configureTagsBtn, tagGroupsModal,
     newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn
 } from '@components/dom.js';
 
@@ -11,11 +11,14 @@ import { initCarousel } from '@components/carousel.js';
 import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from '@components/tagGroups.js';
 import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from '@components/searchTabs.js';
 import { createMediaFolderButton, initMediaFolder } from '@components/mediaFolder.js';
-import { openMassTagSelectModal, endMassTagMode } from '@components/massTagging.js';
 import { createImportButton, exportTweets, exportJSON } from '@components/importExport.js';
 import { createRecentlyRemovedButton } from '@components/recentlyRemoved.js';
 import { closeTagModal, saveTags } from '@components/tagModal.js';
 import { addTagToEditor, removeTagFromEditor } from '@components/tagEditor.js';
+
+import { setupEventListenersSearch } from '@components/tweets.js';
+import { setupEventHandlersMassTagging } from '@components/massTagging.js';
+import { setupEventHandlersSidebar } from '@components/sidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadTagGroupState();
@@ -32,15 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    let debounceTimer;
-    searchInput.addEventListener('input', (e) => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            state.searchTerm = e.target.value.toLowerCase();
-            updateUI();
-        }, 300);
-    });
-
+    setupEventListenersSearch();
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
     document.getElementById('save-tags').addEventListener('click', saveTags);
     tagModal.addEventListener('click', (e) => { if (e.target === tagModal) closeTagModal(); });
@@ -48,21 +43,8 @@ function setupEventListeners() {
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
     document.getElementById('export-json-btn').addEventListener('click', () => exportJSON(getFilteredTweets()));
 
-    // Clear tag filters (lives above the tag list, next to "Tags")
-    clearTagsBtn.addEventListener('click', () => {
-        state.selectedTags.clear();
-        state.excludedTags.clear();
-        updateUI();
-    });
-
-    massTagBtn.addEventListener('click', () => {
-        if (state.massTagModeActive) {
-            endMassTagMode();
-        } else {
-            openMassTagSelectModal();
-        }
-    });
-
+    setupEventHandlersMassTagging();
+    setupEventHandlersSidebar();
     // Tag Groups configuration modal
     configureTagsBtn.addEventListener('click', openTagGroupsModal);
     closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);

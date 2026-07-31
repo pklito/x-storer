@@ -3,6 +3,18 @@ import { state } from '@components/state.js';
 import { feedTitle } from '@components/dom.js';
 import { renderGrid } from '@components/grid.js';
 import { renderTagsSidebar } from '@components/tagsSidebar.js';
+import { searchInput } from '@components/dom.js';
+
+export function setupEventListenersSearch() {
+    let debounceTimer;
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            state.searchTerm = e.target.value.toLowerCase();
+            updateUI();
+        }, 300);
+    });
+}
 
 export async function loadData() {
     try {

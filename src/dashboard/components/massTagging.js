@@ -10,6 +10,16 @@ import { renderTagsSidebar } from '@components/tagsSidebar.js';
 let massTagStatusBar = null;
 let massTagSelectModal = null; // built lazily on first open
 
+export function setupEventHandlersMassTagging() {
+    massTagBtn.addEventListener('click', () => {
+        if (state.massTagModeActive) {
+            endMassTagMode();
+        } else {
+            openMassTagSelectModal();
+        }
+    });
+}
+
 // Builds (once) and shows the tag-selection window used to choose which
 // tags mass tagging mode will apply.
 export function openMassTagSelectModal() {
