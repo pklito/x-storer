@@ -1,10 +1,11 @@
 import { state } from './state.js';
-import {
-    tagModal, tagInput, tagEditorContainer, 
-    suggestionsBox,  configureTagsBtn, tagGroupsModal,
-    newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn,
-     searchInput, massTagBtn, clearTagsBtn, toggleHiddenTagsBtn
-} from './dom.js';
+// import {
+//     tagModal, tagInput, tagEditorContainer, 
+//     suggestionsBox,  configureTagsBtn, tagGroupsModal,
+//     newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn,
+//      searchInput, massTagBtn, clearTagsBtn, toggleHiddenTagsBtn
+// } from './dom.js';
+import * as DOM from './dom.js';
 
 import { loadData, updateUI, getFilteredTweets } from './features/tweets.js';
 import { initCarousel } from './features/carousel.js';
@@ -36,43 +37,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    searchInput.addEventListener('input', searchInputUpdate);
+    DOM.searchInput.addEventListener('input', searchInputUpdate);
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
     document.getElementById('save-tags').addEventListener('click', saveTags);
-    tagModal.addEventListener('click', (e) => { if (e.target === tagModal) closeTagModal(); });
+    DOM.tagModal.addEventListener('click', (e) => { if (e.target === tagModal) closeTagModal(); });
 
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
     document.getElementById('export-json-btn').addEventListener('click', () => exportJSON(getFilteredTweets()));
 
-    massTagBtn.addEventListener('click', massTaggingBtnAction);
-    clearTagsBtn.addEventListener('click', clearTagsBtnAction);
+    DOM.massTagBtn.addEventListener('click', massTaggingBtnAction);
+    DOM.clearTagsBtn.addEventListener('click', clearTagsBtnAction);
     // Tag Groups configuration modal
-    configureTagsBtn.addEventListener('click', openTagGroupsModal);
-    closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);
+    DOM.configureTagsBtn.addEventListener('click', openTagGroupsModal);
+    DOM.closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);
 
-    tagGroupsModal.addEventListener('click', (e) => { if (e.target === tagGroupsModal) closeTagGroupsModal(); });
-    addGroupBtn.addEventListener('click', addTagGroupAction);
+    DOM.tagGroupsModal.addEventListener('click', (e) => { if (e.target === tagGroupsModal) closeTagGroupsModal(); });
+    DOM.addGroupBtn.addEventListener('click', addTagGroupAction);
     
-    newGroupInput.addEventListener('keydown', tagGroupInputKeydown);
+    DOM.newGroupInput.addEventListener('keydown', tagGroupInputKeydown);
 
     // Search tabs
-    addTabBtn.addEventListener('click', addSearchTab);
+    DOM.addTabBtn.addEventListener('click', addSearchTab);
 
     // --- Tag Editor Logic (per-tweet tag modal input) ---
 
     // Focus input when clicking anywhere in the container
-    tagEditorContainer.addEventListener('click', () => tagInput.focus());
+    DOM.tagEditorContainer.addEventListener('click', () => DOM.tagInput.focus());
 
-    tagInput.addEventListener('keydown', tagInputKeydown);
-    tagInput.addEventListener('input', tagInputUpdate);
+    DOM.tagInput.addEventListener('keydown', tagInputKeydown);
+    DOM.tagInput.addEventListener('input', tagInputUpdate);
 
     // Hide suggestions on outside click
     document.addEventListener('click', (e) => {
-        if (!tagEditorContainer.contains(e.target) && !suggestionsBox.contains(e.target)) {
-            suggestionsBox.classList.remove('active');
+        if (!DOM.tagEditorContainer.contains(e.target) && !DOM.suggestionsBox.contains(e.target)) {
+            DOM.suggestionsBox.classList.remove('active');
         }
     });
 
-    toggleHiddenTagsBtn.addEventListener('click', toggleHiddenTagsBtnAction);
+    DOM.toggleHiddenTagsBtn.addEventListener('click', toggleHiddenTagsBtnAction);
 }
