@@ -123,6 +123,7 @@ function removeHiddenTag(tag) {
 export function toggleHiddenTagsBtnAction() {
     state.showHiddenTags = !state.showHiddenTags;
     state.hiddenTags.forEach(tag => {state.excludedTags.add(tag);});
+    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => {state.excludedTags.delete(tag);});
     //update where tags are used
     renderTagsSidebar();
     renderGroupManageList();
