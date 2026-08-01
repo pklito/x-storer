@@ -302,6 +302,14 @@ function buildGroupManageCard(group, tagsInGroup) {
 
     const header = document.createElement('div');
     header.className = 'group-manage-card-header';
+    const left = document.createElement('div');
+    left.style.display = 'flex';
+    left.style.alignItems = 'center';
+    header.appendChild(left);
+    const right = document.createElement('div');
+    right.style.display = 'flex';
+    right.style.alignItems = 'center';
+    header.appendChild(right);
 
     const grip = document.createElement('i');
     grip.className = 'bi bi-grip-vertical';
@@ -319,12 +327,12 @@ function buildGroupManageCard(group, tagsInGroup) {
         card.style.borderTop = '';
         card.style.borderBottom = '';
     });
-    header.appendChild(grip);
+    left.appendChild(grip);
 
     const name = document.createElement('span');
     name.className = 'xb-group-name';
     name.textContent = `${group} (${tagsInGroup.length})`;
-    header.appendChild(name);
+    left.appendChild(name);
 
     const renameBtn = document.createElement('button');
     renameBtn.className = 'icon-btn';
@@ -333,7 +341,7 @@ function buildGroupManageCard(group, tagsInGroup) {
     renameIcon.className = 'bi bi-pencil';
     renameBtn.appendChild(renameIcon);
     renameBtn.addEventListener('click', () => renameTagGroupPrompt(group));
-    header.appendChild(renameBtn);
+    right.appendChild(renameBtn);
 
     const delBtn = document.createElement('button');
     delBtn.className = 'icon-btn danger';
@@ -342,7 +350,7 @@ function buildGroupManageCard(group, tagsInGroup) {
     icon.className = 'bi bi-trash3';
     delBtn.appendChild(icon);
     delBtn.addEventListener('click', () => deleteTagGroup(group));
-    header.appendChild(delBtn);
+    right.appendChild(delBtn);
 
     card.appendChild(header);
 
