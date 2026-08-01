@@ -1,5 +1,8 @@
 import { state } from '../state.js';
 import { tagAllBtn } from '../dom.js';
+// ASSUMPTION: matching the import style of state.js/dom.js — adjust the
+// path/export name if db lives elsewhere or isn't a named export "db".
+import { db } from '../../utils/db.js';
 
 const overlay = document.getElementById('tag-all-select-modal');
 const chipList = document.getElementById('tag-all-chip-list');
@@ -17,21 +20,28 @@ const excludeChosen = new Set(); // tags to REMOVE from every filtered tweet
 
 
 export function setupEventHandlersTagAll() {
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeTagAllModal(); });
-    cancelBtn.addEventListener('click', closeTagAllModal);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMassTagSelectModal(); });
+    cancelBtn.addEventListener('click', closeMassTagSelectModal);
 
     addTagBtnEl.addEventListener('click', addNewTag);
     newTagInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') { e.preventDefault(); addNewTag(); }
     });
 
-    startBtn.addEventListener('click', () => {
-        if (chosen.size === 0 && excludeChosen.size === 0) return;
-        applyTagsToAll();
-        closeTagAllModal();
-    });
-
     tagAllBtn.addEventListener('click', tagAllBtnAction);
+    startBtn.addEventListener('click', async () => {
+        if (chosen.size === 0 && excludeChosen.size === 0) return;
+        const originalLabel = startBtn.textContent;
+        startBtn.disabled = true;
+        startBtn.textContent = 'Saving…';
+        try {
+            await applyTagsToAll();
+        } finally {
+            startBtn.disabled = false;
+            startBtn.textContent = originalLabel;
+        }
+        closeMassTagSelectModal();
+    });
 }
 
 export function tagAllBtnAction() {
@@ -48,7 +58,7 @@ export function openTagAllModal() {
     overlay.classList.add('active');
 }
 
-export function closeTagAllModal() {
+export function closeMassTagSelectModal() {
     chosen.clear();
     excludeChosen.clear();
     pendingNewTags.clear();
@@ -126,22 +136,24 @@ function addNewTag() {
     refreshChipList();
 }
 
-// Applies the chosen/excludeChosen tag sets to every currently-filtered
-// tweet: adds each `chosen` tag, removes each `excludeChosen` tag.
-// ASSUMPTION: tweet.tags is a Set of tag names — adjust addTagToTweet /
-// removeTagFromTweet below if tweets.js exposes its own mutator functions
-// instead (e.g. if there's tag-count bookkeeping tied to add/remove that
-// this bypasses by mutating tweet.tags directly).
-function applyTagsToAll() {
+async function applyTagsToAll() {
     const tweets = getFilteredTweets();
     const addTags = Array.from(chosen);
     const removeTags = Array.from(excludeChosen);
 
-    tweets.forEach(tweet => {
-        addTags.forEach(tag => tweet.tags.add(tag));
-        removeTags.forEach(tag => tweet.tags.delete(tag));
-    });
+    const results = await Promise.allSettled(tweets.map(async tweet => {
+        const nextTags = Array.from(new Set(tweet.tags));
+        addTags.forEach(tag => { if (!nextTags.includes(tag)) nextTags.push(tag); });
+        const filtered = nextTags.filter(tag => !removeTags.includes(tag));
 
-    updateUI();
+        await db.updateTweetTags(tweet.id, filtered);
+        tweet.tags = filtered;
+    }));
+
+    const failed = results.filter(r => r.status === 'rejected');
+    if (failed.length) {
+        console.error(`Failed to save tags for ${failed.length} of ${tweets.length} tweet(s):`, failed.map(f => f.reason));
+    }
+
     renderTagsSidebar();
 }

@@ -128,6 +128,9 @@ export async function deleteTweet(id) {
 // an existing container. Shared by initial card creation and the mass-tag
 // live update below, so both stay in sync.
 export function refreshTweetBadges(tagsDiv, tweet) {
+    if (!tagsDiv) {
+        
+    }
     tagsDiv.replaceChildren();
     (tweet.tags || []).forEach(tag => {
         const tagBadge = document.createElement('span');
@@ -296,7 +299,7 @@ function createTweetCard(tweet) {
 
     const tagsDiv = document.createElement('div');
     tagsDiv.className = 'tweet-tags';
-    tagsDiv.id = 'tweet-tags-div';
+    tagsDiv.id = `tweet-tags-${tweet.id}`; // for mass-tag live update to find it
     refreshTweetBadges(tagsDiv, tweet);
     meta.appendChild(tagsDiv);
     card.appendChild(meta);
