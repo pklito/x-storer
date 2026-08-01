@@ -14,6 +14,8 @@ const startBtn = document.getElementById('tag-all-start-btn');
 import { getAllTagNames, updateUI, getTagsByGroup, getFilteredTweets } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 
+import { refreshTweetBadges } from './grid.js';
+
 const pendingNewTags = new Set(); // typed-in tags not yet in getAllTagNames()
 const chosen = new Set(); // tags to ADD to every filtered tweet
 const excludeChosen = new Set(); // tags to REMOVE from every filtered tweet
@@ -148,6 +150,7 @@ async function applyTagsToAll() {
 
         await db.updateTweetTags(tweet.id, filtered);
         tweet.tags = filtered;
+        refreshTweetBadges(null, tweet);
     }));
 
     const failed = results.filter(r => r.status === 'rejected');

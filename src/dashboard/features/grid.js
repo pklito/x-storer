@@ -129,7 +129,8 @@ export async function deleteTweet(id) {
 // live update below, so both stay in sync.
 export function refreshTweetBadges(tagsDiv, tweet) {
     if (!tagsDiv) {
-        
+        tagsDiv = document.getElementById(`tweet-tags-${tweet.id}`);
+        if (!tagsDiv) return; // not found, maybe the card was removed from the grid
     }
     tagsDiv.replaceChildren();
     (tweet.tags || []).forEach(tag => {
