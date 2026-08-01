@@ -1074,9 +1074,10 @@ body.sidebar-resizing {
 }
 .xb-tag-select-chip.tinted { background: rgba(102, 101, 101, 0.171); }
 .xb-tag-select-chip.tinted.chosen { background: #1675b4; color: #ffffff; border-color: #1576b6; }
-
-
 .xb-tag-select-chip.chosen { background: #1d9bf0; color: #ffffff; border-color: #1d9bf0; }
+
+.xb-tag-select-chip.tinted.excluded { background: #c41717; color: #000000; border-color: #c93319; }
+.xb-tag-select-chip.excluded { background: #f01d1d; color: #000000; border-color: #f03d1d; }
 
 /* ---- Mass tagging: fixed status bar while active ---- */
 .xb-status-bar {

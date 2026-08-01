@@ -52,7 +52,7 @@ export function updateUI() {
     const parts = [];
     if (state.selectedTags.size > 0) parts.push(Array.from(state.selectedTags).map(t => '#' + t).join(', '));
     if (state.excludedTags.size > 0) parts.push(Array.from(state.excludedTags).map(t => '−#' + t).join(', '));
-    feedTitle.textContent = parts.length > 0 ? `Filtered: ${parts.join('  ')}` : 'All Bookmarks';
+    feedTitle.textContent = parts.length > 0 ? `Filtered: ${state.selectedTags.size} included, ${state.excludedTags.size} excluded` : 'All Bookmarks';
 
     renderGrid(tweets);
     renderTagsSidebar();

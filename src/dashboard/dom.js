@@ -27,3 +27,5 @@ export const toggleHiddenTagsBtn = document.getElementById('toggle-hidden-tags-b
 export const appContainer = document.querySelector('.app-container');
 export const mainContent = document.querySelector('.main-content');
 export const sidebar = document.querySelector('.sidebar');
+
+export const tagAllBtn = document.getElementById('tag-all-btn');
