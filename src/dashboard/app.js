@@ -19,7 +19,9 @@ import { closeTagModal, saveTags, tagInputUpdate, tagInputKeydown,
     addTagToEditor, removeTagFromEditor } from './features/tagModal.js';
 
 import { searchInputUpdate } from './features/tweets.js';
-import { massTaggingBtnAction, setupEventHandlersMassTagging } from './features/massTagging.js';
+import { setupEventHandlersMassTagging } from './features/massTagging.js';
+import { setupEventHandlersTagAll } from './features/tagAll.js';
+
 import { clearTagsBtnAction } from './features/tagsSidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -40,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupEventListeners() {
     initSidebarResize();
     setupEventHandlersMassTagging();
+    setupEventHandlersTagAll();
     
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 
@@ -50,7 +53,6 @@ function setupEventListeners() {
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
     document.getElementById('export-json-btn').addEventListener('click', () => exportJSON(getFilteredTweets()));
 
-    DOM.massTagBtn.addEventListener('click', massTaggingBtnAction);
     DOM.clearTagsBtn.addEventListener('click', clearTagsBtnAction);
     // Tag Groups configuration modal
     DOM.configureTagsBtn.addEventListener('click', openTagGroupsModal);

@@ -1,27 +1,26 @@
 import { state } from '../state.js';
-import {massTagBtn} from '../dom.js';
+import { tagAllBtn } from '../dom.js';
 //, massTagSelectModal as overlay,  massTagChipList as chipList,  massTagNewInput as newTagInput,
 //     massTagAddBtn as addTagBtnEl,  massTagCancelBtn as cancelBtn, massTagStartBtn as startBtn,  massTagStatusBar as statusBar,
 //     massTagStatusLabel as statusLabel,  massTagStopBtn as stopBtn,
 // } from '../dom.js';
 
-const overlay = document.getElementById('mass-tag-select-modal');
-const chipList = document.getElementById('mass-tag-chip-list');
-const newTagInput = document.getElementById('mass-tag-new-input');
-const addTagBtnEl = document.getElementById('mass-tag-add-btn');
-const cancelBtn = document.getElementById('mass-tag-cancel-btn');
-const startBtn = document.getElementById('mass-tag-start-btn');
-const statusBar = document.getElementById('mass-tag-status-bar');
-const statusLabel = document.getElementById('mass-tag-status-label');
-const stopBtn = document.getElementById('mass-tag-stop-btn');
+const overlay = document.getElementById('tag-all-select-modal');
+const chipList = document.getElementById('tag-all-chip-list');
+const newTagInput = document.getElementById('tag-all-new-input');
+const addTagBtnEl = document.getElementById('tag-all-add-btn');
+const cancelBtn = document.getElementById('tag-all-cancel-btn');
+const startBtn = document.getElementById('tag-all-start-btn');
 
-import { getAllTagNames, getTagsByGroup } from './tweets.js';
+import { getAllTagNames, updateUI, getTagsByGroup } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 
 const pendingNewTags = new Set(); // typed-in tags not yet in getAllTagNames()
 const chosen = new Set(); // currently checked tag names
+const excludeChosen = new Set(); // currently checked tag names
 
-export function setupEventHandlersMassTagging() {
+
+export function setupEventHandlersTagAll() {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) closeMassTagSelectModal(); });
     cancelBtn.addEventListener('click', closeMassTagSelectModal);
 
@@ -37,25 +36,25 @@ export function setupEventHandlersMassTagging() {
     });
 
     stopBtn.addEventListener('click', endMassTagMode);
-    massTagBtn.addEventListener('click', massTaggingBtnAction);
 }
 
-export function massTaggingBtnAction() {
-    if (state.massTagModeActive) {
-        endMassTagMode();
-    } else {
-        openMassTagSelectModal();
-    }
+export function tagAllBtnAction() {
+    openTagAllModal();
 }
 
-export function openMassTagSelectModal() {
+export function openTagAllModal() {
+    updateUI(); 
     chosen.clear();
+    excludeChosen.clear();
     pendingNewTags.clear();
     refreshChipList();
     overlay.classList.add('active');
 }
 
 export function closeMassTagSelectModal() {
+    chosen.clear();
+    excludeChosen.clear();
+    pendingNewTags.clear();
     overlay.classList.remove('active');
 }
 
@@ -71,23 +70,23 @@ function chip(tag, tinted = false) {
     return el;
 }
 
-const orderByGroups = true;
+let orderByGroups = true;
 function refreshChipList() {
     chipList.replaceChildren();
-    let tinted = false;
-    if(orderByGroups) {
-        getTagsByGroup(false).values().forEach(groupTags => {
-            tinted = !tinted; 
-            groupTags.forEach(tag => {
-                chipList.appendChild(chip(tag, tinted));
+        let tinted = false;
+        if(orderByGroups) {
+            getTagsByGroup(false).values().forEach(groupTags => {
+                tinted = !tinted; 
+                groupTags.forEach(tag => {
+                    chipList.appendChild(chip(tag, tinted));
+                });
             });
-        });
-        Array.from(pendingNewTags).sort().forEach(tag => chipList.appendChild(chip(tag, tinted)));
-    } else {
-        //old code
-        const names = new Set([...getAllTagNames(), ...pendingNewTags]);
-        Array.from(names).sort().forEach(tag => chipList.appendChild(chip(tag)));
-    }
+            Array.from(pendingNewTags).sort().forEach(tag => chipList.appendChild(chip(tag, tinted)));
+        } else {
+            //old code
+            const names = new Set([...getAllTagNames(), ...pendingNewTags]);
+            Array.from(names).sort().forEach(tag => chipList.appendChild(chip(tag)));
+        }
 }
 
 function addNewTag() {
