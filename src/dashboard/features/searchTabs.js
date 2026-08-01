@@ -1,6 +1,7 @@
-import { state, SEARCH_TABS_KEY } from '@components/state.js';
-import { searchTabsEl, addTabBtn } from '@components/dom.js';
-import { updateUI } from '@components/tweets.js';
+import { state, SEARCH_TABS_KEY } from '../state.js';
+import { searchTabsEl, addTabBtn } from '../dom.js';
+
+import { updateUI } from './tweets.js';
 
 export function loadSearchTabsState() {
     try {

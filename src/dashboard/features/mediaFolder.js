@@ -2,9 +2,9 @@
 // per account, matching authorHandle, containing media files with their
 // original filenames) instead of hitting the network.
 
-import { state, MEDIA_DB_NAME, MEDIA_DB_STORE, MEDIA_HANDLE_KEY } from '@components/state.js';
-import { totalCount } from '@components/dom.js';
-import { updateUI } from '@components/tweets.js';
+import { state, MEDIA_DB_NAME, MEDIA_DB_STORE, MEDIA_HANDLE_KEY } from '../state.js';
+import { totalCount } from '../dom.js';
+import { updateUI } from './tweets.js';
 
 let mediaFolderBtn = null;
 let mediaFolderClearBtn = null;

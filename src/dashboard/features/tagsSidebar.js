@@ -1,7 +1,7 @@
-import { state, BUILT_IN_TAG_NAMES } from '@components/state.js';
-import { tagList, clearTagsBtn } from '@components/dom.js';
-import { tagGroupOf, saveTagGroupState } from '@components/tagGroups.js';
-import { updateUI, getBuiltInTagsForTweet } from '@components/tweets.js';
+import { state, BUILT_IN_TAG_NAMES } from '../state.js';
+import { tagList, clearTagsBtn } from '../dom.js';
+import { tagGroupOf, saveTagGroupState } from './tagGroups.js';
+import { updateUI, getBuiltInTagsForTweet } from './tweets.js';
 
 export function setupEventHandlersSidebar() {
  // Clear tag filters (lives above the tag list, next to "Tags")

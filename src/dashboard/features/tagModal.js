@@ -1,7 +1,7 @@
-import { db } from '@utils/db.js';
-import { state } from '@components/state.js';
-import { tagModal, tagInput } from '@components/dom.js';
-import { renderTagCapsules, addTagToEditor } from '@components/tagEditor.js';
+import { db } from '../../utils/db.js';
+import { state } from '../state.js';
+import { tagModal, tagInput } from '../dom.js';
+import { renderTagCapsules, addTagToEditor } from './tagEditor.js';
 
 export function openTagModal(tweetId) {
     state.currentEditTweetId = tweetId;

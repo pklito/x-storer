@@ -934,3 +934,279 @@ body {
 .carousel-title {
     display:block; margin-top:0.5rem; margin-bottom:0.5rem;
 }
+
+/* ==========================================================================
+   Extracted from app.js's inline style.cssText usage.
+   Add this file's contents into your main stylesheet (or link it directly)
+   and it should look identical to before — just now editable as real CSS.
+   Everything is prefixed "xb-" to avoid clashing with your existing classes.
+   ========================================================================== */
+
+/* ---- Generic modal shell (mass-tag select, import, recently-removed) ---- */
+.xb-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+.xb-modal-overlay.active { display: flex; }
+
+.xb-modal-box {
+    background: #192734;
+    color: #ffffff;
+    max-width: 90vw;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.xb-modal-box.w-340 { width: 340px; }
+.xb-modal-box.w-360 { width: 360px; }
+.xb-modal-box.w-420 { width: 420px; max-height: 80vh; }
+
+.xb-modal-title { font-weight: 600; font-size: 15px; }
+.xb-modal-hint { font-size: 12px; opacity: 0.75; line-height: 1.4; }
+.xb-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+.xb-align-self-end { align-self: flex-end; }
+
+/* ---- Shared buttons/inputs used inside those modals ---- */
+.xb-btn-secondary {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+.xb-btn-primary {
+    background: #1d9bf0;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.xb-input {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+.xb-flex-1 { flex: 1; flex-grow: 1; }
+
+/* ---- Mass tagging: tag-selection modal ---- */
+.xb-mass-tag-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    overflow-y: auto;
+    max-height: 220px;
+    padding: 4px 0;
+}
+.xb-mass-tag-new-row { display: flex; gap: 6px; }
+
+.xb-tag-select-chip {
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+.xb-tag-select-chip.chosen { background: #1d9bf0; }
+
+/* ---- Mass tagging: fixed status bar while active ---- */
+.xb-status-bar {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 999;
+    background: #1d9bf0;
+    color: #ffffff;
+    padding: 10px 16px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    font-size: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.xb-status-bar.active { display: flex; }
+.xb-status-bar-stop-btn {
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 13px;
+}
+/* Adds room at the top of the page while the status bar is fixed/visible */
+body.xb-mass-tag-padding { padding-top: 42px; }
+
+/* Brief flash on a tweet card to confirm a mass-tag click registered */
+.xb-flash-tagged { outline: 3px solid #17bf63; outline-offset: -3px; }
+.xb-flash-untagged { outline: 3px solid #e0245e; outline-offset: -3px; }
+
+/* ---- Import modal specifics ---- */
+.xb-import-mode-row { display: flex; gap: 16px; font-size: 14px; }
+.xb-import-mode-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.xb-import-status { font-size: 13px; opacity: 0.85; min-height: 16px; }
+
+.xb-warning-box {
+    display: none;
+    font-size: 12px;
+    color: #ffb020;
+    background: rgba(255, 176, 32, 0.12);
+    border: 1px solid rgba(255, 176, 32, 0.4);
+    border-radius: 6px;
+    padding: 8px 10px;
+    line-height: 1.4;
+}
+.xb-warning-box.visible { display: block; }
+
+/* ---- Recently Removed panel ---- */
+.xb-rr-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: 340px; }
+.xb-rr-row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); }
+.xb-rr-info { flex: 1; min-width: 0; font-size: 13px; }
+.xb-rr-author { font-weight: 600; }
+.xb-rr-text { opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xb-rr-time { opacity: 0.5; font-size: 11px; }
+.xb-rr-undo-btn {
+    background: #1d9bf0;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.xb-rr-empty { font-size: 13px; opacity: 0.7; padding: 8px 0; }
+
+/* ---- Image lightbox ---- */
+.xb-lightbox-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0, 0, 0, 0.88);
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+.xb-lightbox-overlay.active { display: flex; }
+.xb-lightbox-img {
+    max-width: 92vw;
+    max-height: 92vh;
+    object-fit: contain;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    cursor: default;
+}
+.xb-lightbox-close-btn {
+    position: fixed;
+    top: 16px; right: 20px;
+    z-index: 2001;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 36px; height: 36px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+/* ---- Tweet card badges ---- */
+.xb-local-media-badge {
+    display: none;
+    position: absolute;
+    top: 8px; right: 8px;
+    z-index: 5;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    pointer-events: none;
+}
+.xb-local-media-badge.visible { display: flex; }
+
+.xb-media-type-badge {
+    position: absolute;
+    bottom: 6px; right: 6px;
+    z-index: 3;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    pointer-events: none;
+}
+.xb-media-type-badge.hidden { display: none; }
+
+/* Tweet card perf hint (content-visibility) — was set via inline style */
+.tweet-card-perf {
+    content-visibility: auto;
+    contain-intrinsic-size: 350px 480px;
+    position: relative; /* positioning context for the local-media badge */
+}
+
+/* ---- Tweet media gallery ---- */
+.tweet-media { display: grid; gap: 4px; }
+.tweet-media-grid { grid-template-columns: 1fr 1fr; }
+.tweet-media-item { position: relative; overflow: hidden; }
+.tweet-media-item img,
+.tweet-media-item video { width: 100%; display: block; }
+.tweet-media-item.clickable-watch { cursor: pointer; }
+.tweet-media-item.clickable-zoom { cursor: zoom-in; }
+.tweet-media-item.playable { cursor: default; }
+
+/* Built-in tag badges (video/gif/text-only/cw) get a dashed outline so
+   they read as distinct from real, stored tags */
+.tweet-tag-badge-builtin { border: 1px dashed currentColor; opacity: 0.75; }
+
+/* Linkified URLs inside tweet text */
+.linkified-url { color: var(--accent-color); }
+
+/* ---- Tag Groups modal ---- */
+.xb-group-name { font-weight: 600; font-size: 1.5em; }
+.xb-group-empty-text { font-size: 12px; opacity: 0.6; }
+.xb-chip-remove-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    opacity: 0.7;
+}
+.xb-group-add-input-wrap { position: relative; }
+.xb-group-add-suggestion-item { padding: 6px 10px; cursor: pointer; font-size: 13px; }
+.xb-group-add-suggestion-item:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* ---- Empty grid state ---- */
+.xb-empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem;
+}
+.xb-empty-state i { font-size: 2rem; }
+
+/* ---- OG carousel dots ---- */
+.og-dot { background: var(--text-secondary); opacity: 0.5; }
+.og-dot.active { background: var(--accent-color); opacity: 1; }

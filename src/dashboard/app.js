@@ -1,24 +1,24 @@
-import { state } from '@components/state.js';
+import { state } from './state.js';
 import {
     tagModal, tagInput, tagEditorContainer, 
     suggestionsBox,  configureTagsBtn, tagGroupsModal,
     newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn
-} from '@components/dom.js';
+} from './dom.js';
 
-import { loadData, updateUI, getFilteredTweets } from '@components/tweets.js';
-import { initCarousel } from '@components/carousel.js';
+import { loadData, updateUI, getFilteredTweets } from './features/tweets.js';
+import { initCarousel } from './features/carousel.js';
 
-import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from '@components/tagGroups.js';
-import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from '@components/searchTabs.js';
-import { createMediaFolderButton, initMediaFolder } from '@components/mediaFolder.js';
-import { createImportButton, exportTweets, exportJSON } from '@components/importExport.js';
-import { createRecentlyRemovedButton } from '@components/recentlyRemoved.js';
-import { closeTagModal, saveTags } from '@components/tagModal.js';
-import { addTagToEditor, removeTagFromEditor } from '@components/tagEditor.js';
+import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from './features/tagGroups.js';
+import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from './features/searchTabs.js';
+import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
+import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
+import { createRecentlyRemovedButton } from './features/recentlyRemoved.js';
+import { closeTagModal, saveTags } from './features/tagModal.js';
+import { addTagToEditor, removeTagFromEditor } from './features/tagEditor.js';
 
-import { setupEventListenersSearch } from '@components/tweets.js';
-import { setupEventHandlersMassTagging } from '@components/massTagging.js';
-import { setupEventHandlersSidebar } from '@components/sidebar.js';
+import { setupEventListenersSearch } from './features/tweets.js';
+import { setupEventHandlersMassTagging } from './features/massTagging.js';
+import { setupEventHandlersSidebar } from './features/sidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadTagGroupState();

@@ -5,10 +5,10 @@
 // deleting it in response to a REMOVE_TWEET message. This panel lists those
 // stashes and lets you restore any of them with one click.
 
-import { db } from '@utils/db.js';
-import { RECENTLY_REMOVED_KEY } from '@components/state.js';
-import { totalCount } from '@components/dom.js';
-import { loadData } from '@components/tweets.js';
+import { db } from '../../utils/db.js';
+import { RECENTLY_REMOVED_KEY } from '../state.js';
+import { totalCount } from '../dom.js';
+import { loadData } from './tweets.js';
 
 let recentlyRemovedBtn = null;
 let recentlyRemovedModalEls = null; // built lazily on first use
