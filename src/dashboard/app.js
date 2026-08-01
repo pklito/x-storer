@@ -10,7 +10,7 @@ import * as DOM from './dom.js';
 import { loadData, updateUI, getFilteredTweets } from './features/tweets.js';
 import { initCarousel } from './features/carousel.js';
 
-import { loadTagGroupState, tagGroupInputKeydown, addTagGroupAction, openTagGroupsModal, closeTagGroupsModal, toggleHiddenTagsBtnAction } from './features/tagGroups.js';
+import { loadHiddenTagsState ,loadTagGroupState, tagGroupInputKeydown, addTagGroupAction, openTagGroupsModal, closeTagGroupsModal, toggleHiddenTagsBtnAction } from './features/tagGroups.js';
 import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from './features/searchTabs.js';
 import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
 import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
@@ -23,6 +23,7 @@ import { massTaggingBtnAction } from './features/massTagging.js';
 import { clearTagsBtnAction } from './features/tagsSidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    loadHiddenTagsState();
     loadTagGroupState();
     loadSearchTabsState();
     applyActiveTabSilently();

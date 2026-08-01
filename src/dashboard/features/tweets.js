@@ -85,7 +85,7 @@ export function getAllTagNames() {
     return Array.from(set).sort();
 }
 
-function getAllTagCounts() {
+export function getAllTagCounts() {
     const tagCounts = {};
     state.allTweets.forEach(t => {
         (t.tags || []).forEach(tag => {
@@ -96,11 +96,11 @@ function getAllTagCounts() {
     return tagCounts;
 }
 
-function getSelectedTags() {
+export function getSelectedTags() {
     return state.selectedTags
 }
 
-function getExcludedOrHiddenTags() {
+export function getExcludedOrHiddenTags() {
     if(state.showHiddenTags) return state.excludedTags;
     return new Set([...state.excludedTags, ...state.hiddenTags]);
 }

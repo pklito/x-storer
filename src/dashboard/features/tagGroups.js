@@ -1,4 +1,4 @@
-import { state, TAG_GROUPS_KEY } from '../state.js';
+import { state, TAG_GROUPS_KEY, HIDDEN_TAGS_KEY } from '../state.js';
 import { tagGroupsModal, groupManageList, tagAssignList, toggleHiddenTagsBtn, newGroupInput } from '../dom.js';
 
 import { getAllTagNames } from './tweets.js';
@@ -81,6 +81,43 @@ function setTagGroup(tag, group) {
         state.tagGroupAssignments[tag] = group;
     }
     saveTagGroupState();
+    renderTagsSidebar();
+}
+
+
+export function loadHiddenTagsState() {
+    try {
+        const raw = localStorage.getItem(HIDDEN_TAGS_KEY);
+        if (raw) {
+            const data = JSON.parse(raw);
+            if (Array.isArray(data)) state.hiddenTags = new Set(data);
+        }
+    } catch (err) {
+        console.error('Failed to load hidden tags:', err);
+    }
+}
+
+function saveHiddenTagsState() {
+    try {
+        localStorage.setItem(HIDDEN_TAGS_KEY, JSON.stringify(Array.from(state.hiddenTags)));
+    } catch (err) {
+        console.error('Failed to save hidden tags:', err);
+    }
+}
+
+function addHiddenTag(tag) {
+    state.hiddenTags.add(tag);
+    state.excludedTags.add(tag);
+    saveHiddenTagsState();
+    renderGroupManageList();
+    renderTagsSidebar();
+}
+
+function removeHiddenTag(tag) {
+    state.hiddenTags.delete(tag);
+    state.excludedTags.delete(tag);
+    saveHiddenTagsState();
+    renderGroupManageList();
     renderTagsSidebar();
 }
 
@@ -207,17 +244,20 @@ function buildGroupManageCard(group, tagsInGroup) {
 
     // Autocomplete input to add another tag to this group.
     if (group !== 'Uncategorized') {
-        card.appendChild(buildGroupTagAddInput(group));
+        card.appendChild(buildTagAddInput({
+            placeholder: 'Add a tag to this group…',
+            isAlreadyIn: t => tagGroupOf(t) === group,
+            onCommit: tag => { setTagGroup(tag, group); renderGroupManageList(); }
+        }));
     }
 
     return card;
 }
 
-// Read-only display of tags hidden via toggleHiddenTagsBtnAction. Hidden
-// tags are a separate persisted concept from group assignment (see
-// state.hiddenTags / HIDDEN_TAGS_KEY), so this card intentionally has no
-// delete button, no removable chips, and no add-input — un-hiding a tag
-// happens through the eye toggle, not here.
+// Tags hidden via toggleHiddenTagsBtnAction. This is a separate persisted
+// concept from group assignment (state.hiddenTags / HIDDEN_TAGS_KEY, not
+// tagGroupAssignments), so it gets its own add/remove that goes through
+// addHiddenTag/removeHiddenTag rather than setTagGroup.
 function buildHiddenTagsCard(tags) {
     const card = document.createElement('div');
     card.className = 'group-manage-card';
@@ -232,24 +272,31 @@ function buildHiddenTagsCard(tags) {
 
     card.appendChild(header);
     card.appendChild(buildTagChipsRow(tags, {
-        removable: false,
+        removable: true,
+        onRemove: removeHiddenTag,
         emptyText: 'No hidden tags.'
+    }));
+    card.appendChild(buildTagAddInput({
+        placeholder: 'Hide a tag…',
+        isAlreadyIn: t => state.hiddenTags.has(t),
+        onCommit: addHiddenTag
     }));
 
     return card;
 }
 
-// Self-contained type-to-add autocomplete for assigning a tag to `group` —
-// same interaction as the per-tweet tag editor (type, see matches, click or
-// Enter to add), built fresh here since that editor's suggestion box is a
-// singleton bound to its own input/state.
-function buildGroupTagAddInput(group) {
+// Self-contained type-to-add autocomplete — same interaction as the
+// per-tweet tag editor (type, see matches, click or Enter to add), built
+// fresh here since that editor's suggestion box is a singleton bound to
+// its own input/state. `isAlreadyIn` filters suggestions down to tags not
+// already in the target collection; `onCommit` does the actual add.
+function buildTagAddInput({ placeholder, isAlreadyIn, onCommit }) {
     const wrap = document.createElement('div');
     wrap.className = 'xb-group-add-input-wrap';
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.placeholder = 'Add a tag to this group…';
+    input.placeholder = placeholder;
     input.className = 'tag-input-wrapper smaller';
     wrap.appendChild(input);
 
@@ -260,8 +307,7 @@ function buildGroupTagAddInput(group) {
     function commit(tagName) {
         const clean = tagName.trim().replace(/^#/, '');
         if (!clean) return;
-        setTagGroup(clean, group);
-        renderGroupManageList();
+        onCommit(clean);
     }
 
     function showSuggestions(query) {
@@ -269,9 +315,9 @@ function buildGroupTagAddInput(group) {
         suggestions.style.display = 'none';
         if (!q) return;
 
-        const allTagNames = new Set([...getAllTagNames(), ...Object.keys(state.tagGroupAssignments)]);
+        const allTagNames = new Set([...getAllTagNames(), ...Object.keys(state.tagGroupAssignments), ...state.hiddenTags]);
         const matches = Array.from(allTagNames)
-            .filter(t => t.toLowerCase().includes(q) && tagGroupOf(t) !== group)
+            .filter(t => t.toLowerCase().includes(q) && !isAlreadyIn(t))
             .sort();
         if (matches.length === 0) return;
 

@@ -1,7 +1,7 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
 import { tagList, clearTagsBtn } from '../dom.js';
 import { tagGroupOf, saveTagGroupState } from './tagGroups.js';
-import { updateUI, getBuiltInTagsForTweet } from './tweets.js';
+import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
 
 export function clearTagsBtnAction() {
     state.selectedTags.clear();
@@ -10,12 +10,7 @@ export function clearTagsBtnAction() {
 }
 
 export function renderTagsSidebar() {
-    const tagCounts = {};
-    state.allTweets.forEach(t => {
-        (t.tags || []).forEach(tag => {
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-        });
-    });
+    const tagCounts = getAllTagCounts();
 
     // Clear button lives in the header row above the list (see index.html);
     // just toggle its visibility here.
