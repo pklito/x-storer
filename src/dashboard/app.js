@@ -3,13 +3,13 @@ import {
     tagModal, tagInput, tagEditorContainer, 
     suggestionsBox,  configureTagsBtn, tagGroupsModal,
     newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn,
-     searchInput, massTagBtn, clearTagsBtn
+     searchInput, massTagBtn, clearTagsBtn, toggleHiddenTagsBtn
 } from './dom.js';
 
 import { loadData, updateUI, getFilteredTweets } from './features/tweets.js';
 import { initCarousel } from './features/carousel.js';
 
-import { loadTagGroupState, tagGroupInputKeydown, addTagGroupAction, openTagGroupsModal, closeTagGroupsModal } from './features/tagGroups.js';
+import { loadTagGroupState, tagGroupInputKeydown, addTagGroupAction, openTagGroupsModal, closeTagGroupsModal, toggleHiddenTagsBtnAction } from './features/tagGroups.js';
 import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from './features/searchTabs.js';
 import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
 import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
@@ -52,7 +52,7 @@ function setupEventListeners() {
     closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);
 
     tagGroupsModal.addEventListener('click', (e) => { if (e.target === tagGroupsModal) closeTagGroupsModal(); });
-    addGroupBtn.addEventListener('click', AddTagGroupAction);
+    addGroupBtn.addEventListener('click', addTagGroupAction);
     
     newGroupInput.addEventListener('keydown', tagGroupInputKeydown);
 
@@ -74,11 +74,5 @@ function setupEventListeners() {
         }
     });
 
-    toggleHiddenTagsBtn.addEventListener('click', () => {
-        state.showHiddenTags = !state.showHiddenTags;
-        state.hiddenTags.forEach(tag => {state.excludedTags.add(tag);});
-        //update where tags are used
-        renderTagsSidebar();
-        renderGroupManageList();
-    });
+    toggleHiddenTagsBtn.addEventListener('click', toggleHiddenTagsBtnAction);
 }

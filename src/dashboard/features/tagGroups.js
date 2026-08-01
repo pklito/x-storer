@@ -84,6 +84,14 @@ function setTagGroup(tag, group) {
     renderTagsSidebar();
 }
 
+export function toggleHiddenTagsBtnAction() {
+    state.showHiddenTags = !state.showHiddenTags;
+    state.hiddenTags.forEach(tag => {state.excludedTags.add(tag);});
+    //update where tags are used
+    renderTagsSidebar();
+    renderGroupManageList();
+}
+
 export function openTagGroupsModal() {
     renderGroupManageList();
     tagGroupsModal.classList.add('active');
