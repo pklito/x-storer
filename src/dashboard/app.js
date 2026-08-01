@@ -19,7 +19,7 @@ import { closeTagModal, saveTags, tagInputUpdate, tagInputKeydown,
     addTagToEditor, removeTagFromEditor } from './features/tagModal.js';
 
 import { searchInputUpdate } from './features/tweets.js';
-import { massTaggingBtnAction } from './features/massTagging.js';
+import { massTaggingBtnAction, setupEventHandlersMassTagging } from './features/massTagging.js';
 import { clearTagsBtnAction } from './features/tagsSidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -38,8 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    initSidebarResize()
-
+    initSidebarResize();
+    setupEventHandlersMassTagging();
+    
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);

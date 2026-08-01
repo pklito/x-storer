@@ -1069,10 +1069,10 @@ body.sidebar-resizing {
     cursor: pointer;
     user-select: none;
     border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(255, 255, 255, 0.08);
-    color: #ffffff;
+    background: rgba(199, 195, 195, 0.171);
+    color: #000000;
 }
-.xb-tag-select-chip.chosen { background: #1d9bf0; }
+.xb-tag-select-chip.chosen { background: #1d9bf0; color: #ffffff; border-color: #1d9bf0; }
 
 /* ---- Mass tagging: fixed status bar while active ---- */
 .xb-status-bar {
