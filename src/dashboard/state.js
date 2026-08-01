@@ -19,8 +19,9 @@ export const state = {
     collapsedGroups: new Set(),       // group names currently collapsed in the sidebar
 
     // Search Tabs (saved filter combinations)
-    searchTabs: [{ id: 'default', name: 'All', selectedTags: [], excludedTags: [] }],
+    searchTabs: [{ id: 'default', name: 'All', selectedTags: [], excludedTags: [], hiddenOnly: false }],
     activeTabId: 'default',
+    defaultTabId: 'default', // which tab is auto-selected when the dashboard opens
 
     // Tag editor modal (per-tweet)
     currentQuoteTags: [], // tags being edited in modal, as Array of Strings
