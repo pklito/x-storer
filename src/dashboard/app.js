@@ -41,7 +41,7 @@ function setupEventListeners() {
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
     document.getElementById('save-tags').addEventListener('click', saveTags);
-    DOM.tagModal.addEventListener('click', (e) => { if (e.target === tagModal) closeTagModal(); });
+    DOM.tagModal.addEventListener('click', (e) => { if (e.target === DOM.tagModal) closeTagModal(); });
 
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
     document.getElementById('export-json-btn').addEventListener('click', () => exportJSON(getFilteredTweets()));
@@ -52,7 +52,7 @@ function setupEventListeners() {
     DOM.configureTagsBtn.addEventListener('click', openTagGroupsModal);
     DOM.closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);
 
-    DOM.tagGroupsModal.addEventListener('click', (e) => { if (e.target === tagGroupsModal) closeTagGroupsModal(); });
+    DOM.tagGroupsModal.addEventListener('click', (e) => { if (e.target === DOM.tagGroupsModal) closeTagGroupsModal(); });
     DOM.addGroupBtn.addEventListener('click', addTagGroupAction);
     
     DOM.newGroupInput.addEventListener('keydown', tagGroupInputKeydown);

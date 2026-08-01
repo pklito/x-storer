@@ -5,6 +5,7 @@ import { renderTagCapsules, addTagToEditor } from './tagEditor.js';
 import {getAllTagNames} from './tweets.js';
 
 import { suggestionsBox } from '../dom.js';
+import {refreshTweetBadges} from './grid.js';
 
 export function openTagModal(tweetId, tagsDiv = null) {
     state.currentEditTweetId = tweetId;

@@ -34,7 +34,7 @@ export function renderGrid(tweets) {
     }
 
     const w = window.innerWidth;
-    const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : w <= 1900 ? 4 : 5;
+    const colCount = w <= 800 ? 1 : w <= 1200 ? 2 : w <= 1600 ? 3 : w <= 2000 ? 4 : 5;
     state.masonryColumns = Array.from({ length: colCount }, () => {
         const col = document.createElement('div');
         col.className = 'masonry-column';
@@ -102,7 +102,7 @@ export async function deleteTweet(id) {
 // Renders a tweet's tag badges (stored tags + dashed built-in tags) into
 // an existing container. Shared by initial card creation and the mass-tag
 // live update below, so both stay in sync.
-function refreshTweetBadges(tagsDiv, tweet) {
+export function refreshTweetBadges(tagsDiv, tweet) {
     tagsDiv.replaceChildren();
     (tweet.tags || []).forEach(tag => {
         const tagBadge = document.createElement('span');
