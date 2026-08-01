@@ -111,6 +111,7 @@ export function refreshTweetBadges(tagsDiv, tweet) {
         tagsDiv.appendChild(tagBadge);
     });
     getBuiltInTagsForTweet(tweet).forEach(tag => {
+        if (tag == 'untagged') return;  //redundant to show untagged on every tweet
         const tagBadge = document.createElement('span');
         tagBadge.className = 'tweet-tag-badge tweet-tag-badge-builtin';
         tagBadge.textContent = '#' + tag;
