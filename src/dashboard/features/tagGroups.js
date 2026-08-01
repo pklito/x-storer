@@ -1,7 +1,7 @@
 import { state, TAG_GROUPS_KEY, HIDDEN_TAGS_KEY } from '../state.js';
 import { tagGroupsModal, groupManageList, tagAssignList, toggleHiddenTagsBtn, newGroupInput } from '../dom.js';
 
-import { getAllTagNames } from './tweets.js';
+import { getAllTagNames, getTagsByGroup } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 import { renderSearchTabs } from './searchTabs.js';
 
@@ -145,16 +145,7 @@ function renderGroupManageList() {
     // Union of tags that currently exist on a tweet AND tags that were
     // pre-assigned to a group but aren't in use yet (so an assignment you
     // just made doesn't seem to vanish before any tweet has that tag).
-    const allTagNames = new Set([...getAllTagNames(), ...Object.keys(state.tagGroupAssignments)]);
-    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => allTagNames.delete(tag));
-
-    const tagsByGroup = new Map();
-    state.tagGroups.forEach(g => tagsByGroup.set(g, []));
-    allTagNames.forEach(tag => {
-        const g = tagGroupOf(tag);
-        if (!tagsByGroup.has(g)) tagsByGroup.set(g, []);
-        tagsByGroup.get(g).push(tag);
-    });
+    const tagsByGroup = getTagsByGroup(true);
 
     // Custom groups first, 'Uncategorized' last — matches the sidebar.
     const orderedGroups = state.tagGroups.filter(g => g !== 'Uncategorized');

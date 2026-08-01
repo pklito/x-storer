@@ -105,3 +105,21 @@ export function getExcludedOrHiddenTags() {
     if(state.showHiddenTags) return state.excludedTags;
     return new Set([...state.excludedTags, ...state.hiddenTags]);
 }
+
+export function getTagsByGroup(includeGroupAssignments = false) {
+    const allTagNames = new Set(getAllTagNames());
+    if(includeGroupAssignments) {
+        Object.keys(state.tagGroupAssignments).forEach(tag => allTagNames.add(tag));
+    }
+    // must erase if tagGroupAssignments has a hidden tag
+    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => allTagNames.delete(tag));
+
+    const tagsByGroup = new Map();
+    state.tagGroups.forEach(g => tagsByGroup.set(g, []));
+    allTagNames.forEach(tag => {
+        const g = tagGroupOf(tag);
+        if (!tagsByGroup.has(g)) tagsByGroup.set(g, []);
+        tagsByGroup.get(g).push(tag);
+    }); 
+    return tagsByGroup;
+}
