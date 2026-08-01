@@ -18,7 +18,7 @@ import { addTagToEditor, removeTagFromEditor } from './features/tagEditor.js';
 
 import { setupEventListenersSearch } from './features/tweets.js';
 import { setupEventHandlersMassTagging } from './features/massTagging.js';
-import { setupEventHandlersSidebar } from './features/sidebar.js';
+import { setupEventHandlersSidebar } from './features/tagsSidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadTagGroupState();

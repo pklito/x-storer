@@ -1,4 +1,4 @@
-import { db } from '../../utils/db.js';
+import { db } from '../utils/db.js';
 
 // Click extension icon → open dashboard (reuse existing tab if open)
 chrome.action.onClicked.addListener(async () => {

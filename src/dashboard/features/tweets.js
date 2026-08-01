@@ -1,9 +1,9 @@
-import { db } from '../utils/db.js';
-import { state } from './features/state.js';
-import { feedTitle } from './features/dom.js';
-import { renderGrid } from './features/grid.js';
-import { renderTagsSidebar } from './features/tagsSidebar.js';
-import { searchInput } from './features/dom.js';
+import { db } from '../../utils/db.js';
+import { state } from '../state.js';
+import { feedTitle } from '../dom.js';
+import { renderGrid } from './grid.js';
+import { renderTagsSidebar } from './tagsSidebar.js';
+import { searchInput } from '../dom.js';
 
 export function setupEventListenersSearch() {
     let debounceTimer;
