@@ -102,7 +102,7 @@ export async function deleteTweet(id) {
 // Renders a tweet's tag badges (stored tags + dashed built-in tags) into
 // an existing container. Shared by initial card creation and the mass-tag
 // live update below, so both stay in sync.
-function renderTweetTagBadges(tagsDiv, tweet) {
+function refreshTweetBadges(tagsDiv, tweet) {
     tagsDiv.replaceChildren();
     (tweet.tags || []).forEach(tag => {
         const tagBadge = document.createElement('span');
@@ -270,7 +270,8 @@ function createTweetCard(tweet) {
 
     const tagsDiv = document.createElement('div');
     tagsDiv.className = 'tweet-tags';
-    renderTweetTagBadges(tagsDiv, tweet);
+    tagsDiv.id = 'tweet-tags-div';
+    refreshTweetBadges(tagsDiv, tweet);
     meta.appendChild(tagsDiv);
     card.appendChild(meta);
 
@@ -289,7 +290,7 @@ function createTweetCard(tweet) {
         return btn;
     };
 
-    const editBtn = mkBtn('bi bi-tag', 'Edit Tags', () => openTagModal(tweet.id));
+    const editBtn = mkBtn('bi bi-tag', 'Edit Tags', () => openTagModal(tweet.id, tagsDiv));
     editBtn.classList.add('edit-tags-btn');
     actions.appendChild(editBtn);
 
@@ -344,12 +345,12 @@ function createTweetCard(tweet) {
 
         // Refresh just this card's tag badges — avoid a full grid
         // re-render so scroll position holds while blitzing through tweets.
-        renderTweetTagBadges(tagsDiv, tweet);
+        refreshTweetBadges(tagsDiv, tweet);
 
         // Brief flash so it's obvious the click registered: green for
         // "tagged", red for "untagged".
         card.classList.add(hasAll ? 'xb-flash-untagged' : 'xb-flash-tagged');
-        setTimeout(() => { card.classList.remove('xb-flash-tagged', 'xb-flash-untagged'); }, 250);
+        setTimeout(() => { card.style.outline = ''; card.style.outlineOffset = ''; }, hasAll ? 400 : 250);
 
         try {
             await db.updateTweetTags(tweet.id, newTags);

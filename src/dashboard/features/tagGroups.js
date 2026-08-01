@@ -1,8 +1,21 @@
 import { state, TAG_GROUPS_KEY } from '../state.js';
-import { tagGroupsModal, groupManageList, tagAssignList } from '../dom.js';
+import { tagGroupsModal, groupManageList, tagAssignList, toggleHiddenTagsBtn, newGroupInput } from '../dom.js';
 
 import { getAllTagNames } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
+
+export function addTagGroupAction() {
+    addTagGroup(newGroupInput.value);
+    newGroupInput.value = '';
+}
+
+export function tagGroupInputKeydown(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        addTagGroup(newGroupInput.value);
+        newGroupInput.value = '';
+    }
+}
 
 export function loadTagGroupState() {
     try {
@@ -35,7 +48,7 @@ export function tagGroupOf(tag) {
     return state.tagGroupAssignments[tag] || 'Uncategorized';
 }
 
-export function addTagGroup(name) {
+function addTagGroup(name) {
     const clean = name.trim();
     if (!clean) return;
     const exists = state.tagGroups.some(g => g.toLowerCase() === clean.toLowerCase());
@@ -48,7 +61,7 @@ export function addTagGroup(name) {
     renderTagsSidebar();
 }
 
-export function deleteTagGroup(group) {
+function deleteTagGroup(group) {
     if (group === 'Uncategorized') return;
     state.tagGroups = state.tagGroups.filter(g => g !== group);
     Object.keys(state.tagGroupAssignments).forEach(tag => {
@@ -61,7 +74,7 @@ export function deleteTagGroup(group) {
     renderTagsSidebar();
 }
 
-export function setTagGroup(tag, group) {
+function setTagGroup(tag, group) {
     if (group === 'Uncategorized') {
         delete state.tagGroupAssignments[tag];
     } else {
@@ -80,13 +93,14 @@ export function closeTagGroupsModal() {
     tagGroupsModal.classList.remove('active');
 }
 
-export function renderGroupManageList() {
+function renderGroupManageList() {
     groupManageList.replaceChildren();
     tagAssignList.replaceChildren();
     // Union of tags that currently exist on a tweet AND tags that were
     // pre-assigned to a group but aren't in use yet (so an assignment you
     // just made doesn't seem to vanish before any tweet has that tag).
     const allTagNames = new Set([...getAllTagNames(), ...Object.keys(state.tagGroupAssignments)]);
+    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => allTagNames.delete(tag));
 
     const tagsByGroup = new Map();
     state.tagGroups.forEach(g => tagsByGroup.set(g, []));
@@ -107,6 +121,15 @@ export function renderGroupManageList() {
         chip.appendChild(document.createTextNode('#' + tag));
         tagAssignList.appendChild(chip);
     });
+
+    const icon = toggleHiddenTagsBtn.querySelector("i");
+    if(state.showHiddenTags) {
+        icon.classList.remove('bi-eye-slash');
+        icon.classList.add('bi-eye-fill');
+    } else {
+        icon.classList.remove('bi-eye-fill');
+        icon.classList.add('bi-eye-slash');
+    }
 }
 
 function buildGroupManageCard(group, tagsInGroup) {

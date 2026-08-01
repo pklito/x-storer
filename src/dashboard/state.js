@@ -11,6 +11,7 @@ export const state = {
     excludedTags: new Set(),   // tags excluded via shift-click
     searchTerm: '',
     currentEditTweetId: null,
+    currentEditTagsDiv: null,
 
     // Tag Groups (categorization)
     tagGroups: ['Uncategorized'],     // ordered list of group names; 'Uncategorized' is implicit/default
@@ -24,21 +25,23 @@ export const state = {
     // Tag editor modal (per-tweet)
     currentQuoteTags: [], // tags being edited in modal, as Array of Strings
 
-    // Batched async grid rendering (avoid building 5000 cards in one blocking pass)
     filteredTweetsCache: [],
     renderedCount: 0,
     masonryColumns: [],
-    renderToken: 0, // bumped every time a new render starts, so stale in-flight batches bail out
+    renderToken: 0, 
 
     // Local media folder access
-    mediaRootHandle: null,        // FileSystemDirectoryHandle for the chosen root folder
-    mediaPermissionGranted: false, // whether we currently have read access to mediaRootHandle
-    mediaSubdirCache: new Map(),  // authorHandle -> FileSystemDirectoryHandle | null
-    activeObjectUrls: [],         // object URLs created for the current render, revoked on next render
+    mediaRootHandle: null,        
+    mediaPermissionGranted: false,
+    mediaSubdirCache: new Map(),  
+    activeObjectUrls: [],         
 
     // Mass tagging mode
     massTagModeActive: false,
     massTagSelectedTags: [],
+
+    hiddenTags: new Set(), 
+    showHiddenTags: false, 
 };
 
 export const RENDER_BATCH_SIZE = 100;
@@ -48,10 +51,6 @@ export const MEDIA_DB_NAME = 'media-folder-store';
 export const MEDIA_DB_STORE = 'handles';
 export const MEDIA_HANDLE_KEY = 'mediaRoot';
 export const RECENTLY_REMOVED_KEY = 'xb_recently_removed';
+export const HIDDEN_TAGS_KEY = 'xbookmarks_hidden_tags_v1';
 
-
-// 'video', 'gif', and 'text-only' are computed from a tweet's actual media
-// on the fly — never written to tweet.tags / the DB. They live in their
-// own 'Built-in' sidebar section but still work with select/exclude
-// filtering exactly like a normal tag (see tags.js -> getEffectiveTags).
 export const BUILT_IN_TAG_NAMES = ['video', 'gif', 'text-only', 'cw'];

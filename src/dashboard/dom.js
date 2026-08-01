@@ -21,3 +21,4 @@ export const tagAssignList = document.getElementById('tag-assign-list');
 export const closeGroupsModalBtn = document.getElementById('close-groups-modal');
 export const searchTabsEl = document.getElementById('search-tabs');
 export const addTabBtn = document.getElementById('add-tab-btn');
+export const toggleHiddenTagsBtn = document.getElementById('toggle-hidden-tags-btn');

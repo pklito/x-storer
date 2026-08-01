@@ -30,8 +30,8 @@ export function getFilteredTweets() {
         filtered = filtered.filter(t => getEffectiveTags(t).some(tag => state.selectedTags.has(tag)));
     }
 
-    if (state.excludedTags.size > 0) {
-        filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => state.excludedTags.has(tag)));
+    if (getExcludedOrHiddenTags().size > 0) {
+        filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => getExcludedOrHiddenTags().has(tag)));
     }
 
     if (state.searchTerm) {
@@ -81,5 +81,26 @@ export function getEffectiveTags(tweet) {
 export function getAllTagNames() {
     const set = new Set();
     state.allTweets.forEach(t => (t.tags || []).forEach(tag => set.add(tag)));
+    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => set.delete(tag));
     return Array.from(set).sort();
+}
+
+function getAllTagCounts() {
+    const tagCounts = {};
+    state.allTweets.forEach(t => {
+        (t.tags || []).forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        });
+    });
+    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => delete tagCounts[tag]);
+    return tagCounts;
+}
+
+function getSelectedTags() {
+    return state.selectedTags
+}
+
+function getExcludedOrHiddenTags() {
+    if(state.showHiddenTags) return state.excludedTags;
+    return new Set([...state.excludedTags, ...state.hiddenTags]);
 }

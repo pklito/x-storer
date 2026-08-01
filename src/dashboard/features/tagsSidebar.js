@@ -129,6 +129,8 @@ export function createTagChip(tag, count) {
         } else {
             if (state.selectedTags.has(tag)) {
                 state.selectedTags.delete(tag);
+            } else if(state.excludedTags.has(tag)) {
+                state.excludedTags.delete(tag);
             } else {
                 state.selectedTags.add(tag);
                 state.excludedTags.delete(tag); // inclusion overrides exclusion

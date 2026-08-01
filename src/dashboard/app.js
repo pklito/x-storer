@@ -9,7 +9,7 @@ import {
 import { loadData, updateUI, getFilteredTweets } from './features/tweets.js';
 import { initCarousel } from './features/carousel.js';
 
-import { loadTagGroupState, addTagGroup, openTagGroupsModal, closeTagGroupsModal } from './features/tagGroups.js';
+import { loadTagGroupState, tagGroupInputKeydown, addTagGroupAction, openTagGroupsModal, closeTagGroupsModal } from './features/tagGroups.js';
 import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from './features/searchTabs.js';
 import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
 import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
@@ -52,18 +52,9 @@ function setupEventListeners() {
     closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);
 
     tagGroupsModal.addEventListener('click', (e) => { if (e.target === tagGroupsModal) closeTagGroupsModal(); });
-    addGroupBtn.addEventListener('click', () => {
-        addTagGroup(newGroupInput.value);
-        newGroupInput.value = '';
-    });
+    addGroupBtn.addEventListener('click', AddTagGroupAction);
     
-    newGroupInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            addTagGroup(newGroupInput.value);
-            newGroupInput.value = '';
-        }
-    });
+    newGroupInput.addEventListener('keydown', tagGroupInputKeydown);
 
     // Search tabs
     addTabBtn.addEventListener('click', addSearchTab);
@@ -81,5 +72,13 @@ function setupEventListeners() {
         if (!tagEditorContainer.contains(e.target) && !suggestionsBox.contains(e.target)) {
             suggestionsBox.classList.remove('active');
         }
+    });
+
+    toggleHiddenTagsBtn.addEventListener('click', () => {
+        state.showHiddenTags = !state.showHiddenTags;
+        state.hiddenTags.forEach(tag => {state.excludedTags.add(tag);});
+        //update where tags are used
+        renderTagsSidebar();
+        renderGroupManageList();
     });
 }

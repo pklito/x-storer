@@ -561,6 +561,11 @@ body {
     gap: 0.5rem;
 }
 
+.modal-header {
+    justify-content: space-between;
+    display: flex;
+}
+
 .text-input {
     width: 100%;
     padding: 0.7rem;
@@ -1053,7 +1058,7 @@ body {
 body.xb-mass-tag-padding { padding-top: 42px; }
 
 /* Brief flash on a tweet card to confirm a mass-tag click registered */
-.xb-flash-tagged { outline: 3px solid #17bf63; outline-offset: -3px; }
+.xb-flash-tagged { outline: 9px solid #5f62e4; outline-offset: -3px; }
 .xb-flash-untagged { outline: 3px solid #e0245e; outline-offset: -3px; }
 
 /* ---- Import modal specifics ---- */

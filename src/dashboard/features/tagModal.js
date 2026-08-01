@@ -2,11 +2,13 @@ import { db } from '../../utils/db.js';
 import { state } from '../state.js';
 import { tagModal, tagInput } from '../dom.js';
 import { renderTagCapsules, addTagToEditor } from './tagEditor.js';
+import {getAllTagNames} from './tweets.js';
 
 import { suggestionsBox } from '../dom.js';
 
-export function openTagModal(tweetId) {
+export function openTagModal(tweetId, tagsDiv = null) {
     state.currentEditTweetId = tweetId;
+    state.currentEditTagsDiv = tagsDiv;
     const tweet = state.allTweets.find(t => t.id === tweetId);
     if (tweet) {
         state.currentQuoteTags = [...(tweet.tags || [])]; // load existing tags into editor state
@@ -39,7 +41,11 @@ export async function saveTags() {
     try {
         await db.updateTweetTags(state.currentEditTweetId, tags);
         const tweet = state.allTweets.find(t => t.id === state.currentEditTweetId);
-        if (tweet) tweet.tags = tags;
+        if (tweet) {
+            tweet.tags = tags;
+            if(state.currentEditTagsDiv)
+                refreshTweetBadges(state.currentEditTagsDiv, tweet);
+        }
         closeTagModal();
         // updateUI(); i dont want this, makes me jump to the
     } catch (err) {
@@ -56,8 +62,7 @@ export function tagInputUpdate(e) {
     }
 
     // Suggestions logic
-    const allTags = new Set();
-    state.allTweets.forEach(t => (t.tags || []).forEach(tag => allTags.add(tag)));
+    const allTags = getAllTagNames();
 
     // Filter matches (exclude already added tags)
     const matches = Array.from(allTags).filter(tag =>
