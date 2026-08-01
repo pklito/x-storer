@@ -1072,6 +1072,10 @@ body.sidebar-resizing {
     background: rgba(199, 195, 195, 0.171);
     color: #000000;
 }
+.xb-tag-select-chip.tinted { background: rgba(102, 101, 101, 0.171); }
+.xb-tag-select-chip.tinted.chosen { background: #1675b4; color: #ffffff; border-color: #1576b6; }
+
+
 .xb-tag-select-chip.chosen { background: #1d9bf0; color: #ffffff; border-color: #1d9bf0; }
 
 /* ---- Mass tagging: fixed status bar while active ---- */

@@ -162,6 +162,31 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="tag-all-select-modal">
+        <div class="modal">
+            <h2 class="modal-title"><i class="bi bi-tags"></i> TAG ALL</h2>
+            <p class="xb-modal-hint">Tag all queried tweets with tags you can select to add to all or remove from all</p>
+
+            <div class="form-label-margin">
+                <label class="form-label">Tags</label>
+                <div id="tag-all-chip-list" class="xb-mass-tag-chip-list"></div>
+            </div>
+
+            <div class="form-label-margin">
+                <label class="form-label">Add New Tag</label>
+                <div class="new-group-row">
+                    <input type="text" id="tag-all-new-input" class="text-input" placeholder="Add a new tag…" autocomplete="off">
+                    <button id="tag-all-add-btn" class="btn btn-secondary"><i class="bi bi-plus-lg"></i></button>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="tag-all-cancel-btn">Cancel</button>
+                <button class="btn btn-primary" id="tag-all-start-btn">Tag (0) tweets</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Mass Tagging Status Bar -->
     <div class="xb-status-bar" id="mass-tag-status-bar">
         <span id="mass-tag-status-label"></span>

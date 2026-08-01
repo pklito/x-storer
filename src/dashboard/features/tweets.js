@@ -4,6 +4,7 @@ import { feedTitle } from '../dom.js';
 import { renderGrid } from './grid.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 import { searchInput } from '../dom.js';
+import { tagGroupOf } from './tagGroups.js';
 
 let debounceTimer;
 export function searchInputUpdate(e) {

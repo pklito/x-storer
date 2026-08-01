@@ -15,7 +15,7 @@ const statusBar = document.getElementById('mass-tag-status-bar');
 const statusLabel = document.getElementById('mass-tag-status-label');
 const stopBtn = document.getElementById('mass-tag-stop-btn');
 
-import { getAllTagNames } from './tweets.js';
+import { getAllTagNames, getTagsByGroup } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 
 const pendingNewTags = new Set(); // typed-in tags not yet in getAllTagNames()
@@ -58,11 +58,11 @@ export function closeMassTagSelectModal() {
     overlay.classList.remove('active');
 }
 
-function chip(tag) {
+function chip(tag, tinted = false) {
     const el = document.createElement('div');
     el.textContent = '#' + tag;
     el.dataset.tag = tag;
-    el.className = 'xb-tag-select-chip' + (chosen.has(tag) ? ' chosen' : '');
+    el.className = 'xb-tag-select-chip' + (chosen.has(tag) ? ' chosen' : '') + (tinted ? ' tinted' : '');
     el.addEventListener('click', () => {
         if (chosen.has(tag)) chosen.delete(tag); else chosen.add(tag);
         el.classList.toggle('chosen', chosen.has(tag));
@@ -70,10 +70,23 @@ function chip(tag) {
     return el;
 }
 
+const orderByGroups = true;
 function refreshChipList() {
     chipList.replaceChildren();
-    const names = new Set([...getAllTagNames(), ...pendingNewTags]);
-    Array.from(names).sort().forEach(tag => chipList.appendChild(chip(tag)));
+    let tinted = false;
+    if(orderByGroups) {
+        getTagsByGroup(false).values().forEach(groupTags => {
+            tinted = !tinted; 
+            groupTags.forEach(tag => {
+                chipList.appendChild(chip(tag, tinted));
+            });
+        });
+        Array.from(pendingNewTags).sort().forEach(tag => chipList.appendChild(chip(tag, tinted)));
+    } else {
+        //old code
+        const names = new Set([...getAllTagNames(), ...pendingNewTags]);
+        Array.from(names).sort().forEach(tag => chipList.appendChild(chip(tag)));
+    }
 }
 
 function addNewTag() {
