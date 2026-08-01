@@ -63,7 +63,7 @@ body {
     margin: 0 auto;
     padding: 1.5rem;
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: var(--sidebar-width, 240px) 1fr;
     gap: 2rem;
 }
 
@@ -81,6 +81,51 @@ body {
     flex-direction: column;
     gap: 1.25rem;
     box-shadow: var(--shadow-sm);
+ 
+    /* Fills whatever width .app-container's grid track gives it — the
+       actual sizing now lives on the grid column, not here. */
+    width: 100%;
+    min-width: 0; /* lets it shrink below content size instead of forcing overflow */
+}
+ 
+/* Draggable strip on the sidebar's right edge. `position: sticky` on
+   .sidebar already establishes a positioning context, so this just needs
+   position: absolute — no extra `position: relative` required. */
+.sidebar-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -4px;
+    width: 8px;
+    height: 100%;
+    cursor: ew-resize;
+    z-index: 5;
+    touch-action: none; /* let pointer events drive dragging on touch too */
+}
+ 
+/* Thin visual indicator, centered in the wider hit-target above so it's
+   easy to grab without being visually intrusive. */
+.sidebar-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 3px;
+    width: 2px;
+    height: 100%;
+    background: transparent;
+    border-radius: 1px;
+    transition: background 0.15s ease;
+}
+ 
+.sidebar-resize-handle:hover::after,
+.sidebar.resizing .sidebar-resize-handle::after {
+    background: var(--accent, #3b82f6);
+}
+ 
+/* Applied to <body> while dragging so the cursor/selection stay consistent
+   even if the pointer moves off the thin handle mid-drag. */
+body.sidebar-resizing {
+    cursor: ew-resize;
+    user-select: none;
 }
 
 .logo {

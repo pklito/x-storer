@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, SIDEBAR_WIDTH_KEY } from './state.js';
 // import {
 //     tagModal, tagInput, tagEditorContainer, 
 //     suggestionsBox,  configureTagsBtn, tagGroupsModal,
@@ -38,6 +38,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
+    initSidebarResize()
+
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
@@ -77,4 +79,71 @@ function setupEventListeners() {
     });
 
     DOM.toggleHiddenTagsBtn.addEventListener('click', toggleHiddenTagsBtnAction);
+}
+
+function clamp(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+}
+
+function setSidebarWidth(sidebar, width) {
+    const clamped = clamp(width, DOM.MIN_SIDEBAR_WIDTH, DOM.MAX_SIDEBAR_WIDTH);
+    sidebar.style.setProperty('--sidebar-width', clamped + 'px');
+    return clamped;
+}
+
+// Call once at startup (e.g. alongside your other init*() calls). Safe to
+// call even if .sidebar isn't in the DOM yet — it just no-ops.
+function initSidebarResize() {
+    const sidebar = document.querySelector('.sidebar');
+    if (!sidebar) return;
+
+    // Restore last-used width before the handle is even attached, so there's
+    // no flash of the default width on reload.
+    const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY), 10);
+    if (!Number.isNaN(saved)) setSidebarWidth(sidebar, saved);
+
+    const handle = document.createElement('div');
+    handle.className = 'sidebar-resize-handle';
+    sidebar.appendChild(handle);
+
+    let startX = 0;
+    let startWidth = 0;
+
+    function onPointerMove(e) {
+        const delta = e.clientX - startX; // dragging right = wider (sidebar is on the left)
+        setSidebarWidth(sidebar, startWidth + delta);
+    }
+
+    function onPointerUp() {
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        document.body.classList.remove('sidebar-resizing');
+        sidebar.classList.remove('resizing');
+        const finalWidth = sidebar.getBoundingClientRect().width;
+        try {
+            localStorage.setItem(SIDEBAR_WIDTH_KEY, Math.round(finalWidth));
+        } catch (err) {
+            console.error('Failed to save sidebar width:', err);
+        }
+    }
+
+    handle.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = sidebar.getBoundingClientRect().width;
+        document.body.classList.add('sidebar-resizing');
+        sidebar.classList.add('resizing');
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+    });
+
+    // Double-click the handle to reset to the default width.
+    handle.addEventListener('dblclick', () => {
+        setSidebarWidth(sidebar, 280);
+        try {
+            localStorage.removeItem(SIDEBAR_WIDTH_KEY);
+        } catch (err) {
+            console.error('Failed to clear saved sidebar width:', err);
+        }
+    });
 }
