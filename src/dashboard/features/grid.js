@@ -8,6 +8,10 @@ import { exportTweets } from './importExport.js';
 import { resolveLocalMediaFile, resolveLocalVideoFile } from './mediaFolder.js';
 import { updateUI, getBuiltInTagsForTweet } from './tweets.js';
 
+let masonryColumns = [];
+let masonryColumnHeights = [];
+let masonryResizeObserver = null;
+
 export function renderGrid(tweets) {
     state.renderToken++; // invalidate any batch loop still running from a previous render
     const myToken = state.renderToken;
@@ -15,6 +19,11 @@ export function renderGrid(tweets) {
     // Object URLs from the previous render's local media are no longer referenced
     state.activeObjectUrls.forEach(url => URL.revokeObjectURL(url));
     state.activeObjectUrls = [];
+
+    // Stop observing old columns
+    if (masonryResizeObserver) {
+        masonryResizeObserver.disconnect();
+    }
 
     tweetsGrid.replaceChildren();
     state.filteredTweetsCache = tweets;
@@ -32,12 +41,27 @@ export function renderGrid(tweets) {
         updateRenderProgressUI();
         return;
     }
+
     const w = appContainer.getBoundingClientRect().width - sidebar.getBoundingClientRect().width;
-    const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : w <= 1900 ? 4 : 5;
-    state.masonryColumns = Array.from({ length: colCount }, () => {
+    const colCount = w <= 600 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : w <= 1900 ? 4 : 5;
+
+    masonryColumnHeights = new Array(colCount).fill(0);
+
+    masonryResizeObserver = new ResizeObserver(entries => {
+        for (const entry of entries) {
+            const index = Number(entry.target.dataset.columnIndex);
+            masonryColumnHeights[index] = entry.contentRect.height;
+        }
+    });
+
+    masonryColumns = Array.from({ length: colCount }, (_, i) => {
         const col = document.createElement('div');
         col.className = 'masonry-column';
+        col.dataset.columnIndex = i;
+
         tweetsGrid.appendChild(col);
+        masonryResizeObserver.observe(col);
+
         return col;
     });
 
@@ -55,15 +79,17 @@ function renderNextBatch(token) {
 
     const batch = state.filteredTweetsCache.slice(state.renderedCount, state.renderedCount + RENDER_BATCH_SIZE);
 
-    batch.forEach((tweet) => {
+    batch.forEach(tweet => {
         const card = createTweetCard(tweet);
 
-        // Balanced masonry: drop into whichever column is currently shortest
         let shortest = 0;
-        for (let c = 1; c < state.masonryColumns.length; c++) {
-            if (state.masonryColumns[c].offsetHeight < state.masonryColumns[shortest].offsetHeight) shortest = c;
+        for (let c = 1; c < masonryColumnHeights.length; c++) {
+            if (masonryColumnHeights[c] < masonryColumnHeights[shortest]) {
+                shortest = c;
+            }
         }
-        state.masonryColumns[shortest].appendChild(card);
+        masonryColumnHeights[shortest] += 10;
+        masonryColumns[shortest].appendChild(card);
     });
 
     state.renderedCount += batch.length;

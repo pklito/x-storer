@@ -28,7 +28,6 @@ export const state = {
 
     filteredTweetsCache: [],
     renderedCount: 0,
-    masonryColumns: [],
     renderToken: 0, 
 
     // Local media folder access
@@ -45,7 +44,7 @@ export const state = {
     showHiddenTags: false, 
 };
 
-export const RENDER_BATCH_SIZE = 100;
+export const RENDER_BATCH_SIZE = 200;
 export const TAG_GROUPS_KEY = 'xbookmarks_tag_groups_v1';
 export const SEARCH_TABS_KEY = 'xbookmarks_search_tabs_v1';
 export const MEDIA_DB_NAME = 'media-folder-store';
