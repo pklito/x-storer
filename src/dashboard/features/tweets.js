@@ -5,15 +5,13 @@ import { renderGrid } from './grid.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 import { searchInput } from '../dom.js';
 
-export function setupEventListenersSearch() {
-    let debounceTimer;
-    searchInput.addEventListener('input', (e) => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            state.searchTerm = e.target.value.toLowerCase();
-            updateUI();
-        }, 300);
-    });
+let debounceTimer;
+export function searchInputUpdate(e) {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+        state.searchTerm = e.target.value.toLowerCase();
+        updateUI();
+    }, 300);
 }
 
 export async function loadData() {

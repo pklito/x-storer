@@ -2,7 +2,8 @@ import { state } from './state.js';
 import {
     tagModal, tagInput, tagEditorContainer, 
     suggestionsBox,  configureTagsBtn, tagGroupsModal,
-    newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn
+    newGroupInput, addGroupBtn, closeGroupsModalBtn, addTabBtn,
+     searchInput, massTagBtn, clearTagsBtn
 } from './dom.js';
 
 import { loadData, updateUI, getFilteredTweets } from './features/tweets.js';
@@ -13,12 +14,12 @@ import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearc
 import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
 import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
 import { createRecentlyRemovedButton } from './features/recentlyRemoved.js';
-import { closeTagModal, saveTags } from './features/tagModal.js';
+import { closeTagModal, saveTags, tagInputUpdate, tagInputKeydown } from './features/tagModal.js';
 import { addTagToEditor, removeTagFromEditor } from './features/tagEditor.js';
 
-import { setupEventListenersSearch } from './features/tweets.js';
-import { setupEventHandlersMassTagging } from './features/massTagging.js';
-import { setupEventHandlersSidebar } from './features/tagsSidebar.js';
+import { searchInputUpdate } from './features/tweets.js';
+import { massTaggingBtnAction } from './features/massTagging.js';
+import { clearTagsBtnAction } from './features/tagsSidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadTagGroupState();
@@ -35,7 +36,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
-    setupEventListenersSearch();
+    searchInput.addEventListener('input', searchInputUpdate);
+
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
     document.getElementById('save-tags').addEventListener('click', saveTags);
     tagModal.addEventListener('click', (e) => { if (e.target === tagModal) closeTagModal(); });
@@ -43,16 +45,18 @@ function setupEventListeners() {
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
     document.getElementById('export-json-btn').addEventListener('click', () => exportJSON(getFilteredTweets()));
 
-    setupEventHandlersMassTagging();
-    setupEventHandlersSidebar();
+    massTagBtn.addEventListener('click', massTaggingBtnAction);
+    clearTagsBtn.addEventListener('click', clearTagsBtnAction);
     // Tag Groups configuration modal
     configureTagsBtn.addEventListener('click', openTagGroupsModal);
     closeGroupsModalBtn.addEventListener('click', closeTagGroupsModal);
+
     tagGroupsModal.addEventListener('click', (e) => { if (e.target === tagGroupsModal) closeTagGroupsModal(); });
     addGroupBtn.addEventListener('click', () => {
         addTagGroup(newGroupInput.value);
         newGroupInput.value = '';
     });
+    
     newGroupInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -69,64 +73,8 @@ function setupEventListeners() {
     // Focus input when clicking anywhere in the container
     tagEditorContainer.addEventListener('click', () => tagInput.focus());
 
-    tagInput.addEventListener('keydown', (e) => {
-        const val = e.target.value.trim();
-
-        // Add tag on Enter or Comma
-        if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            if (val) {
-                addTagToEditor(val);
-                e.target.value = '';
-                suggestionsBox.classList.remove('active');
-            }
-        }
-        // Remove last tag on Backspace if input is empty
-        else if (e.key === 'Backspace' && val === '' && state.currentQuoteTags.length > 0) {
-            removeTagFromEditor(state.currentQuoteTags.length - 1);
-        }
-    });
-
-    tagInput.addEventListener('input', (e) => {
-        const val = e.target.value.trim().toLowerCase();
-
-        if (val.length < 1) {
-            suggestionsBox.classList.remove('active');
-            return;
-        }
-
-        // Suggestions logic
-        const allTags = new Set();
-        state.allTweets.forEach(t => (t.tags || []).forEach(tag => allTags.add(tag)));
-
-        // Filter matches (exclude already added tags)
-        const matches = Array.from(allTags).filter(tag =>
-            tag.toLowerCase().includes(val) &&
-            !state.currentQuoteTags.includes(tag)
-        );
-
-        if (matches.length > 0) {
-            suggestionsBox.replaceChildren();
-            matches.forEach(tag => {
-                const item = document.createElement('div');
-                item.className = 'tag-suggestion-item';
-                item.dataset.tag = tag;
-                item.textContent = '#' + tag;
-
-                item.addEventListener('click', () => {
-                    addTagToEditor(item.dataset.tag);
-                    tagInput.value = '';
-                    tagInput.focus();
-                    suggestionsBox.classList.remove('active');
-                });
-
-                suggestionsBox.appendChild(item);
-            });
-            suggestionsBox.classList.add('active');
-        } else {
-            suggestionsBox.classList.remove('active');
-        }
-    });
+    tagInput.addEventListener('keydown', tagInputKeydown);
+    tagInput.addEventListener('input', tagInputUpdate);
 
     // Hide suggestions on outside click
     document.addEventListener('click', (e) => {

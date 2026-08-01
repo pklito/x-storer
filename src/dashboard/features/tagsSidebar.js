@@ -3,13 +3,10 @@ import { tagList, clearTagsBtn } from '../dom.js';
 import { tagGroupOf, saveTagGroupState } from './tagGroups.js';
 import { updateUI, getBuiltInTagsForTweet } from './tweets.js';
 
-export function setupEventHandlersSidebar() {
- // Clear tag filters (lives above the tag list, next to "Tags")
-    clearTagsBtn.addEventListener('click', () => {
-        state.selectedTags.clear();
-        state.excludedTags.clear();
-        updateUI();
-    });
+export function clearTagsBtnAction() {
+    state.selectedTags.clear();
+    state.excludedTags.clear();
+    updateUI();
 }
 
 export function renderTagsSidebar() {

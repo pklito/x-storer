@@ -12,13 +12,15 @@ let massTagStatusBar = null;
 let massTagSelectModal = null; // built lazily on first open
 
 export function setupEventHandlersMassTagging() {
-    massTagBtn.addEventListener('click', () => {
-        if (state.massTagModeActive) {
-            endMassTagMode();
-        } else {
-            openMassTagSelectModal();
-        }
-    });
+    
+}
+
+export function massTaggingBtnAction() {
+    if (state.massTagModeActive) {
+        endMassTagMode();
+    } else {
+        openMassTagSelectModal();
+    }
 }
 
 // Builds (once) and shows the tag-selection window used to choose which
