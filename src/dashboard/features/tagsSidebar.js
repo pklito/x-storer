@@ -11,6 +11,12 @@ export function clearTagsBtnAction() {
 
 export function renderTagsSidebar() {
     const tagCounts = getAllTagCounts();
+    state.selectedTags.forEach(tag => {
+        if (!tagCounts[tag]) tagCounts[tag] = 0; // ensure selected tags are shown even if count is 0
+    });
+    state.excludedTags.forEach(tag => {
+        if (!tagCounts[tag] && (!state.hiddenTags.has(tag) || state.showHiddenTags)) tagCounts[tag] = 0; // ensure excluded tags are shown even if count is 0
+    });
 
     // Clear button lives in the header row above the list (see index.html);
     // just toggle its visibility here.
