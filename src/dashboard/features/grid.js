@@ -350,7 +350,7 @@ function createTweetCard(tweet) {
         // Brief flash so it's obvious the click registered: green for
         // "tagged", red for "untagged".
         card.classList.add(hasAll ? 'xb-flash-untagged' : 'xb-flash-tagged');
-        setTimeout(() => { card.style.outline = ''; card.style.outlineOffset = ''; }, hasAll ? 400 : 250);
+        setTimeout(() => { card.style.outline = ''; card.classList.remove('xb-flash-untagged', 'xb-flash-tagged'); }, hasAll ? 400 : 250);
 
         try {
             await db.updateTweetTags(tweet.id, newTags);
