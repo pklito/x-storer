@@ -58,7 +58,6 @@ function addTagGroup(name) {
     state.tagGroups = state.tagGroups.filter(g => g !== 'Uncategorized').concat(clean, 'Uncategorized');
     saveTagGroupState();
     renderGroupManageList();
-    renderTagAssignList();
     renderTagsSidebar();
 }
 
@@ -71,7 +70,6 @@ function deleteTagGroup(group) {
     state.collapsedGroups.delete(group);
     saveTagGroupState();
     renderGroupManageList();
-    renderTagAssignList();
     renderTagsSidebar();
 }
 
@@ -183,6 +181,63 @@ function renderGroupManageList() {
     }
 }
 
+let draggedGroupName = null;
+
+// Moves `draggedName` in state.tagGroups to just before/after `targetName`.
+// 'Uncategorized' never participates (it has no draggable card — see
+// renderGroupManageList), so this can't disturb its pinned trailing position.
+function reorderTagGroups(draggedName, targetName, insertAfter) {
+    if (draggedName === targetName) return;
+    const fromIndex = state.tagGroups.indexOf(draggedName);
+    if (fromIndex === -1) return;
+    state.tagGroups.splice(fromIndex, 1);
+    let toIndex = state.tagGroups.indexOf(targetName);
+    if (toIndex === -1) {
+        state.tagGroups.push(draggedName);
+        return;
+    }
+    if (insertAfter) toIndex++;
+    state.tagGroups.splice(toIndex, 0, draggedName);
+}
+
+// Renames a group in place, carrying over every tag assignment and any
+// collapsed-state that pointed at the old name.
+function renameTagGroup(oldName, newName) {
+    const clean = newName.trim();
+    if (!clean || clean === oldName) return;
+    if (clean.toLowerCase() === 'uncategorized') {
+        alert('"Uncategorized" is reserved and can\'t be used as a group name.');
+        return;
+    }
+    const collision = state.tagGroups.some(g => g !== oldName && g.toLowerCase() === clean.toLowerCase());
+    if (collision) {
+        alert('A group with that name already exists.');
+        return;
+    }
+
+    const idx = state.tagGroups.indexOf(oldName);
+    if (idx !== -1) state.tagGroups[idx] = clean;
+
+    Object.keys(state.tagGroupAssignments).forEach(tag => {
+        if (state.tagGroupAssignments[tag] === oldName) state.tagGroupAssignments[tag] = clean;
+    });
+
+    if (state.collapsedGroups.has(oldName)) {
+        state.collapsedGroups.delete(oldName);
+        state.collapsedGroups.add(clean);
+    }
+
+    saveTagGroupState();
+    renderGroupManageList();
+    renderTagsSidebar();
+}
+
+function renameTagGroupPrompt(group) {
+    const newName = prompt('Rename group:', group);
+    if (newName === null) return;
+    renameTagGroup(group, newName);
+}
+
 // Shared chip row builder used by both real groups and the hidden-tags card.
 function buildTagChipsRow(tags, { removable = false, onRemove = null, emptyText }) {
     const chipsRow = document.createElement('div');
@@ -218,13 +273,67 @@ function buildGroupManageCard(group, tagsInGroup) {
     const card = document.createElement('div');
     card.className = 'group-manage-card';
 
+    // Drag-to-reorder target — the whole card accepts drops, but only the
+    // grip handle (below) can start a drag, so grabbing text elsewhere in
+    // the card behaves normally.
+    card.addEventListener('dragover', (e) => {
+        if (!draggedGroupName || draggedGroupName === group) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const rect = card.getBoundingClientRect();
+        const insertAfter = (e.clientY - rect.top) > rect.height / 2;
+        card.style.borderTop = insertAfter ? '' : '2px solid #3b82f6';
+        card.style.borderBottom = insertAfter ? '2px solid #3b82f6' : '';
+    });
+    card.addEventListener('dragleave', () => {
+        card.style.borderTop = '';
+        card.style.borderBottom = '';
+    });
+    card.addEventListener('drop', (e) => {
+        if (!draggedGroupName || draggedGroupName === group) return;
+        e.preventDefault();
+        const rect = card.getBoundingClientRect();
+        const insertAfter = (e.clientY - rect.top) > rect.height / 2;
+        reorderTagGroups(draggedGroupName, group, insertAfter);
+        draggedGroupName = null;
+        saveTagGroupState();
+        renderGroupManageList();
+    });
+
     const header = document.createElement('div');
     header.className = 'group-manage-card-header';
+
+    const grip = document.createElement('i');
+    grip.className = 'bi bi-grip-vertical';
+    grip.title = 'Drag to reorder';
+    grip.style.cssText = 'cursor:grab;opacity:0.6;margin-right:2px;';
+    grip.draggable = true;
+    grip.addEventListener('dragstart', (e) => {
+        draggedGroupName = group;
+        e.dataTransfer.effectAllowed = 'move';
+        card.style.opacity = '0.4';
+    });
+    grip.addEventListener('dragend', () => {
+        draggedGroupName = null;
+        card.style.opacity = '';
+        card.style.borderTop = '';
+        card.style.borderBottom = '';
+    });
+    header.appendChild(grip);
 
     const name = document.createElement('span');
     name.className = 'xb-group-name';
     name.textContent = `${group} (${tagsInGroup.length})`;
     header.appendChild(name);
+
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'icon-btn';
+    renameBtn.title = 'Rename group';
+    const renameIcon = document.createElement('i');
+    renameIcon.className = 'bi bi-pencil';
+    renameBtn.appendChild(renameIcon);
+    renameBtn.addEventListener('click', () => renameTagGroupPrompt(group));
+    header.appendChild(renameBtn);
 
     const delBtn = document.createElement('button');
     delBtn.className = 'icon-btn danger';

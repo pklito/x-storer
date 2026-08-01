@@ -70,6 +70,7 @@ export function getBuiltInTagsForTweet(tweet) {
     if (media.some(m => m.type === 'gif')) tags.push('gif');
     if (media.length === 0) tags.push('text-only');
     if (tweet.isSensitive) tags.push('cw');
+    if (!tweet.tags || tweet.tags.length === 0) tags.push('untagged');
     return tags;
 }
 

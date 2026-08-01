@@ -54,4 +54,4 @@ export const MEDIA_HANDLE_KEY = 'mediaRoot';
 export const RECENTLY_REMOVED_KEY = 'xb_recently_removed';
 export const HIDDEN_TAGS_KEY = 'xbookmarks_hidden_tags_v1';
 
-export const BUILT_IN_TAG_NAMES = ['video', 'gif', 'text-only', 'cw'];
+export const BUILT_IN_TAG_NAMES = ['video', 'gif', 'text-only', 'cw', 'untagged'];
