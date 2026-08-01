@@ -1,6 +1,6 @@
 import { db } from '../../utils/db.js';
 import { state, RENDER_BATCH_SIZE } from '../state.js';
-import { tweetsGrid, totalCount } from '../dom.js';
+import { tweetsGrid, totalCount, appContainer, sidebar } from '../dom.js';
 
 import { openLightbox } from './lightbox.js';
 import { openTagModal } from './tagModal.js';
@@ -32,9 +32,8 @@ export function renderGrid(tweets) {
         updateRenderProgressUI();
         return;
     }
-
-    const w = window.innerWidth;
-    const colCount = w <= 800 ? 1 : w <= 1200 ? 2 : w <= 1600 ? 3 : w <= 2000 ? 4 : 5;
+    const w = appContainer.getBoundingClientRect().width - sidebar.getBoundingClientRect().width;
+    const colCount = w <= 700 ? 1 : w <= 1100 ? 2 : w <= 1500 ? 3 : w <= 1900 ? 4 : 5;
     state.masonryColumns = Array.from({ length: colCount }, () => {
         const col = document.createElement('div');
         col.className = 'masonry-column';

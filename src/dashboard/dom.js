@@ -23,5 +23,7 @@ export const searchTabsEl = document.getElementById('search-tabs');
 export const addTabBtn = document.getElementById('add-tab-btn');
 export const configureTabBtn = document.getElementById('configure-tab-btn');
 export const toggleHiddenTagsBtn = document.getElementById('toggle-hidden-tags-btn');
-export const MIN_SIDEBAR_WIDTH = 200;
-export const MAX_SIDEBAR_WIDTH = 520;
+
+export const appContainer = document.querySelector('.app-container');
+export const mainContent = document.querySelector('.main-content');
+export const sidebar = document.querySelector('.sidebar');
