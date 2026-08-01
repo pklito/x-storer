@@ -15,8 +15,8 @@ import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearc
 import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
 import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
 import { createRecentlyRemovedButton } from './features/recentlyRemoved.js';
-import { closeTagModal, saveTags, tagInputUpdate, tagInputKeydown } from './features/tagModal.js';
-import { addTagToEditor, removeTagFromEditor } from './features/tagEditor.js';
+import { closeTagModal, saveTags, tagInputUpdate, tagInputKeydown,
+    addTagToEditor, removeTagFromEditor } from './features/tagModal.js';
 
 import { searchInputUpdate } from './features/tweets.js';
 import { massTaggingBtnAction } from './features/massTagging.js';

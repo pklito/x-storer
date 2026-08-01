@@ -130,6 +130,10 @@ function renderGroupManageList() {
         tagAssignList.appendChild(chip);
     });
 
+    if (state.showHiddenTags) {
+        groupManageList.appendChild(buildHiddenTagsCard(Array.from(state.hiddenTags).sort()));
+    }
+
     const icon = toggleHiddenTagsBtn.querySelector("i");
     if(state.showHiddenTags) {
         icon.classList.remove('bi-eye-slash');
@@ -140,15 +144,47 @@ function renderGroupManageList() {
     }
 }
 
+// Shared chip row builder used by both real groups and the hidden-tags card.
+function buildTagChipsRow(tags, { removable = false, onRemove = null, emptyText }) {
+    const chipsRow = document.createElement('div');
+    chipsRow.className = 'group-manage-chips-row';
+
+    if (tags.length === 0) {
+        const empty = document.createElement('span');
+        empty.textContent = emptyText;
+        empty.className = 'xb-group-empty-text';
+        chipsRow.appendChild(empty);
+        return chipsRow;
+    }
+
+    tags.forEach(tag => {
+        const chip = document.createElement('span');
+        chip.className = 'group-manage-tag-chip';
+        chip.appendChild(document.createTextNode('#' + tag));
+        if (removable) {
+            const remove = document.createElement('button');
+            remove.textContent = '×';
+            remove.title = 'Remove from this group';
+            remove.className = 'xb-chip-remove-btn';
+            remove.addEventListener('click', () => onRemove(tag));
+            chip.appendChild(remove);
+        }
+        chipsRow.appendChild(chip);
+    });
+
+    return chipsRow;
+}
+
 function buildGroupManageCard(group, tagsInGroup) {
     const card = document.createElement('div');
     card.className = 'group-manage-card';
 
     const header = document.createElement('div');
     header.className = 'group-manage-card-header';
+
     const name = document.createElement('span');
-    name.textContent = `${group} (${tagsInGroup.length})`;
     name.className = 'xb-group-name';
+    name.textContent = `${group} (${tagsInGroup.length})`;
     header.appendChild(name);
 
     const delBtn = document.createElement('button');
@@ -163,34 +199,42 @@ function buildGroupManageCard(group, tagsInGroup) {
     card.appendChild(header);
 
     // Chips for the tags currently in this group.
-    const chipsRow = document.createElement('div');
-    chipsRow.className = 'group-manage-chips-row';
-    if (tagsInGroup.length === 0) {
-        const empty = document.createElement('span');
-        empty.textContent = group === 'Uncategorized' ? 'Nothing uncategorized.' : 'No tags in this group yet.';
-        empty.className = 'xb-group-empty-text';
-        chipsRow.appendChild(empty);
-    } else {
-        tagsInGroup.forEach(tag => {
-            const chip = document.createElement('span');
-            chip.className = 'group-manage-tag-chip';
-            chip.appendChild(document.createTextNode('#' + tag));
-
-            const remove = document.createElement('button');
-            remove.textContent = '×';
-            remove.title = 'Remove from this group';
-            remove.className = 'xb-chip-remove-btn';
-            remove.addEventListener('click', () => { setTagGroup(tag, 'Uncategorized'); renderGroupManageList(); });
-            chip.appendChild(remove);
-            chipsRow.appendChild(chip);
-        });
-    }
-    card.appendChild(chipsRow);
+    card.appendChild(buildTagChipsRow(tagsInGroup, {
+        removable: true,
+        onRemove: tag => { setTagGroup(tag, 'Uncategorized'); renderGroupManageList(); },
+        emptyText: group === 'Uncategorized' ? 'Nothing uncategorized.' : 'No tags in this group yet.'
+    }));
 
     // Autocomplete input to add another tag to this group.
     if (group !== 'Uncategorized') {
         card.appendChild(buildGroupTagAddInput(group));
     }
+
+    return card;
+}
+
+// Read-only display of tags hidden via toggleHiddenTagsBtnAction. Hidden
+// tags are a separate persisted concept from group assignment (see
+// state.hiddenTags / HIDDEN_TAGS_KEY), so this card intentionally has no
+// delete button, no removable chips, and no add-input — un-hiding a tag
+// happens through the eye toggle, not here.
+function buildHiddenTagsCard(tags) {
+    const card = document.createElement('div');
+    card.className = 'group-manage-card';
+
+    const header = document.createElement('div');
+    header.className = 'group-manage-card-header';
+
+    const name = document.createElement('span');
+    name.className = 'xb-group-name hidden';
+    name.textContent = `~Hidden Tags~ (${tags.length})`;
+    header.appendChild(name);
+
+    card.appendChild(header);
+    card.appendChild(buildTagChipsRow(tags, {
+        removable: false,
+        emptyText: 'No hidden tags.'
+    }));
 
     return card;
 }

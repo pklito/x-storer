@@ -1188,6 +1188,8 @@ body.xb-mass-tag-padding { padding-top: 42px; }
 
 /* ---- Tag Groups modal ---- */
 .xb-group-name { font-weight: 600; font-size: 1.5em; }
+.xb-group-name.hidden { font-style: italic;  color: #5e2012; }
+
 .xb-group-empty-text { font-size: 12px; opacity: 0.6; }
 .xb-chip-remove-btn {
     background: none;
