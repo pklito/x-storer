@@ -3,6 +3,7 @@ import { tagGroupsModal, groupManageList, tagAssignList, toggleHiddenTagsBtn, ne
 
 import { getAllTagNames } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
+import { renderSearchTabs } from './searchTabs.js';
 
 export function addTagGroupAction() {
     addTagGroup(newGroupInput.value);
@@ -127,6 +128,7 @@ export function toggleHiddenTagsBtnAction() {
     //update where tags are used
     renderTagsSidebar();
     renderGroupManageList();
+    renderSearchTabs();
 }
 
 export function openTagGroupsModal() {

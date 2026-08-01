@@ -123,19 +123,6 @@ export function renderSearchTabs() {
         const label = document.createTextNode(tab.name);
         btn.appendChild(label);
 
-        if (tab.id !== 'default') {
-            const closeBtn = document.createElement('span');
-            closeBtn.className = 'search-tab-close';
-            const icon = document.createElement('i');
-            icon.className = 'bi bi-x';
-            closeBtn.appendChild(icon);
-            closeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deleteSearchTab(tab.id);
-            });
-            btn.appendChild(closeBtn);
-        }
-
         btn.addEventListener('click', () => applySearchTab(tab.id));
         searchTabsEl.insertBefore(btn, addTabBtn);
     });
@@ -178,7 +165,10 @@ function reorderSearchTabs(draggedId, targetId, insertAfter) {
 function refreshConfigList() {
     if (!configListEl) return;
     configListEl.innerHTML = '';
-    state.searchTabs.forEach(tab => configListEl.appendChild(buildConfigRow(tab)));
+    state.searchTabs.forEach((tab) => {
+        if (!isTabVisible(tab)) return;
+        configListEl.appendChild(buildConfigRow(tab))
+    });
 }
 
 function buildConfigRow(tab) {
@@ -263,26 +253,56 @@ function buildConfigRow(tab) {
     });
     row.appendChild(nameInput);
 
-    // Hidden-tags-only checkbox
-    const hiddenLabel = document.createElement('label');
-    hiddenLabel.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:0.85em;white-space:nowrap;cursor:pointer;';
-    const hiddenCheckbox = document.createElement('input');
-    hiddenCheckbox.type = 'checkbox';
-    hiddenCheckbox.checked = !!tab.hiddenOnly;
-    hiddenCheckbox.addEventListener('change', () => {
-        tab.hiddenOnly = hiddenCheckbox.checked;
-        // A tab that's no longer visible can't stay the default.
-        if (tab.hiddenOnly && !state.showHiddenTags && state.defaultTabId === tab.id) {
-            state.defaultTabId = 'default';
-            const fallbackRadio = configModalEl.querySelector(`input[name="search-tab-default"][data-tab-id="default"]`);
-            if (fallbackRadio) fallbackRadio.checked = true;
-        }
+    // Included/excluded tag counts for this tab's saved filters
+    const countsSpan = document.createElement('span');
+    countsSpan.className = 'search-tab-config-counts';
+    countsSpan.style.cssText = 'font-size:0.8em;opacity:0.7;white-space:nowrap;';
+    const refreshCounts = () => {
+        countsSpan.textContent = `${(tab.selectedTags || []).length} in · ${(tab.excludedTags || []).length} out`;
+    };
+    refreshCounts();
+    row.appendChild(countsSpan);
+
+    // Update this tab's saved filters to whatever is currently included/excluded
+    const updateBtn = document.createElement('button');
+    updateBtn.type = 'button';
+    updateBtn.title = 'Save the currently included/excluded tags to this tab';
+    updateBtn.style.cssText = 'background:none;border:none;color:inherit;opacity:0.7;cursor:pointer;padding:4px;';
+    updateBtn.disabled = tab.id === 'default';
+    if (tab.id === 'default') updateBtn.style.visibility = 'hidden';
+    const updateIcon = document.createElement('i');
+    updateIcon.className = 'bi bi-arrow-repeat';
+    updateBtn.appendChild(updateIcon);
+    updateBtn.addEventListener('click', () => {
+        tab.selectedTags = Array.from(state.selectedTags);
+        tab.excludedTags = Array.from(state.excludedTags);
+        refreshCounts();
         saveSearchTabsState();
-        renderSearchTabs();
     });
-    hiddenLabel.appendChild(hiddenCheckbox);
-    hiddenLabel.appendChild(document.createTextNode('Hidden-tags only'));
-    row.appendChild(hiddenLabel);
+    row.appendChild(updateBtn);
+
+    if(state.showHiddenTags) {
+        // Hidden-tags-only checkbox
+        const hiddenLabel = document.createElement('label');
+        hiddenLabel.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:0.85em;white-space:nowrap;cursor:pointer;';
+        const hiddenCheckbox = document.createElement('input');
+        hiddenCheckbox.type = 'checkbox';
+        hiddenCheckbox.checked = !!tab.hiddenOnly;
+        hiddenCheckbox.addEventListener('change', () => {
+            tab.hiddenOnly = hiddenCheckbox.checked;
+            // A tab that's no longer visible can't stay the default.
+            if (tab.hiddenOnly && !state.showHiddenTags && state.defaultTabId === tab.id) {
+                state.defaultTabId = 'default';
+                const fallbackRadio = configModalEl.querySelector(`input[name="search-tab-default"][data-tab-id="default"]`);
+                if (fallbackRadio) fallbackRadio.checked = true;
+            }
+            saveSearchTabsState();
+            renderSearchTabs();
+        });
+        hiddenLabel.appendChild(hiddenCheckbox);
+        hiddenLabel.appendChild(document.createTextNode('Hidden-tags only'));
+        row.appendChild(hiddenLabel);
+    }
 
     // Delete button
     const deleteBtn = document.createElement('button');
