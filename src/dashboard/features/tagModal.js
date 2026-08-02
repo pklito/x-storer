@@ -67,7 +67,7 @@ export function tagInputUpdate(e) {
     const matches = Array.from(allTags).filter(tag =>
         tag.toLowerCase().includes(val) &&
         !state.currentQuoteTags.includes(tag)
-    );
+    ).sort((a, b) => a.toLowerCase().indexOf(val) - b.toLowerCase().indexOf(val));
 
     if (matches.length > 0) {
         suggestionsBox.replaceChildren();
