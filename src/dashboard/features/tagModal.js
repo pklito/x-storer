@@ -52,11 +52,15 @@ export async function saveTags() {
     }
 }
 
+// Tracks the current top autocomplete match so tagInputKeydown (Tab) can accept it.
+let topSuggestion = null;
+
 export function tagInputUpdate(e) {
     const val = e.target.value.trim().toLowerCase();
 
     if (val.length < 1) {
         suggestionsBox.classList.remove('active');
+        topSuggestion = null;
         return;
     }
 
@@ -67,7 +71,9 @@ export function tagInputUpdate(e) {
     const matches = Array.from(allTags).filter(tag =>
         tag.toLowerCase().includes(val) &&
         !state.currentQuoteTags.includes(tag)
-    ).sort((a, b) => a.toLowerCase().indexOf(val) - b.toLowerCase().indexOf(val));
+    ).sort((a, b) => 100 * (a.toLowerCase().indexOf(val) - b.toLowerCase().indexOf(val)) + (a.length - b.length)); // prioritize by position of match, then by length
+
+    topSuggestion = matches.length > 0 ? matches[0] : null;
 
     if (matches.length > 0) {
         suggestionsBox.replaceChildren();
@@ -103,6 +109,14 @@ export function tagInputKeydown(e){
             e.target.value = '';
             suggestionsBox.classList.remove('active');
         }
+    }
+    // Autocomplete top suggestion on Tab
+    else if (e.key === 'Tab' && val && topSuggestion) {
+        e.preventDefault();
+        addTagToEditor(topSuggestion);
+        e.target.value = '';
+        topSuggestion = null;
+        suggestionsBox.classList.remove('active');
     }
     // Remove last tag on Backspace if input is empty
     else if (e.key === 'Backspace' && val === '' && state.currentQuoteTags.length > 0) {

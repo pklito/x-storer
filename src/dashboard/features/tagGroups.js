@@ -429,7 +429,7 @@ function buildTagAddInput({ placeholder, isAlreadyIn, onCommit }) {
        const assigned = new Set(Object.keys(state.tagGroupAssignments));
         const matches = Array.from(getAllTagNames())
             .filter(t => !assigned.has(t) && t.toLowerCase().includes(q))
-            .sort();
+            .sort((a, b) => 100*(a.toLowerCase().indexOf(q) - b.toLowerCase().indexOf(q)) + (a.length - b.length));
         if (matches.length === 0) return;
 
         suggestions.replaceChildren();
