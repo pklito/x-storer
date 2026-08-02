@@ -426,9 +426,9 @@ function buildTagAddInput({ placeholder, isAlreadyIn, onCommit }) {
         suggestions.style.display = 'none';
         if (!q) return;
 
-        const allTagNames = new Set([...getAllTagNames(), ...Object.keys(state.tagGroupAssignments), ...state.hiddenTags]);
-        const matches = Array.from(allTagNames)
-            .filter(t => t.toLowerCase().includes(q) && !isAlreadyIn(t))
+       const assigned = new Set(Object.keys(state.tagGroupAssignments));
+        const matches = Array.from(getAllTagNames())
+            .filter(t => !assigned.has(t) && t.toLowerCase().includes(q))
             .sort();
         if (matches.length === 0) return;
 
