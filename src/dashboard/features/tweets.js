@@ -36,11 +36,25 @@ export function getFilteredTweets() {
     }
 
     if (state.searchTerm) {
-        filtered = filtered.filter(t =>
-            (t.text && t.text.toLowerCase().includes(state.searchTerm)) ||
-            (t.authorName && t.authorName.toLowerCase().includes(state.searchTerm)) ||
-            (t.authorHandle && t.authorHandle.toLowerCase().includes(state.searchTerm))
-        );
+        const match = state.searchTerm.match(/before:(\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/);
+        if (match) {
+            const beforeDate = new Date(match[1]);
+            filtered = filtered.filter(t => new Date(t.timestamp) <= beforeDate);
+        }
+        const matchAfter = state.searchTerm.match(/after:(\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/);
+        if (matchAfter) {
+            const afterDate = new Date(matchAfter[1]);
+            filtered = filtered.filter(t => new Date(t.timestamp) >= afterDate);
+        }
+
+        const searchTerm = state.searchTerm.replace(/before:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').replace(/after:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').trim();
+        if (searchTerm) {
+            filtered = filtered.filter(t =>
+                (t.text && t.text.toLowerCase().includes(searchTerm)) ||
+                (t.authorName && t.authorName.toLowerCase().includes(searchTerm)) ||
+                (t.authorHandle && t.authorHandle.toLowerCase().includes(searchTerm))
+            );
+        }
     }
 
     return filtered;
