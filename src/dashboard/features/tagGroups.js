@@ -96,7 +96,7 @@ export function loadHiddenTagsState() {
     }
 }
 
-function saveHiddenTagsState() {
+export function saveHiddenTagsState() {
     try {
         localStorage.setItem(HIDDEN_TAGS_KEY, JSON.stringify(Array.from(state.hiddenTags)));
     } catch (err) {

@@ -51,7 +51,11 @@ function setupEventListeners() {
     DOM.tagModal.addEventListener('click', (e) => { if (e.target === DOM.tagModal) closeTagModal(); });
 
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
-    document.getElementById('export-json-btn').addEventListener('click', () => exportJSON(getFilteredTweets()));
+
+    document.getElementById('export-json-btn').addEventListener('click', () => {
+       const includeSettings = document.getElementById('export-include-settings-checkbox').checked;
+       exportJSON(getFilteredTweets(), includeSettings);
+   });
 
     DOM.clearTagsBtn.addEventListener('click', clearTagsBtnAction);
     // Tag Groups configuration modal
@@ -80,6 +84,8 @@ function setupEventListeners() {
             DOM.suggestionsBox.classList.remove('active');
         }
     });
+
+    
 
     DOM.toggleHiddenTagsBtn.addEventListener('click', toggleHiddenTagsBtnAction);
 }

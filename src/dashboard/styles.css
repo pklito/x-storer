@@ -1267,3 +1267,13 @@ body.xb-mass-tag-padding { padding-top: 42px; }
 /* ---- OG carousel dots ---- */
 .og-dot { background: var(--text-secondary); opacity: 0.5; }
 .og-dot.active { background: var(--accent-color); opacity: 1; }
+
+.export-settings-toggle {
+       display: flex;
+       align-items: center;
+       gap: 6px;
+       font-size: 0.85em;
+       color: var(--text-secondary, #888);
+       margin-top: 4px;
+       cursor: pointer;
+   }

@@ -9,10 +9,62 @@ import { state } from '../state.js';
 import { totalCount } from '../dom.js';
 
 import { loadData } from './tweets.js';
+// NOTE: saveHiddenTagsState is currently not exported in its source file —
+// add `export` to its declaration there, or this import will fail.
+import { loadHiddenTagsState, saveHiddenTagsState,
+    loadTagGroupState, saveTagGroupState } from './tagGroups.js';
+import { loadSearchTabsState, saveSearchTabsState } from './searchTabs.js';
 
 let importFileInput = null;
 let importModalEls = null; // built lazily on first use
 let pendingImportTweets = null;
+let pendingImportSettings = null; // set only when the imported file has a `settings` block
+
+// Snapshot of everything in state.js that persists to localStorage, aside
+// from the tweets themselves. Used by exportJSON's "include settings" option.
+function collectSettings() {
+    return {
+        tagGroups: state.tagGroups,
+        tagGroupAssignments: state.tagGroupAssignments,
+        collapsedGroups: Array.from(state.collapsedGroups),
+        searchTabs: state.searchTabs,
+        defaultTabId: state.defaultTabId,
+        hiddenTags: Array.from(state.hiddenTags),
+    };
+}
+
+// Inverse of collectSettings(): writes an imported settings object back into
+// state and persists it via each feature's own save*State(), so localStorage
+// and any in-memory caches stay consistent with how each module expects.
+function applySettings(settings) {
+    if (Array.isArray(settings.tagGroups) && settings.tagGroups.length) {
+        state.tagGroups = settings.tagGroups;
+    }
+    if (settings.tagGroupAssignments) {
+        state.tagGroupAssignments = settings.tagGroupAssignments;
+    }
+    if (Array.isArray(settings.collapsedGroups)) {
+        state.collapsedGroups = new Set(settings.collapsedGroups);
+    }
+    if (!state.tagGroups.includes('Uncategorized')) state.tagGroups.push('Uncategorized');
+    saveTagGroupState();
+    loadTagGroupState(); // re-run the same normalization/backfill loadTagGroupState() applies on startup
+
+    if (Array.isArray(settings.searchTabs) && settings.searchTabs.length) {
+        state.searchTabs = settings.searchTabs;
+    }
+    if (settings.defaultTabId) {
+        state.defaultTabId = settings.defaultTabId;
+    }
+    saveSearchTabsState();
+    loadSearchTabsState(); // re-applies default/backfill/fallback logic
+
+    if (Array.isArray(settings.hiddenTags)) {
+        state.hiddenTags = new Set(settings.hiddenTags);
+    }
+    saveHiddenTagsState();
+    loadHiddenTagsState();
+}
 
 export function createImportButton() {
     if (!totalCount.parentElement || document.getElementById('import-btn')) return;
@@ -52,18 +104,30 @@ async function handleImportFileSelected(e) {
         return;
     }
 
-    if (!Array.isArray(data)) {
-        alert('Expected a JSON array of tweets (the format produced by "Export JSON").');
+    // Two accepted shapes:
+    //  - a bare array of tweets (the classic "Export JSON" format), or
+    //  - { tweets: [...], settings: {...} } when exported with
+    //    "Include app settings" checked.
+    let tweetsRaw, settings = null;
+    if (Array.isArray(data)) {
+        tweetsRaw = data;
+    } else if (data && typeof data === 'object' && Array.isArray(data.tweets)) {
+        tweetsRaw = data.tweets;
+        if (data.settings && typeof data.settings === 'object') settings = data.settings;
+    } else {
+        alert('Expected a JSON array of tweets, or a { tweets, settings } export file.');
         return;
     }
-    const valid = data.filter(t => t && typeof t === 'object' && t.id);
+
+    const valid = tweetsRaw.filter(t => t && typeof t === 'object' && t.id);
     if (valid.length === 0) {
         alert('No valid tweets found in that file (each entry needs at least an "id").');
         return;
     }
 
     pendingImportTweets = valid;
-    openImportModal(valid.length, data.length - valid.length);
+    pendingImportSettings = settings;
+    openImportModal(valid.length, tweetsRaw.length - valid.length);
 }
 
 function openImportModal(validCount, skippedCount) {
@@ -75,6 +139,7 @@ function openImportModal(validCount, skippedCount) {
 function closeImportModal() {
     if (importModalEls) importModalEls.overlay.classList.remove('active');
     pendingImportTweets = null;
+    pendingImportSettings = null;
 }
 
 function buildImportModal() {
@@ -124,6 +189,17 @@ function buildImportModal() {
     warningEl.className = 'xb-warning-box';
     box.appendChild(warningEl);
 
+    let restoreSettings = true;
+    const settingsRow = document.createElement('label');
+    settingsRow.className = 'xb-import-mode-label';
+    const settingsCheckbox = document.createElement('input');
+    settingsCheckbox.type = 'checkbox';
+    settingsCheckbox.checked = true;
+    settingsCheckbox.addEventListener('change', () => { restoreSettings = settingsCheckbox.checked; });
+    settingsRow.appendChild(settingsCheckbox);
+    settingsRow.appendChild(document.createTextNode(' Also restore tag groups, search tabs & hidden tags from this file'));
+    box.appendChild(settingsRow);
+
     const statusEl = document.createElement('div');
     statusEl.className = 'xb-import-status';
     box.appendChild(statusEl);
@@ -158,9 +234,15 @@ function buildImportModal() {
 
         try {
             const result = await runImport(pendingImportTweets, importMode);
+            let settingsApplied = false;
+            if (restoreSettings && pendingImportSettings) {
+                applySettings(pendingImportSettings);
+                settingsApplied = true;
+            }
             statusEl.textContent = `Done — ${result.added} added, ${result.updated} updated` +
                 (importMode === 'replace' ? `, ${result.deleted} removed` : '') +
-                (result.skipped > 0 ? `, ${result.skipped} skipped (previously deleted permanently)` : '') + '.';
+                (result.skipped > 0 ? `, ${result.skipped} skipped (previously deleted permanently)` : '') +
+                (settingsApplied ? ', settings restored' : '') + '.';
             await loadData();
             setTimeout(closeImportModal, 1200);
         } catch (err) {
@@ -181,12 +263,17 @@ function buildImportModal() {
     return {
         overlay,
         reset: (validCount, skippedCount) => {
+            const hasSettings = !!pendingImportSettings;
             summary.textContent = `Found ${validCount} tweet(s) in this file` +
-                (skippedCount > 0 ? ` (${skippedCount} entr${skippedCount === 1 ? 'y' : 'ies'} skipped — missing an id).` : '.');
+                (skippedCount > 0 ? ` (${skippedCount} entr${skippedCount === 1 ? 'y' : 'ies'} skipped — missing an id)` : '') +
+                (hasSettings ? '. This file also includes app settings.' : '.');
             statusEl.textContent = '';
             importMode = 'append';
             box.querySelector('input[value="append"]').checked = true;
             warningEl.classList.remove('visible');
+            settingsRow.style.display = hasSettings ? '' : 'none';
+            restoreSettings = hasSettings;
+            settingsCheckbox.checked = hasSettings;
         }
     };
 }
@@ -272,17 +359,19 @@ export function exportTweets(tweets) {
     URL.revokeObjectURL(url);
 }
 
-export function exportJSON(tweets) {
-    // Guarantee `tags` is always present (even if empty) so a re-import
-    // never has to guess — built-in tags (video/gif/text-only) are
-    // intentionally NOT included since they're computed, not stored.
-    const exportData = tweets.map(t => ({ ...t, tags: t.tags || [] }));
+export function exportJSON(tweets, includeSettings = false) {
+    const tweetsOut = tweets.map(t => ({ ...t, tags: t.tags || [] }));
+
+    const exportData = includeSettings
+        ? { tweets: tweetsOut, settings: collectSettings() }
+        : tweetsOut;
+
     const jsonStr = JSON.stringify(exportData, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'bookmarks-export.json';
+    a.download = includeSettings ? 'bookmarks-export-with-settings.json' : 'bookmarks-export.json';
     a.click();
     URL.revokeObjectURL(url);
 }
