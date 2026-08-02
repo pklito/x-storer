@@ -24,6 +24,10 @@ export async function loadData() {
     }
 }
 
+function getSearchTerm() {
+    return state.searchTerm.replace(/before:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').replace(/after:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').trim();
+}
+
 export function getFilteredTweets() {
     let filtered = state.allTweets;
 
@@ -47,7 +51,7 @@ export function getFilteredTweets() {
             filtered = filtered.filter(t => new Date(t.timestamp) >= afterDate);
         }
 
-        const searchTerm = state.searchTerm.replace(/before:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').replace(/after:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').trim();
+        const searchTerm = getSearchTerm();
         if (searchTerm) {
             filtered = filtered.filter(t =>
                 (t.text && t.text.toLowerCase().includes(searchTerm)) ||
@@ -66,8 +70,10 @@ export function updateUI() {
     const parts = [];
     if (state.selectedTags.size > 0) parts.push(Array.from(state.selectedTags).map(t => '#' + t).join(', '));
     if (state.excludedTags.size > 0) parts.push(Array.from(state.excludedTags).map(t => '−#' + t).join(', '));
-    feedTitle.textContent = parts.length > 0 ? `Filtered: ${state.selectedTags.size} included, ${state.excludedTags.size} excluded` : 'All Bookmarks';
-
+    feedTitle.textContent = `Filtered: ${state.selectedTags.size} included, ${state.excludedTags.size} excluded` + (getSearchTerm() && getSearchTerm().length > 0 ? `, "${getSearchTerm()}"` : '');
+    if (state.selectedTags.size === 0 && state.excludedTags.size === 0 && (!getSearchTerm() || getSearchTerm().length === 0)) {
+        feedTitle.textContent = 'All Bookmarks';
+    }
     renderGrid(tweets);
     renderTagsSidebar();
 }
