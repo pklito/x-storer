@@ -17,11 +17,11 @@
       "run_at": "document_idle"
    } ],
    "content_security_policy": {
-  "extension_pages": "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; font-src 'self'; img-src 'self' data: https://pbs.twimg.com https://abs.twimg.com"
+  "extension_pages": "default-src 'self'; script-src 'self'; object-src 'none'; style-src 'self'; font-src 'self'; img-src 'self' data: https://pbs.twimg.com https://abs.twimg.com https://media.discordapp.net https://cdn.discordapp.com https://img.youtube.com https://i.redd.it https://preview.redd.it https://external-preview.redd.it; connect-src 'self' https://www.reddit.com"
 },
    "default_locale": "en",
    "description": "__MSG_extensionDescription__",
-   "host_permissions": [ "https://twitter.com/*", "https://x.com/*" ],
+   "host_permissions": [ "https://twitter.com/*", "https://x.com/*", "https://www.reddit.com/*" ],
    "icons": {
       "128": "assets/icons/icon-128.png",
       "16": "assets/icons/icon-16.png",

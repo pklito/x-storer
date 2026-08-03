@@ -14,6 +14,7 @@ import { loadHiddenTagsState ,loadTagGroupState, tagGroupInputKeydown, addTagGro
 import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from './features/searchTabs.js';
 import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
 import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
+import { createFakeTweetButton } from './features/fakeTweet.js';
 import { createRecentlyRemovedButton } from './features/recentlyRemoved.js';
 import { closeTagModal, saveTags, tagInputUpdate, tagInputKeydown,
     addTagToEditor, removeTagFromEditor } from './features/tagModal.js';
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     createMediaFolderButton();
     await initMediaFolder();
     createImportButton();
+    createFakeTweetButton();
     createRecentlyRemovedButton();
         initCarousel();
 });
