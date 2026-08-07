@@ -1160,8 +1160,7 @@ body.xb-mass-tag-padding { padding-top: 42px; }
 }
 .xb-lightbox-overlay.active { display: flex; }
 .xb-lightbox-img {
-    max-width: 92vw;
-    max-height: 92vh;
+    height: 92vh;
     object-fit: contain;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
     cursor: default;
