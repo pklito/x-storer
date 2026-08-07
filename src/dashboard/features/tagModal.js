@@ -109,18 +109,27 @@ export function tagInputKeydown(e){
             e.target.value = '';
             suggestionsBox.classList.remove('active');
         }
+        else{
+            saveTags(); // if input is empty, save tags and close modal
+            return;
+        }
     }
     // Autocomplete top suggestion on Tab
-    else if (e.key === 'Tab' && val && topSuggestion) {
+    else if (e.key === 'Tab' && val) {
         e.preventDefault();
-        addTagToEditor(topSuggestion);
-        e.target.value = '';
-        topSuggestion = null;
-        suggestionsBox.classList.remove('active');
+        if(topSuggestion){
+            addTagToEditor(topSuggestion);
+            e.target.value = '';
+            topSuggestion = null;
+            suggestionsBox.classList.remove('active');
+        }
     }
     // Remove last tag on Backspace if input is empty
     else if (e.key === 'Backspace' && val === '' && state.currentQuoteTags.length > 0) {
         removeTagFromEditor(state.currentQuoteTags.length - 1);
+    }
+    else if (e.key === 'Escape') {
+        closeTagModal();
     }
 }
 
