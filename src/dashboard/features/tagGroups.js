@@ -162,6 +162,12 @@ function renderGroupManageList() {
     if (state.showHiddenTags) {
         groupManageList.appendChild(buildHiddenTagsCard(Array.from(state.hiddenTags).sort()));
     }
+    //im too lazy for a proper solution rn
+    groupManageList.appendChild(document.createElement('div'));
+    groupManageList.appendChild(document.createElement('div'));
+    groupManageList.appendChild(document.createElement('div'));
+    groupManageList.appendChild(document.createElement('div'));
+    groupManageList.appendChild(document.createElement('div'));
 
     const icon = toggleHiddenTagsBtn.querySelector("i");
     if(state.showHiddenTags) {
