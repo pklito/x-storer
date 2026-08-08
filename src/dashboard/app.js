@@ -55,8 +55,8 @@ function setupEventListeners() {
     document.getElementById('export-all-btn').addEventListener('click', () => exportTweets(getFilteredTweets()));
 
     document.getElementById('export-json-btn').addEventListener('click', () => {
-       const includeSettings = document.getElementById('export-include-settings-checkbox').checked;
-       exportJSON(getFilteredTweets(), includeSettings);
+       const includeHidden = document.getElementById('export-include-hidden-checkbox').checked;
+       exportJSON(includeHidden ? state.allTweets : getFilteredTweets());
    });
 
     DOM.clearTagsBtn.addEventListener('click', clearTagsBtnAction);

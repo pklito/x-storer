@@ -359,7 +359,8 @@ export function exportTweets(tweets) {
     URL.revokeObjectURL(url);
 }
 
-export function exportJSON(tweets, includeSettings = false) {
+export function exportJSON(tweets) {
+    const includeSettings = true;
     const tweetsOut = tweets.map(t => ({ ...t, tags: t.tags || [] }));
 
     const exportData = includeSettings
