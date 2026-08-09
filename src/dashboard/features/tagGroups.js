@@ -198,10 +198,7 @@ function renderGroupManageList() {
         });
     });
     tagsByGroup.get('Uncategorized').sort().forEach(tag => {
-        const chip = document.createElement('span');
-        chip.className = 'group-manage-tag-chip';
-        chip.appendChild(document.createTextNode('#' + tag));
-        tagAssignList.appendChild(chip);
+        tagAssignList.appendChild(buildUnassignedTagChip(tag));
     });
 
     if (state.showHiddenTags) {
@@ -225,6 +222,10 @@ function renderGroupManageList() {
 }
 
 let draggedGroupName = null;
+
+// Which unassigned tag (if any) currently has its "match to an assigned
+// tag" input expanded in place of its plain chip label.
+let activeAssignTag = null;
 
 // Moves `draggedName` in state.tagGroups to just before/after `targetName`.
 // 'Uncategorized' never participates (it has no draggable card — see
@@ -413,7 +414,7 @@ function buildGroupManageCard(fullName, tagsInGroup, { indent = false } = {}) {
     if (fullName !== 'Uncategorized') {
         card.appendChild(buildTagAddInput({
             placeholder: 'Add a tag to this group…',
-            isAlreadyIn: t => tagGroupOf(t) === fullName,
+            candidates: () => Array.from(getAllTagNames()).filter(t => tagGroupOf(t) === 'Uncategorized'),
             onCommit: tag => { setTagGroup(tag, fullName); renderGroupManageList(); }
         }));
     }
@@ -445,19 +446,74 @@ function buildHiddenTagsCard(tags) {
     }));
     card.appendChild(buildTagAddInput({
         placeholder: 'Hide a tag…',
-        isAlreadyIn: t => state.hiddenTags.has(t),
+        candidates: () => Array.from(getAllTagNames()).filter(t => !state.hiddenTags.has(t)),
         onCommit: addHiddenTag
     }));
 
     return card;
 }
 
-// Self-contained type-to-add autocomplete — same interaction as the
-// per-tweet tag editor (type, see matches, click or Enter to add), built
-// fresh here since that editor's suggestion box is a singleton bound to
-// its own input/state. `isAlreadyIn` filters suggestions down to tags not
-// already in the target collection; `onCommit` does the actual add.
-function buildTagAddInput({ placeholder, isAlreadyIn, onCommit }) {
+// A clickable chip for an unassigned tag. Clicking it swaps its plain
+// label for an inline "match to an assigned tag" input — pick (or type)
+// any already-grouped tag and this tag joins that exact group (including
+// subgroups), so you never have to remember/type a group name by hand.
+function buildUnassignedTagChip(tag) {
+    const chip = document.createElement('span');
+    chip.className = 'group-manage-tag-chip group-manage-tag-chip-clickable';
+
+    if (activeAssignTag !== tag) {
+        chip.appendChild(document.createTextNode('#' + tag));
+        chip.title = 'Click to assign by matching an already-grouped tag';
+        chip.addEventListener('click', () => {
+            activeAssignTag = tag;
+            renderGroupManageList();
+        });
+        return chip;
+    }
+
+    chip.classList.add('active');
+    const addInput = buildTagAddInput({
+        placeholder: `Match "${tag}" to a tag…`,
+        candidates: () => Array.from(getAllTagNames()).filter(t => t !== tag && tagGroupOf(t) !== 'Uncategorized'),
+        requireMatch: true, // committing arbitrary text means nothing here — must resolve to a real, grouped tag
+        onCommit: matchedTag => {
+            setTagGroup(tag, tagGroupOf(matchedTag));
+            activeAssignTag = null;
+            renderGroupManageList();
+        },
+        onBlur: () => {
+            // Deferred: if a click on a *different* unassigned chip is what
+            // caused this blur, that click's own handler already reassigned
+            // activeAssignTag by the time this runs, so the check below
+            // no-ops instead of clobbering the new selection or (worse)
+            // re-rendering mid-click and dropping the click's target node.
+            setTimeout(() => {
+                if (activeAssignTag === tag) {
+                    activeAssignTag = null;
+                    renderGroupManageList();
+                }
+            }, 0);
+        }
+    });
+    chip.appendChild(addInput);
+    requestAnimationFrame(() => addInput.querySelector('input')?.focus());
+
+    return chip;
+}
+
+// Self-contained type-to-add/type-to-match autocomplete. Used for:
+//  - adding an existing tag into a group ("Add a tag to this group…")
+//  - hiding a tag ("Hide a tag…")
+//  - matching an unassigned tag to an already-assigned one, so it inherits
+//    that tag's group without you needing to remember the group's name
+//
+// `candidates` is a function (not an array) so the suggestion pool reflects
+// live state on every keystroke without the caller rebuilding the box.
+// `requireMatch: true` restricts Enter/Tab to committing an exact existing
+// candidate — used for the "match" flow, where committing arbitrary typed
+// text wouldn't mean anything. `onBlur` fires only if the box closes
+// without a commit (used to collapse an inline chip back to its label).
+function buildTagAddInput({ placeholder, candidates, requireMatch = false, onCommit, onBlur }) {
     const wrap = document.createElement('div');
     wrap.className = 'xb-group-add-input-wrap';
 
@@ -471,21 +527,35 @@ function buildTagAddInput({ placeholder, isAlreadyIn, onCommit }) {
     suggestions.className = 'tag-suggestions-list';
     wrap.appendChild(suggestions);
 
-    function commit(tagName) {
-        const clean = tagName.trim().replace(/^#/, '');
+    let topSuggestion = null;
+    let committed = false;
+
+    function getMatches(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) return [];
+        return candidates()
+            .filter(t => t.toLowerCase().includes(q))
+            .sort((a, b) => 100 * (a.toLowerCase().indexOf(q) - b.toLowerCase().indexOf(q)) + (a.length - b.length));
+    }
+
+    function commit(raw) {
+        const clean = (raw || '').trim().replace(/^#/, '');
         if (!clean) return;
+        if (requireMatch) {
+            const exact = candidates().find(t => t.toLowerCase() === clean.toLowerCase());
+            if (!exact) return; // must resolve to a real, existing tag
+            committed = true;
+            onCommit(exact);
+            return;
+        }
+        committed = true;
         onCommit(clean);
     }
 
     function showSuggestions(query) {
-        const q = query.trim().toLowerCase();
+        const matches = getMatches(query);
+        topSuggestion = matches.length > 0 ? matches[0] : null;
         suggestions.style.display = 'none';
-        if (!q) return;
-
-       const assigned = new Set(Object.keys(state.tagGroupAssignments));
-        const matches = Array.from(getAllTagNames())
-            .filter(t => !assigned.has(t) && t.toLowerCase().includes(q))
-            .sort((a, b) => 100*(a.toLowerCase().indexOf(q) - b.toLowerCase().indexOf(q)) + (a.length - b.length));
         if (matches.length === 0) return;
 
         suggestions.replaceChildren();
@@ -509,16 +579,26 @@ function buildTagAddInput({ placeholder, isAlreadyIn, onCommit }) {
         if (e.key === 'Enter') {
             e.preventDefault();
             const val = input.value.trim();
-            if (val) {
+            if (!val) return;
+            commit(requireMatch ? (topSuggestion || val) : val);
+            if (committed) {
                 input.value = '';
                 suggestions.style.display = 'none';
-                commit(val);
             }
+        } else if (e.key === 'Tab' && input.value.trim() && topSuggestion) {
+            e.preventDefault();
+            commit(topSuggestion);
+            input.value = '';
+            suggestions.style.display = 'none';
         } else if (e.key === 'Escape') {
             suggestions.style.display = 'none';
+            input.blur();
         }
     });
-    input.addEventListener('blur', () => { suggestions.style.display = 'none'; });
+    input.addEventListener('blur', () => {
+        suggestions.style.display = 'none';
+        if (!committed && onBlur) onBlur();
+    });
 
     return wrap;
 }
