@@ -423,60 +423,80 @@ const ICON_SUGGESTIONS = [
     'film', 'camera-reels', 'camera-reels-fill', 'emoji-smile', 'emoji-heart-eyes'
 ];
 
-let iconDatalistBuilt = false;
-function ensureIconDatalist() {
-    if (iconDatalistBuilt) return;
-    iconDatalistBuilt = true;
-    const list = document.createElement('datalist');
-    list.id = 'xb-group-icon-options';
-    ICON_SUGGESTIONS.forEach(name => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        list.appendChild(opt);
-    });
-    document.body.appendChild(list);
-}
 
-// Icon-name text input (native <datalist> autocomplete) + a native color
-// swatch, each with its own clear button that only appears once *this
-// exact group* has that property explicitly set (not just inherited —
-// see groupColorOf/groupIconOf). `onIconInput`/`onColorInput` fire on
-// every keystroke/drag tick, before the value is committed to state, so
-// the caller (the manage card) can live-preview its own icon badge and
-// background tint without waiting for a full re-render.
 function buildGroupStylePicker(fullName, { onIconInput, onColorInput } = {}) {
-    ensureIconDatalist();
     const wrap = document.createElement('span');
     wrap.className = 'xb-group-style-wrap';
 
     const iconWrap = document.createElement('span');
     iconWrap.className = 'xb-group-icon-wrap';
+
     const iconInput = document.createElement('input');
     iconInput.type = 'text';
     iconInput.className = 'xb-group-icon-input';
     iconInput.placeholder = 'icon…';
-    iconInput.setAttribute('list', 'xb-group-icon-options');
     iconInput.value = groupIconOf(fullName) || '';
-    iconInput.addEventListener('input', () => {
-        if (onIconInput) onIconInput(iconInput.value.trim().replace(/^bi-/, ''));
-    });
-    iconInput.addEventListener('change', () => {
-        setGroupIcon(fullName, iconInput.value);
-        renderGroupManageList(); // discrete one-off commit (not a drag), safe to fully rebuild — this is what makes the clear button appear/disappear
-    });
     iconWrap.appendChild(iconInput);
-    if (state.tagGroupIcons[fullName]) {
-        const clearIcon = document.createElement('button');
-        clearIcon.className = 'icon-btn xb-group-style-clear';
-        clearIcon.title = 'Remove icon';
-        clearIcon.textContent = '×';
-        clearIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            setGroupIcon(fullName, null);
-            renderGroupManageList();
-        });
-        iconWrap.appendChild(clearIcon);
+
+    const iconPanel = document.createElement('div');
+    iconPanel.className = 'xb-icon-suggestions';
+    iconWrap.appendChild(iconPanel);
+
+    function commitIcon(rawName) {
+        const clean = rawName.trim().replace(/^bi-/, '');
+        iconInput.value = clean;
+        iconPanel.style.display = 'none';
+        if (onIconInput) onIconInput(clean);
+        setGroupIcon(fullName, clean);
+        renderGroupManageList();
     }
+
+    function showIconPanel(query) {
+        const q = query.trim().toLowerCase();
+        const matches = ICON_SUGGESTIONS.filter(n => !q || n.includes(q)).slice(0, 60);
+        iconPanel.style.display = 'none';
+        if (matches.length === 0) return;
+
+        iconPanel.replaceChildren();
+        matches.forEach(name => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'xb-icon-suggestion-item';
+            item.title = name;
+            const glyph = document.createElement('i');
+            glyph.className = `bi bi-${name}`;
+            item.appendChild(glyph);
+            item.addEventListener('mousedown', (e) => e.preventDefault()); // keep focus on iconInput so this click isn't lost to a blur-triggered re-render first
+            item.addEventListener('click', () => commitIcon(name));
+            iconPanel.appendChild(item);
+        });
+        iconPanel.style.display = 'grid';
+    }
+
+    iconInput.addEventListener('focus', () => showIconPanel(iconInput.value));
+    iconInput.addEventListener('input', () => {
+        const val = iconInput.value.trim().replace(/^bi-/, '');
+        if (onIconInput) onIconInput(val); // live local preview only, not yet committed
+        showIconPanel(iconInput.value);
+    });
+    iconInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            commitIcon(iconInput.value); // typed name doesn't have to be in the curated list — any real bi-* name works
+        } else if (e.key === 'Escape') {
+            iconPanel.style.display = 'none';
+            iconInput.blur();
+        }
+    });
+    iconInput.addEventListener('blur', () => {
+        iconPanel.style.display = 'none';
+        const clean = iconInput.value.trim().replace(/^bi-/, '');
+        if (clean !== (groupIconOf(fullName) || '')) {
+            setGroupIcon(fullName, clean);
+            renderGroupManageList();
+        }
+    });
+
     wrap.appendChild(iconWrap);
 
     const colorWrap = document.createElement('span');
