@@ -17,13 +17,12 @@ export const state = {
     tagGroups: ['Uncategorized'],     // ordered list of group names; 'Uncategorized' is implicit/default
     tagGroupAssignments: {},          // tag -> groupName (absent = Uncategorized)
     collapsedGroups: new Set(),       // group names currently collapsed in the sidebar
+    tagGroupColors: {},               // group name (full "Parent/Sub" or plain name) -> hex color string
 
     // Search Tabs (saved filter combinations)
     searchTabs: [{ id: 'default', name: 'All', selectedTags: [], excludedTags: [], hiddenOnly: false }],
     activeTabId: 'default',
     defaultTabId: 'default', // which tab is auto-selected when the dashboard opens
-    tabSelectedTags: new Set(), 
-    tabExcludedTags: new Set(), 
 
     // Tag editor modal (per-tweet)
     currentQuoteTags: [], // tags being edited in modal, as Array of Strings

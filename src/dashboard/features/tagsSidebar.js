@@ -1,16 +1,14 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
-import { tagList, clearTagsBtn, searchInput } from '../dom.js';
-import { tagGroupOf, saveTagGroupState, buildGroupTree } from './tagGroups.js';
+import { tagList, clearTagsBtn } from '../dom.js';
+import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf } from './tagGroups.js';
 
-import { reapplyActiveTab } from './searchTabs.js';
 // Tags with more bookmarks than this get a bold chip in the sidebar.
 const HEAVY_TAG_THRESHOLD = 50;
 import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
 
 export function clearTagsBtnAction() {
-    reapplyActiveTab();
-    searchInput.value = '';
-    state.searchTerm = '';
+    state.selectedTags.clear();
+    state.excludedTags.clear();
     updateUI();
 }
 
@@ -25,9 +23,7 @@ export function renderTagsSidebar() {
 
     // Clear button lives in the header row above the list (see index.html);
     // just toggle its visibility here.
-    var selectedDifferent = state.selectedTags.symmetricDifference(state.tabSelectedTags);
-    var excludedDifferent = state.excludedTags.symmetricDifference(state.tabExcludedTags);
-    clearTagsBtn.style.display = (selectedDifferent.size > 0 || excludedDifferent.size > 0 || state.searchTerm.length > 0) ? 'flex' : 'none';      
+    clearTagsBtn.style.display = (state.selectedTags.size > 0 || state.excludedTags.size > 0) ? 'flex' : 'none';
 
     tagList.replaceChildren();
 
@@ -100,6 +96,11 @@ export function renderTagsSidebar() {
         caret.className = collapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
         header.appendChild(caret);
         header.appendChild(document.createTextNode(` ${node.name} (${totalCount})`));
+        const color = groupColorOf(node.name);
+        if (color) {
+            header.style.color = color;
+            header.style.borderLeftColor = color;
+        }
         header.addEventListener('click', () => {
             if (state.collapsedGroups.has(node.name)) state.collapsedGroups.delete(node.name);
             else state.collapsedGroups.add(node.name);
@@ -131,6 +132,11 @@ export function renderTagsSidebar() {
                 subCaret.className = subCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
                 subHeader.appendChild(subCaret);
                 subHeader.appendChild(document.createTextNode(` ${sub.name} (${sub.tags.length})`));
+                const subColor = groupColorOf(sub.fullName);
+                if (subColor) {
+                    subHeader.style.color = subColor;
+                    subHeader.style.borderLeftColor = subColor;
+                }
                 subHeader.addEventListener('click', () => {
                     if (state.collapsedGroups.has(sub.fullName)) state.collapsedGroups.delete(sub.fullName);
                     else state.collapsedGroups.add(sub.fullName);

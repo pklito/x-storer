@@ -27,6 +27,7 @@ function collectSettings() {
         tagGroups: state.tagGroups,
         tagGroupAssignments: state.tagGroupAssignments,
         collapsedGroups: Array.from(state.collapsedGroups),
+        tagGroupColors: state.tagGroupColors,
         searchTabs: state.searchTabs,
         defaultTabId: state.defaultTabId,
         hiddenTags: Array.from(state.hiddenTags),
@@ -45,6 +46,9 @@ function applySettings(settings) {
     }
     if (Array.isArray(settings.collapsedGroups)) {
         state.collapsedGroups = new Set(settings.collapsedGroups);
+    }
+    if (settings.tagGroupColors) {
+        state.tagGroupColors = settings.tagGroupColors;
     }
     if (!state.tagGroups.includes('Uncategorized')) state.tagGroups.push('Uncategorized');
     saveTagGroupState();

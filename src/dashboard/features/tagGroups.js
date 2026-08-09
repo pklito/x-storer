@@ -26,6 +26,7 @@ export function loadTagGroupState() {
             if (Array.isArray(data.groups) && data.groups.length) state.tagGroups = data.groups;
             if (data.assignments) state.tagGroupAssignments = data.assignments;
             if (Array.isArray(data.collapsed)) state.collapsedGroups = new Set(data.collapsed);
+            if (data.colors) state.tagGroupColors = data.colors;
         }
     } catch (err) {
         console.error('Failed to load tag group settings:', err);
@@ -38,7 +39,8 @@ export function saveTagGroupState() {
         localStorage.setItem(TAG_GROUPS_KEY, JSON.stringify({
             groups: state.tagGroups,
             assignments: state.tagGroupAssignments,
-            collapsed: Array.from(state.collapsedGroups)
+            collapsed: Array.from(state.collapsedGroups),
+            colors: state.tagGroupColors
         }));
     } catch (err) {
         console.error('Failed to save tag group settings:', err);
@@ -47,6 +49,29 @@ export function saveTagGroupState() {
 
 export function tagGroupOf(tag) {
     return state.tagGroupAssignments[tag] || 'Uncategorized';
+}
+
+// Effective display color for a group. A subgroup with no color of its
+// own inherits its parent's — so setting "Purpose" once colors all its
+// subgroups by default, and any subgroup can still override individually.
+// Returns null (not a fallback color) when nothing's configured anywhere
+// in the chain, so callers can tell "use the default CSS color" apart
+// from "a real color was chosen".
+export function groupColorOf(fullName) {
+    if (state.tagGroupColors[fullName]) return state.tagGroupColors[fullName];
+    const { parent, sub } = splitGroupPath(fullName);
+    if (sub !== null && state.tagGroupColors[parent]) return state.tagGroupColors[parent];
+    return null;
+}
+
+function setGroupColor(fullName, color) {
+    if (!color) {
+        delete state.tagGroupColors[fullName];
+    } else {
+        state.tagGroupColors[fullName] = color;
+    }
+    saveTagGroupState();
+    renderTagsSidebar();
 }
 
 // Splits a group name like "Purpose/Reminders" into its parent and sub
@@ -251,6 +276,11 @@ let activeAssignTag = null;
 let pendingFocusKey = null;
 const HIDDEN_TAGS_FOCUS_KEY = '__hidden_tags__';
 
+// Purely a starting value for the <input type="color"> swatch when a
+// group has no color configured yet — never written to state unless the
+// person actually changes it.
+const DEFAULT_SWATCH_COLOR = '#9ca3af';
+
 // Moves `draggedName` in state.tagGroups to just before/after `targetName`.
 // 'Uncategorized' never participates (it has no draggable card — see
 // renderGroupManageList), so this can't disturb its pinned trailing position.
@@ -337,6 +367,38 @@ function buildTagChipsRow(tags, { removable = false, onRemove = null, emptyText 
     return chipsRow;
 }
 
+// A native color swatch + a clear button that only appears once this
+// exact group has its own color set (not just inherited from a parent —
+// clearing a purely-inherited value would be a no-op anyway, so hiding it
+// avoids implying there's something here to reset).
+function buildGroupColorPicker(fullName) {
+    const wrap = document.createElement('span');
+    wrap.className = 'xb-group-color-wrap';
+
+    const swatch = document.createElement('input');
+    swatch.type = 'color';
+    swatch.className = 'xb-group-color-input';
+    swatch.title = 'Set a color for this group';
+    swatch.value = groupColorOf(fullName) || DEFAULT_SWATCH_COLOR;
+    swatch.addEventListener('input', () => setGroupColor(fullName, swatch.value));
+    wrap.appendChild(swatch);
+
+    if (state.tagGroupColors[fullName]) {
+        const clear = document.createElement('button');
+        clear.className = 'icon-btn xb-group-color-clear';
+        clear.title = 'Reset to default color';
+        clear.textContent = '×';
+        clear.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setGroupColor(fullName, null);
+            renderGroupManageList();
+        });
+        wrap.appendChild(clear);
+    }
+
+    return wrap;
+}
+
 function buildGroupManageCard(fullName, tagsInGroup, { indent = false, explicit = true } = {}) {
     const card = document.createElement('div');
     card.className = indent ? 'group-manage-card group-manage-card-indent' : 'group-manage-card';
@@ -408,6 +470,8 @@ function buildGroupManageCard(fullName, tagsInGroup, { indent = false, explicit 
     left.appendChild(name);
 
     if(explicit) {
+        right.appendChild(buildGroupColorPicker(fullName));
+
         const renameBtn = document.createElement('button');
         renameBtn.className = 'icon-btn';
         renameBtn.title = indent ? 'Rename subgroup (type a full "Parent/Sub" path to move it)' : 'Rename group';
