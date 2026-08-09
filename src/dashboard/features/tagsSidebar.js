@@ -1,6 +1,9 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
 import { tagList, clearTagsBtn } from '../dom.js';
-import { tagGroupOf, saveTagGroupState } from './tagGroups.js';
+import { tagGroupOf, saveTagGroupState, buildGroupTree } from './tagGroups.js';
+
+// Tags with more bookmarks than this get a bold chip in the sidebar.
+const HEAVY_TAG_THRESHOLD = 50;
 import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
 
 export function clearTagsBtnAction() {
@@ -67,7 +70,8 @@ export function renderTagsSidebar() {
     const sortedTagNames = Object.keys(tagCounts).sort();
     if (sortedTagNames.length === 0) return;
 
-    // Bucket tags by their assigned group, in tagGroups order
+    // Bucket tags by their assigned group (full "Parent/Sub" string, or a
+    // plain top-level name), then fold that into a parent -> subgroups tree.
     const byGroup = new Map();
     state.tagGroups.forEach(g => byGroup.set(g, []));
     sortedTagNames.forEach(tag => {
@@ -76,23 +80,25 @@ export function renderTagsSidebar() {
         byGroup.get(group).push(tag);
     });
 
-    state.tagGroups.forEach(group => {
-        const tagsInGroup = byGroup.get(group) || [];
-        if (tagsInGroup.length === 0) return; // hide empty groups from the sidebar
+    const tree = buildGroupTree(byGroup);
+
+    tree.forEach(node => {
+        const totalCount = node.tags.length + node.subgroups.reduce((n, s) => n + s.tags.length, 0);
+        if (totalCount === 0) return; // hide empty parents (and parents whose subgroups are all empty)
 
         const groupEl = document.createElement('div');
         groupEl.className = 'tag-group';
 
-        const collapsed = state.collapsedGroups.has(group);
+        const collapsed = state.collapsedGroups.has(node.name);
         const header = document.createElement('div');
         header.className = 'tag-group-header';
         const caret = document.createElement('i');
         caret.className = collapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
         header.appendChild(caret);
-        header.appendChild(document.createTextNode(` ${group} (${tagsInGroup.length})`));
+        header.appendChild(document.createTextNode(` ${node.name} (${totalCount})`));
         header.addEventListener('click', () => {
-            if (state.collapsedGroups.has(group)) state.collapsedGroups.delete(group);
-            else state.collapsedGroups.add(group);
+            if (state.collapsedGroups.has(node.name)) state.collapsedGroups.delete(node.name);
+            else state.collapsedGroups.add(node.name);
             saveTagGroupState();
             renderTagsSidebar();
         });
@@ -101,7 +107,44 @@ export function renderTagsSidebar() {
         if (!collapsed) {
             const body = document.createElement('div');
             body.className = 'tag-group-body';
-            tagsInGroup.forEach(tag => body.appendChild(createTagChip(tag, tagCounts[tag])));
+
+            // Tags assigned directly to the parent (not inside a subgroup).
+            node.tags.forEach(tag => body.appendChild(createTagChip(tag, tagCounts[tag])));
+
+            // Subgroups, indented under the parent, each independently
+            // collapsible (keyed by the full "Parent/Sub" name so it
+            // doesn't clash with the parent's own collapse state).
+            node.subgroups.forEach(sub => {
+                if (sub.tags.length === 0) return;
+
+                const subCollapsed = state.collapsedGroups.has(sub.fullName);
+                const subEl = document.createElement('div');
+                subEl.className = 'tag-subgroup';
+
+                const subHeader = document.createElement('div');
+                subHeader.className = 'tag-group-header tag-subgroup-header';
+                const subCaret = document.createElement('i');
+                subCaret.className = subCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
+                subHeader.appendChild(subCaret);
+                subHeader.appendChild(document.createTextNode(` ${sub.name} (${sub.tags.length})`));
+                subHeader.addEventListener('click', () => {
+                    if (state.collapsedGroups.has(sub.fullName)) state.collapsedGroups.delete(sub.fullName);
+                    else state.collapsedGroups.add(sub.fullName);
+                    saveTagGroupState();
+                    renderTagsSidebar();
+                });
+                subEl.appendChild(subHeader);
+
+                if (!subCollapsed) {
+                    const subBody = document.createElement('div');
+                    subBody.className = 'tag-group-body';
+                    sub.tags.forEach(tag => subBody.appendChild(createTagChip(tag, tagCounts[tag])));
+                    subEl.appendChild(subBody);
+                }
+
+                body.appendChild(subEl);
+            });
+
             groupEl.appendChild(body);
         }
 
@@ -114,6 +157,7 @@ export function renderTagsSidebar() {
 export function createTagChip(tag, count) {
     const chip = document.createElement('div');
     chip.className = 'tag-chip';
+    if (count > HEAVY_TAG_THRESHOLD) chip.classList.add('tag-chip-heavy');
     if (state.selectedTags.has(tag)) chip.classList.add('active');
     if (state.excludedTags.has(tag)) chip.classList.add('excluded');
 

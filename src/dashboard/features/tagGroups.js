@@ -49,6 +49,47 @@ export function tagGroupOf(tag) {
     return state.tagGroupAssignments[tag] || 'Uncategorized';
 }
 
+// Splits a group name like "Purpose/Reminders" into its parent and sub
+// parts. A plain name like "Quality" has no sub (sub: null). Only the
+// first "/" counts, so "A/B/C" is parent "A", sub "B/C" — one level of
+// nesting is all the sidebar/manage-modal render, deeper paths just show
+// the whole remainder as the sub's label.
+export function splitGroupPath(name) {
+    const idx = name.indexOf('/');
+    if (idx === -1) return { parent: name, sub: null };
+    return { parent: name.slice(0, idx), sub: name.slice(idx + 1) };
+}
+
+// Folds the flat state.tagGroups list + a tag-bucket map (group name ->
+// tags[]) into a parent -> subgroups tree, preserving the order groups
+// appear in state.tagGroups. A parent that only exists implicitly (e.g.
+// only "Purpose/Reminders" was ever added, never bare "Purpose") still
+// gets a node here with an empty `tags` array, so callers don't need to
+// special-case it.
+//
+// Returns: [{ name, tags, subgroups: [{ name, fullName, tags }] }, ...]
+// `fullName` on a subgroup is the real group key ("Purpose/Reminders") —
+// use that (not `name`) for assignment/rename/delete/reorder/collapse.
+export function buildGroupTree(tagsByGroup) {
+    const nodes = new Map(); // parent name -> node
+    const order = [];
+    state.tagGroups.forEach(fullName => {
+        const { parent, sub } = splitGroupPath(fullName);
+        let node = nodes.get(parent);
+        if (!node) {
+            node = { name: parent, tags: [], subgroups: [] };
+            nodes.set(parent, node);
+            order.push(node);
+        }
+        if (sub === null) {
+            node.tags = tagsByGroup.get(fullName) || [];
+        } else {
+            node.subgroups.push({ name: sub, fullName, tags: tagsByGroup.get(fullName) || [] });
+        }
+    });
+    return order;
+}
+
 function addTagGroup(name) {
     const clean = name.trim();
     if (!clean) return;
@@ -148,9 +189,13 @@ function renderGroupManageList() {
     const tagsByGroup = getTagsByGroup(true);
 
     // Custom groups first, 'Uncategorized' last — matches the sidebar.
-    const orderedGroups = state.tagGroups.filter(g => g !== 'Uncategorized');
-    orderedGroups.forEach(group => {
-        groupManageList.appendChild(buildGroupManageCard(group, (tagsByGroup.get(group) || []).sort()));
+    // Nested tree so subgroups render indented under their parent.
+    const tree = buildGroupTree(tagsByGroup).filter(node => node.name !== 'Uncategorized');
+    tree.forEach(node => {
+        groupManageList.appendChild(buildGroupManageCard(node.name, (node.tags || []).sort()));
+        node.subgroups.forEach(sub => {
+            groupManageList.appendChild(buildGroupManageCard(sub.fullName, (sub.tags || []).sort(), { indent: true }));
+        });
     });
     tagsByGroup.get('Uncategorized').sort().forEach(tag => {
         const chip = document.createElement('span');
@@ -267,15 +312,20 @@ function buildTagChipsRow(tags, { removable = false, onRemove = null, emptyText 
     return chipsRow;
 }
 
-function buildGroupManageCard(group, tagsInGroup) {
+function buildGroupManageCard(fullName, tagsInGroup, { indent = false } = {}) {
     const card = document.createElement('div');
-    card.className = 'group-manage-card';
+    card.className = indent ? 'group-manage-card group-manage-card-indent' : 'group-manage-card';
+
+    // When indented (a subgroup card), show just the sub's own name
+    // ("Reminders") rather than the full "Purpose/Reminders" key — the
+    // indentation + parent card above already establish context.
+    const displayLabel = indent ? splitGroupPath(fullName).sub : fullName;
 
     // Drag-to-reorder target — the whole card accepts drops, but only the
     // grip handle (below) can start a drag, so grabbing text elsewhere in
     // the card behaves normally.
     card.addEventListener('dragover', (e) => {
-        if (!draggedGroupName || draggedGroupName === group) return;
+        if (!draggedGroupName || draggedGroupName === fullName) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         const rect = card.getBoundingClientRect();
@@ -288,11 +338,11 @@ function buildGroupManageCard(group, tagsInGroup) {
         card.style.borderBottom = '';
     });
     card.addEventListener('drop', (e) => {
-        if (!draggedGroupName || draggedGroupName === group) return;
+        if (!draggedGroupName || draggedGroupName === fullName) return;
         e.preventDefault();
         const rect = card.getBoundingClientRect();
         const insertAfter = (e.clientY - rect.top) > rect.height / 2;
-        reorderTagGroups(draggedGroupName, group, insertAfter);
+        reorderTagGroups(draggedGroupName, fullName, insertAfter);
         draggedGroupName = null;
         saveTagGroupState();
         renderGroupManageList();
@@ -315,7 +365,7 @@ function buildGroupManageCard(group, tagsInGroup) {
     grip.style.cssText = 'cursor:grab;opacity:0.6;margin-right:2px;';
     grip.draggable = true;
     grip.addEventListener('dragstart', (e) => {
-        draggedGroupName = group;
+        draggedGroupName = fullName;
         e.dataTransfer.effectAllowed = 'move';
         card.style.opacity = '0.4';
     });
@@ -329,16 +379,16 @@ function buildGroupManageCard(group, tagsInGroup) {
 
     const name = document.createElement('span');
     name.className = 'xb-group-name';
-    name.textContent = `${group} (${tagsInGroup.length})`;
+    name.textContent = `${displayLabel} (${tagsInGroup.length})`;
     left.appendChild(name);
 
     const renameBtn = document.createElement('button');
     renameBtn.className = 'icon-btn';
-    renameBtn.title = 'Rename group';
+    renameBtn.title = indent ? 'Rename subgroup (type a full "Parent/Sub" path to move it)' : 'Rename group';
     const renameIcon = document.createElement('i');
     renameIcon.className = 'bi bi-pencil';
     renameBtn.appendChild(renameIcon);
-    renameBtn.addEventListener('click', () => renameTagGroupPrompt(group));
+    renameBtn.addEventListener('click', () => renameTagGroupPrompt(fullName));
     right.appendChild(renameBtn);
 
     const delBtn = document.createElement('button');
@@ -347,7 +397,7 @@ function buildGroupManageCard(group, tagsInGroup) {
     const icon = document.createElement('i');
     icon.className = 'bi bi-trash3';
     delBtn.appendChild(icon);
-    delBtn.addEventListener('click', () => deleteTagGroup(group));
+    delBtn.addEventListener('click', () => deleteTagGroup(fullName));
     right.appendChild(delBtn);
 
     card.appendChild(header);
@@ -356,15 +406,15 @@ function buildGroupManageCard(group, tagsInGroup) {
     card.appendChild(buildTagChipsRow(tagsInGroup, {
         removable: true,
         onRemove: tag => { setTagGroup(tag, 'Uncategorized'); renderGroupManageList(); },
-        emptyText: group === 'Uncategorized' ? 'Nothing uncategorized.' : 'No tags in this group yet.'
+        emptyText: fullName === 'Uncategorized' ? 'Nothing uncategorized.' : 'No tags in this group yet.'
     }));
 
     // Autocomplete input to add another tag to this group.
-    if (group !== 'Uncategorized') {
+    if (fullName !== 'Uncategorized') {
         card.appendChild(buildTagAddInput({
             placeholder: 'Add a tag to this group…',
-            isAlreadyIn: t => tagGroupOf(t) === group,
-            onCommit: tag => { setTagGroup(tag, group); renderGroupManageList(); }
+            isAlreadyIn: t => tagGroupOf(t) === fullName,
+            onCommit: tag => { setTagGroup(tag, fullName); renderGroupManageList(); }
         }));
     }
 
