@@ -27,6 +27,7 @@ export function loadTagGroupState() {
             if (data.assignments) state.tagGroupAssignments = data.assignments;
             if (Array.isArray(data.collapsed)) state.collapsedGroups = new Set(data.collapsed);
             if (data.colors) state.tagGroupColors = data.colors;
+            if (data.icons) state.tagGroupIcons = data.icons;
         }
     } catch (err) {
         console.error('Failed to load tag group settings:', err);
@@ -40,7 +41,8 @@ export function saveTagGroupState() {
             groups: state.tagGroups,
             assignments: state.tagGroupAssignments,
             collapsed: Array.from(state.collapsedGroups),
-            colors: state.tagGroupColors
+            colors: state.tagGroupColors,
+            icons: state.tagGroupIcons
         }));
     } catch (err) {
         console.error('Failed to save tag group settings:', err);
@@ -72,6 +74,37 @@ function setGroupColor(fullName, color) {
     }
     saveTagGroupState();
     renderTagsSidebar();
+}
+
+// Same inheritance rule as groupColorOf: a subgroup with no icon of its
+// own falls back to its parent's.
+export function groupIconOf(fullName) {
+    if (state.tagGroupIcons[fullName]) return state.tagGroupIcons[fullName];
+    const { parent, sub } = splitGroupPath(fullName);
+    if (sub !== null && state.tagGroupIcons[parent]) return state.tagGroupIcons[parent];
+    return null;
+}
+
+function setGroupIcon(fullName, icon) {
+    const clean = (icon || '').trim().replace(/^bi-/, '');
+    if (!clean) {
+        delete state.tagGroupIcons[fullName];
+    } else {
+        state.tagGroupIcons[fullName] = clean;
+    }
+    saveTagGroupState();
+    renderTagsSidebar();
+}
+
+// Converts a "#rrggbb" (or shorthand "#rgb") color into an rgba() string
+// at the given alpha, for use as a translucent background tint — a flat
+// hex background would fully hide the tag chips sitting on top of it.
+export function hexToRgba(hex, alpha) {
+    const clean = hex.replace('#', '');
+    const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+    const num = parseInt(full, 16);
+    const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 // Splits a group name like "Purpose/Reminders" into its parent and sub
@@ -367,34 +400,110 @@ function buildTagChipsRow(tags, { removable = false, onRemove = null, emptyText 
     return chipsRow;
 }
 
-// A native color swatch + a clear button that only appears once this
-// exact group has its own color set (not just inherited from a parent —
-// clearing a purely-inherited value would be a no-op anyway, so hiding it
-// avoids implying there's something here to reset).
-function buildGroupColorPicker(fullName) {
-    const wrap = document.createElement('span');
-    wrap.className = 'xb-group-color-wrap';
+// A modest curated set of icons for the <datalist> suggestion dropdown —
+// not the full bootstrap-icons set (~1800 icons), just common ones. Any
+// valid "bi-*" name works when typed, whether it's in this list or not;
+// this is only a convenience, not a whitelist.
+const ICON_SUGGESTIONS = [
+    'palette', 'brush', 'image', 'images', 'camera', 'camera-video',
+    'controller', 'joystick', 'dice-5', 'dice-5-fill',
+    'code-slash', 'terminal', 'cpu', 'gear', 'gear-fill', 'tools', 'wrench', 'wrench-adjustable',
+    'heart', 'heart-fill', 'star', 'star-fill', 'eye', 'eye-fill', 'eye-slash',
+    'person', 'person-fill', 'people', 'people-fill', 'gem', 'lightning', 'lightning-fill', 'fire',
+    'moon-stars', 'moon-stars-fill', 'sun', 'sun-fill', 'cloud', 'cloud-fill', 'cloud-lightning',
+    'droplet', 'droplet-fill', 'snow', 'water', 'umbrella',
+    'tree', 'flower1', 'flower2', 'flower3', 'bug', 'bug-fill', 'robot', 'rocket', 'rocket-fill',
+    'easel', 'easel-fill', 'pencil', 'pencil-fill', 'pen', 'feather',
+    'book', 'book-fill', 'bookmark', 'bookmark-fill', 'tag', 'tag-fill', 'tags', 'tags-fill',
+    'folder', 'folder-fill', 'archive', 'archive-fill', 'box', 'box-fill',
+    'gift', 'gift-fill', 'trophy', 'trophy-fill', 'award', 'award-fill',
+    'shield', 'shield-fill', 'shield-check', 'shield-exclamation',
+    'exclamation-triangle', 'exclamation-triangle-fill', 'question-circle', 'question-circle-fill',
+    'chat', 'chat-fill', 'music-note', 'music-note-beamed', 'music-note-list',
+    'film', 'camera-reels', 'camera-reels-fill', 'emoji-smile', 'emoji-heart-eyes'
+];
 
+let iconDatalistBuilt = false;
+function ensureIconDatalist() {
+    if (iconDatalistBuilt) return;
+    iconDatalistBuilt = true;
+    const list = document.createElement('datalist');
+    list.id = 'xb-group-icon-options';
+    ICON_SUGGESTIONS.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        list.appendChild(opt);
+    });
+    document.body.appendChild(list);
+}
+
+// Icon-name text input (native <datalist> autocomplete) + a native color
+// swatch, each with its own clear button that only appears once *this
+// exact group* has that property explicitly set (not just inherited —
+// see groupColorOf/groupIconOf). `onIconInput`/`onColorInput` fire on
+// every keystroke/drag tick, before the value is committed to state, so
+// the caller (the manage card) can live-preview its own icon badge and
+// background tint without waiting for a full re-render.
+function buildGroupStylePicker(fullName, { onIconInput, onColorInput } = {}) {
+    ensureIconDatalist();
+    const wrap = document.createElement('span');
+    wrap.className = 'xb-group-style-wrap';
+
+    const iconWrap = document.createElement('span');
+    iconWrap.className = 'xb-group-icon-wrap';
+    const iconInput = document.createElement('input');
+    iconInput.type = 'text';
+    iconInput.className = 'xb-group-icon-input';
+    iconInput.placeholder = 'icon…';
+    iconInput.setAttribute('list', 'xb-group-icon-options');
+    iconInput.value = groupIconOf(fullName) || '';
+    iconInput.addEventListener('input', () => {
+        if (onIconInput) onIconInput(iconInput.value.trim().replace(/^bi-/, ''));
+    });
+    iconInput.addEventListener('change', () => {
+        setGroupIcon(fullName, iconInput.value);
+        renderGroupManageList(); // discrete one-off commit (not a drag), safe to fully rebuild — this is what makes the clear button appear/disappear
+    });
+    iconWrap.appendChild(iconInput);
+    if (state.tagGroupIcons[fullName]) {
+        const clearIcon = document.createElement('button');
+        clearIcon.className = 'icon-btn xb-group-style-clear';
+        clearIcon.title = 'Remove icon';
+        clearIcon.textContent = '×';
+        clearIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setGroupIcon(fullName, null);
+            renderGroupManageList();
+        });
+        iconWrap.appendChild(clearIcon);
+    }
+    wrap.appendChild(iconWrap);
+
+    const colorWrap = document.createElement('span');
+    colorWrap.className = 'xb-group-color-wrap';
     const swatch = document.createElement('input');
     swatch.type = 'color';
     swatch.className = 'xb-group-color-input';
-    swatch.title = 'Set a color for this group';
+    swatch.title = 'Background tint for this group';
     swatch.value = groupColorOf(fullName) || DEFAULT_SWATCH_COLOR;
-    swatch.addEventListener('input', () => setGroupColor(fullName, swatch.value));
-    wrap.appendChild(swatch);
-
+    swatch.addEventListener('input', () => {
+        setGroupColor(fullName, swatch.value); // already cheap/frequent-safe — only re-renders the sidebar, not this modal
+        if (onColorInput) onColorInput(swatch.value);
+    });
+    colorWrap.appendChild(swatch);
     if (state.tagGroupColors[fullName]) {
-        const clear = document.createElement('button');
-        clear.className = 'icon-btn xb-group-color-clear';
-        clear.title = 'Reset to default color';
-        clear.textContent = '×';
-        clear.addEventListener('click', (e) => {
+        const clearColor = document.createElement('button');
+        clearColor.className = 'icon-btn xb-group-style-clear';
+        clearColor.title = 'Reset background tint';
+        clearColor.textContent = '×';
+        clearColor.addEventListener('click', (e) => {
             e.stopPropagation();
             setGroupColor(fullName, null);
             renderGroupManageList();
         });
-        wrap.appendChild(clear);
+        colorWrap.appendChild(clearColor);
     }
+    wrap.appendChild(colorWrap);
 
     return wrap;
 }
@@ -464,13 +573,24 @@ function buildGroupManageCard(fullName, tagsInGroup, { indent = false, explicit 
     });
     left.appendChild(grip);
 
+    const previewIcon = document.createElement('i');
+    const startingIcon = groupIconOf(fullName);
+    previewIcon.className = `bi ${startingIcon ? 'bi-' + startingIcon : ''} xb-group-name-icon`;
+    left.appendChild(previewIcon);
+
     const name = document.createElement('span');
     name.className = 'xb-group-name';
     name.textContent = explicit ? `${displayLabel} (${tagsInGroup.length})` : displayLabel;
     left.appendChild(name);
 
     if(explicit) {
-        right.appendChild(buildGroupColorPicker(fullName));
+        const startingColor = groupColorOf(fullName);
+        if (startingColor) card.style.backgroundColor = hexToRgba(startingColor, 0.12);
+
+        right.appendChild(buildGroupStylePicker(fullName, {
+            onIconInput: val => { previewIcon.className = `bi ${val ? 'bi-' + val : ''} xb-group-name-icon`; },
+            onColorInput: val => { card.style.backgroundColor = hexToRgba(val, 0.12); }
+        }));
 
         const renameBtn = document.createElement('button');
         renameBtn.className = 'icon-btn';

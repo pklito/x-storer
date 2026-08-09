@@ -18,6 +18,7 @@ export const state = {
     tagGroupAssignments: {},          // tag -> groupName (absent = Uncategorized)
     collapsedGroups: new Set(),       // group names currently collapsed in the sidebar
     tagGroupColors: {},               // group name (full "Parent/Sub" or plain name) -> hex color string
+    tagGroupIcons: {},                // group name -> bootstrap-icon slug (without the "bi-" prefix)
 
     // Search Tabs (saved filter combinations)
     searchTabs: [{ id: 'default', name: 'All', selectedTags: [], excludedTags: [], hiddenOnly: false }],

@@ -1,9 +1,12 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
 import { tagList, clearTagsBtn } from '../dom.js';
-import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf } from './tagGroups.js';
+import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf, groupIconOf, hexToRgba } from './tagGroups.js';
 
 // Tags with more bookmarks than this get a bold chip in the sidebar.
 const HEAVY_TAG_THRESHOLD = 50;
+// Alpha for a group's background tint — translucent so tag chips sitting
+// on top of it stay legible.
+const GROUP_TINT_ALPHA = 0.14;
 import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
 
 export function clearTagsBtnAction() {
@@ -95,12 +98,15 @@ export function renderTagsSidebar() {
         const caret = document.createElement('i');
         caret.className = collapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
         header.appendChild(caret);
+        const icon = groupIconOf(node.name);
+        if (icon) {
+            const iconEl = document.createElement('i');
+            iconEl.className = `bi bi-${icon} tag-group-icon`;
+            header.appendChild(iconEl);
+        }
         header.appendChild(document.createTextNode(` ${node.name} (${totalCount})`));
         const color = groupColorOf(node.name);
-        if (color) {
-            header.style.color = color;
-            header.style.borderLeftColor = color;
-        }
+        if (color) groupEl.style.backgroundColor = hexToRgba(color, GROUP_TINT_ALPHA);
         header.addEventListener('click', () => {
             if (state.collapsedGroups.has(node.name)) state.collapsedGroups.delete(node.name);
             else state.collapsedGroups.add(node.name);
@@ -131,11 +137,21 @@ export function renderTagsSidebar() {
                 const subCaret = document.createElement('i');
                 subCaret.className = subCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
                 subHeader.appendChild(subCaret);
+                const subIcon = groupIconOf(sub.fullName);
+                if (subIcon) {
+                    const subIconEl = document.createElement('i');
+                    subIconEl.className = `bi bi-${subIcon} tag-group-icon`;
+                    subHeader.appendChild(subIconEl);
+                }
                 subHeader.appendChild(document.createTextNode(` ${sub.name} (${sub.tags.length})`));
-                const subColor = groupColorOf(sub.fullName);
-                if (subColor) {
-                    subHeader.style.color = subColor;
-                    subHeader.style.borderLeftColor = subColor;
+                // Only paint its own background when this subgroup has an
+                // EXPLICIT color (not just inherited) — otherwise leave it
+                // transparent so the parent's tint (already on groupEl,
+                // which this sits inside) shows through as one uniform
+                // wash instead of stacking two translucent layers of the
+                // same color into a slightly different shade.
+                if (state.tagGroupColors[sub.fullName]) {
+                    subEl.style.backgroundColor = hexToRgba(state.tagGroupColors[sub.fullName], GROUP_TINT_ALPHA);
                 }
                 subHeader.addEventListener('click', () => {
                     if (state.collapsedGroups.has(sub.fullName)) state.collapsedGroups.delete(sub.fullName);

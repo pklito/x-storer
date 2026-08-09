@@ -306,6 +306,55 @@ body.sidebar-resizing {
     gap: 0.6rem;
 }
 
+.tag-group {
+    border-radius: 6px;
+    padding: 4px 6px;
+    transition: background-color 0.15s;
+}
+
+.tag-group-icon {
+    margin: 0 2px;
+}
+
+.xb-group-style-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 4px;
+}
+
+.xb-group-icon-wrap,
+.xb-group-color-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.xb-group-icon-input {
+    width: 80px;
+    font-size: 0.75rem;
+    padding: 2px 4px;
+}
+
+.xb-group-color-input {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background: none;
+}
+
+.xb-group-style-clear {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.xb-group-name-icon {
+    margin-right: 2px;
+}
+
 .tag-group-header {
     border-left: 3px solid transparent;
     padding-left: 6px;
