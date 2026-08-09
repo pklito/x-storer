@@ -24,7 +24,7 @@ export async function loadData() {
     }
 }
 
-function getSearchTerm() {
+function getSearchTermCleanText() {
     return state.searchTerm.replace(/before:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').replace(/after:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').trim();
 }
 
@@ -51,7 +51,7 @@ export function getFilteredTweets() {
             filtered = filtered.filter(t => new Date(t.timestamp) >= afterDate);
         }
 
-        const searchTerm = getSearchTerm();
+        const searchTerm = getSearchTermCleanText();
         if (searchTerm) {
             filtered = filtered.filter(t =>
                 (t.text && t.text.toLowerCase().includes(searchTerm)) ||
@@ -70,8 +70,8 @@ export function updateUI() {
     const parts = [];
     if (state.selectedTags.size > 0) parts.push(Array.from(state.selectedTags).map(t => '#' + t).join(', '));
     if (state.excludedTags.size > 0) parts.push(Array.from(state.excludedTags).map(t => '−#' + t).join(', '));
-    feedTitle.textContent = `Filtered: ${state.selectedTags.size} included, ${state.excludedTags.size} excluded` + (getSearchTerm() && getSearchTerm().length > 0 ? `, "${getSearchTerm()}"` : '');
-    if (state.selectedTags.size === 0 && state.excludedTags.size === 0 && (!getSearchTerm() || getSearchTerm().length === 0)) {
+    feedTitle.textContent = `Filtered: ${state.selectedTags.size} included, ${state.excludedTags.size} excluded` + (getSearchTermCleanText() && getSearchTermCleanText().length > 0 ? `, "${getSearchTermCleanText()}"` : '');
+    if (state.selectedTags.size === 0 && state.excludedTags.size === 0 && (!getSearchTermCleanText() || getSearchTermCleanText().length === 0)) {
         feedTitle.textContent = 'All Bookmarks';
     }
     renderGrid(tweets);

@@ -22,6 +22,8 @@ export const state = {
     searchTabs: [{ id: 'default', name: 'All', selectedTags: [], excludedTags: [], hiddenOnly: false }],
     activeTabId: 'default',
     defaultTabId: 'default', // which tab is auto-selected when the dashboard opens
+    tabSelectedTags: new Set(), 
+    tabExcludedTags: new Set(), 
 
     // Tag editor modal (per-tweet)
     currentQuoteTags: [], // tags being edited in modal, as Array of Strings

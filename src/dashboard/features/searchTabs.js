@@ -48,6 +48,8 @@ export function applyActiveTabSilently() {
     const tab = state.searchTabs.find(t => t.id === state.activeTabId) || state.searchTabs[0];
     state.selectedTags = new Set(tab.selectedTags || []);
     state.excludedTags = new Set(tab.excludedTags || []);
+    state.tabSelectedTags = new Set(tab.selectedTags || []);
+    state.tabExcludedTags = new Set(tab.excludedTags || []);
     state.activeTabId = tab.id;
 }
 
@@ -57,9 +59,16 @@ export function applySearchTab(id) {
     state.activeTabId = id;
     state.selectedTags = new Set(tab.selectedTags || []);
     state.excludedTags = new Set(tab.excludedTags || []);
+    state.tabSelectedTags = new Set(tab.selectedTags || []);
+    state.tabExcludedTags = new Set(tab.excludedTags || []);
     saveSearchTabsState();
     updateUI();
     renderSearchTabs();
+}
+
+export function reapplyActiveTab() {
+    if (!state.activeTabId) return;
+    applySearchTab(state.activeTabId);
 }
 
 export function addSearchTab() {
@@ -88,6 +97,9 @@ export function deleteSearchTab(id) {
         state.activeTabId = 'default';
         state.selectedTags = new Set();
         state.excludedTags = new Set();
+        
+        state.tabSelectedTags = new Set();
+        state.tabExcludedTags = new Set();
         updateUI();
     }
     if (state.defaultTabId === id) {

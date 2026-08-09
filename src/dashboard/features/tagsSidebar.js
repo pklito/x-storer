@@ -1,14 +1,16 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
-import { tagList, clearTagsBtn } from '../dom.js';
+import { tagList, clearTagsBtn, searchInput } from '../dom.js';
 import { tagGroupOf, saveTagGroupState, buildGroupTree } from './tagGroups.js';
 
+import { reapplyActiveTab } from './searchTabs.js';
 // Tags with more bookmarks than this get a bold chip in the sidebar.
 const HEAVY_TAG_THRESHOLD = 50;
 import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
 
 export function clearTagsBtnAction() {
-    state.selectedTags.clear();
-    state.excludedTags.clear();
+    reapplyActiveTab();
+    searchInput.value = '';
+    state.searchTerm = '';
     updateUI();
 }
 
@@ -23,7 +25,9 @@ export function renderTagsSidebar() {
 
     // Clear button lives in the header row above the list (see index.html);
     // just toggle its visibility here.
-    clearTagsBtn.style.display = (state.selectedTags.size > 0 || state.excludedTags.size > 0) ? 'flex' : 'none';
+    var selectedDifferent = state.selectedTags.symmetricDifference(state.tabSelectedTags);
+    var excludedDifferent = state.excludedTags.symmetricDifference(state.tabExcludedTags);
+    clearTagsBtn.style.display = (selectedDifferent.size > 0 || excludedDifferent.size > 0 || state.searchTerm.length > 0) ? 'flex' : 'none';      
 
     tagList.replaceChildren();
 
