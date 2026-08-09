@@ -67,9 +67,14 @@ export function splitGroupPath(name) {
 // gets a node here with an empty `tags` array, so callers don't need to
 // special-case it.
 //
-// Returns: [{ name, tags, subgroups: [{ name, fullName, tags }] }, ...]
-// `fullName` on a subgroup is the real group key ("Purpose/Reminders") —
-// use that (not `name`) for assignment/rename/delete/reorder/collapse.
+// Returns: [{ name, tags, subgroups, explicit }, ...] where each subgroup
+// is { name, fullName, tags }. `fullName` on a subgroup is the real group
+// key ("Purpose/Reminders") — use that (not `name`) for
+// assignment/rename/delete/reorder/collapse. `explicit` on a top-level
+// node is false when the parent only exists because a subgroup implies it
+// (only "Source/Debug" was ever added, "Source" itself never was) — such
+// a parent isn't a real entry in state.tagGroups, so nothing should be
+// assignable to it directly.
 export function buildGroupTree(tagsByGroup) {
     const nodes = new Map(); // parent name -> node
     const order = [];
@@ -77,12 +82,13 @@ export function buildGroupTree(tagsByGroup) {
         const { parent, sub } = splitGroupPath(fullName);
         let node = nodes.get(parent);
         if (!node) {
-            node = { name: parent, tags: [], subgroups: [] };
+            node = { name: parent, tags: [], subgroups: [], explicit: false };
             nodes.set(parent, node);
             order.push(node);
         }
         if (sub === null) {
             node.tags = tagsByGroup.get(fullName) || [];
+            node.explicit = true;
         } else {
             node.subgroups.push({ name: sub, fullName, tags: tagsByGroup.get(fullName) || [] });
         }
@@ -192,7 +198,7 @@ function renderGroupManageList() {
     // Nested tree so subgroups render indented under their parent.
     const tree = buildGroupTree(tagsByGroup).filter(node => node.name !== 'Uncategorized');
     tree.forEach(node => {
-        groupManageList.appendChild(buildGroupManageCard(node.name, (node.tags || []).sort()));
+        groupManageList.appendChild(buildGroupManageCard(node.name, (node.tags || []).sort(), { explicit: node.explicit }));
         node.subgroups.forEach(sub => {
             groupManageList.appendChild(buildGroupManageCard(sub.fullName, (sub.tags || []).sort(), { indent: true }));
         });
@@ -219,6 +225,17 @@ function renderGroupManageList() {
         icon.classList.remove('bi-eye-fill');
         icon.classList.add('bi-eye-slash');
     }
+
+    if (pendingFocusKey) {
+        const key = pendingFocusKey;
+        pendingFocusKey = null;
+        // Wait a frame — the elements above were just appended and won't
+        // reliably accept focus synchronously in every browser.
+        requestAnimationFrame(() => {
+            const target = groupManageList.querySelector(`[data-focus-key="${CSS.escape(key)}"] input`);
+            if (target) target.focus();
+        });
+    }
 }
 
 let draggedGroupName = null;
@@ -226,6 +243,13 @@ let draggedGroupName = null;
 // Which unassigned tag (if any) currently has its "match to an assigned
 // tag" input expanded in place of its plain chip label.
 let activeAssignTag = null;
+
+// Set by an add-input's onCommit right before it triggers a re-render, so
+// the newly-rebuilt input (a full DOM replacement, not a patch) can regain
+// focus on the next render instead of leaving you re-clicking after every
+// single tag. Consumed (reset to null) inside renderGroupManageList.
+let pendingFocusKey = null;
+const HIDDEN_TAGS_FOCUS_KEY = '__hidden_tags__';
 
 // Moves `draggedName` in state.tagGroups to just before/after `targetName`.
 // 'Uncategorized' never participates (it has no draggable card — see
@@ -313,7 +337,7 @@ function buildTagChipsRow(tags, { removable = false, onRemove = null, emptyText 
     return chipsRow;
 }
 
-function buildGroupManageCard(fullName, tagsInGroup, { indent = false } = {}) {
+function buildGroupManageCard(fullName, tagsInGroup, { indent = false, explicit = true } = {}) {
     const card = document.createElement('div');
     card.className = indent ? 'group-manage-card group-manage-card-indent' : 'group-manage-card';
 
@@ -380,26 +404,28 @@ function buildGroupManageCard(fullName, tagsInGroup, { indent = false } = {}) {
 
     const name = document.createElement('span');
     name.className = 'xb-group-name';
-    name.textContent = `${displayLabel} (${tagsInGroup.length})`;
+    name.textContent = explicit ? `${displayLabel} (${tagsInGroup.length})` : displayLabel;
     left.appendChild(name);
 
-    const renameBtn = document.createElement('button');
-    renameBtn.className = 'icon-btn';
-    renameBtn.title = indent ? 'Rename subgroup (type a full "Parent/Sub" path to move it)' : 'Rename group';
-    const renameIcon = document.createElement('i');
-    renameIcon.className = 'bi bi-pencil';
-    renameBtn.appendChild(renameIcon);
-    renameBtn.addEventListener('click', () => renameTagGroupPrompt(fullName));
-    right.appendChild(renameBtn);
+    if(explicit) {
+        const renameBtn = document.createElement('button');
+        renameBtn.className = 'icon-btn';
+        renameBtn.title = indent ? 'Rename subgroup (type a full "Parent/Sub" path to move it)' : 'Rename group';
+        const renameIcon = document.createElement('i');
+        renameIcon.className = 'bi bi-pencil';
+        renameBtn.appendChild(renameIcon);
+        renameBtn.addEventListener('click', () => renameTagGroupPrompt(fullName));
+        right.appendChild(renameBtn);
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'icon-btn danger';
-    delBtn.title = 'Delete group (tags return to Uncategorized)';
-    const icon = document.createElement('i');
-    icon.className = 'bi bi-trash3';
-    delBtn.appendChild(icon);
-    delBtn.addEventListener('click', () => deleteTagGroup(fullName));
-    right.appendChild(delBtn);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'icon-btn danger';
+        delBtn.title = 'Delete group (tags return to Uncategorized)';
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-trash3';
+        delBtn.appendChild(icon);
+        delBtn.addEventListener('click', () => deleteTagGroup(fullName));
+        right.appendChild(delBtn);
+    }
 
     card.appendChild(header);
 
@@ -407,16 +433,25 @@ function buildGroupManageCard(fullName, tagsInGroup, { indent = false } = {}) {
     card.appendChild(buildTagChipsRow(tagsInGroup, {
         removable: true,
         onRemove: tag => { setTagGroup(tag, 'Uncategorized'); renderGroupManageList(); },
-        emptyText: fullName === 'Uncategorized' ? 'Nothing uncategorized.' : 'No tags in this group yet.'
+        emptyText: fullName === 'Uncategorized' ? 'Nothing uncategorized.' : explicit ? 'No tags in this group yet.' : `${fullName} hasn't been created`
     }));
 
-    // Autocomplete input to add another tag to this group.
-    if (fullName !== 'Uncategorized') {
-        card.appendChild(buildTagAddInput({
+    // Autocomplete input to add another tag to this group. Hidden for a
+    // purely implicit parent (explicit === false) — e.g. only
+    // "Source/Debug" was ever added, so "Source" isn't a real group you
+    // can assign tags into directly; only its subgroup card gets one.
+    if (fullName !== 'Uncategorized' && explicit) {
+        const addInput = buildTagAddInput({
             placeholder: 'Add a tag to this group…',
             candidates: () => Array.from(getAllTagNames()).filter(t => tagGroupOf(t) === 'Uncategorized'),
-            onCommit: tag => { setTagGroup(tag, fullName); renderGroupManageList(); }
-        }));
+            onCommit: tag => {
+                setTagGroup(tag, fullName);
+                pendingFocusKey = fullName; // re-render rebuilds this input from scratch — reclaim focus so multi-tag entry doesn't need a re-click each time
+                renderGroupManageList();
+            }
+        });
+        addInput.dataset.focusKey = fullName;
+        card.appendChild(addInput);
     }
 
     return card;
@@ -444,11 +479,16 @@ function buildHiddenTagsCard(tags) {
         onRemove: removeHiddenTag,
         emptyText: 'No hidden tags.'
     }));
-    card.appendChild(buildTagAddInput({
+    const hideInput = buildTagAddInput({
         placeholder: 'Hide a tag…',
         candidates: () => Array.from(getAllTagNames()).filter(t => !state.hiddenTags.has(t)),
-        onCommit: addHiddenTag
-    }));
+        onCommit: tag => {
+            pendingFocusKey = HIDDEN_TAGS_FOCUS_KEY; // addHiddenTag() re-renders the list — reclaim focus so multi-tag entry doesn't need a re-click each time
+            addHiddenTag(tag);
+        }
+    });
+    hideInput.dataset.focusKey = HIDDEN_TAGS_FOCUS_KEY;
+    card.appendChild(hideInput);
 
     return card;
 }
