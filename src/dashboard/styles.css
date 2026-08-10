@@ -24,8 +24,6 @@
     20. Modals — Recently Removed
     21. Tag Input / Autocomplete (shared widget)
     22. Form & Layout Utilities
-    23. Legacy / Unverified (nav menu appears removed from index.html —
-        left in rather than deleted blind; check before removing)
    ========================================================================== */
 
 
@@ -1734,50 +1732,3 @@ body.xb-mass-tag-padding {
     text-align: center;
 }
 
-
-/* ==========================================================================
-   23. Legacy / Unverified
-   ==========================================================================
-   index.html has a comment reading "Simplified Menu - Removed Inbox/All
-   List Items" and no longer contains any .nav-menu/.nav-item/.badge-count
-   elements. Likely dead — left in rather than deleted blind, since other
-   files (grid.js, etc.) weren't available to confirm nothing else
-   references these classes. Safe to delete once confirmed.
-   ========================================================================== */
-.nav-menu {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.nav-item {
-    padding: 0.6rem 0.75rem;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: var(--text-secondary);
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 0.9rem;
-}
-
-.nav-item i {
-    font-size: 1.1rem;
-}
-
-.nav-item:hover,
-.nav-item.active {
-    background: rgba(127, 127, 127, 0.1);
-    color: var(--text-primary);
-}
-
-.badge-count {
-    margin-left: auto;
-    font-size: 0.75rem;
-    background: var(--card-border);
-    padding: 2px 8px;
-    border-radius: 10px;
-}
