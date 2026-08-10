@@ -24,8 +24,28 @@ export async function loadData() {
     }
 }
 
+// A date token after before:/after: can be "2026-01-01", "20260101"
+// (no separators), or just "2026" (resolves to Jan 1 of that year).
+// Alternation order matters: the dashed form is tried first, since a bare
+// \d{8} or \d{4} would otherwise also happily match a prefix of it.
+const DATE_TOKEN_SRC = String.raw`\d{4}-\d{2}-\d{2}|\d{8}|\d{4}`;
+const BEFORE_DATE_RE = new RegExp(`before:(${DATE_TOKEN_SRC})`);
+const AFTER_DATE_RE = new RegExp(`after:(${DATE_TOKEN_SRC})`);
+
+// Parses whatever BEFORE_DATE_RE/AFTER_DATE_RE captured into a Date, or
+// null if it's none of the three known shapes.
+function parseFuzzyDate(token) {
+    let m = token.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}`);
+    m = token.match(/^(\d{4})(\d{2})(\d{2})$/);
+    if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}`);
+    m = token.match(/^(\d{4})$/);
+    if (m) return new Date(`${m[1]}-01-01`);
+    return null;
+}
+
 function getSearchTerm() {
-    return state.searchTerm.replace(/before:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').replace(/after:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').trim();
+    return state.searchTerm.replace(BEFORE_DATE_RE, '').replace(AFTER_DATE_RE, '').trim();
 }
 
 // Core of getFilteredTweets, but with the exclusion set as a parameter —
@@ -50,15 +70,15 @@ function applyTagAndSearchFilters(excludedSet) {
     }
 
     if (state.searchTerm) {
-        const match = state.searchTerm.match(/before:(\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/);
+        const match = state.searchTerm.match(BEFORE_DATE_RE);
         if (match) {
-            const beforeDate = new Date(match[1]);
-            filtered = filtered.filter(t => new Date(t.timestamp) <= beforeDate);
+            const beforeDate = parseFuzzyDate(match[1]);
+            if (beforeDate) filtered = filtered.filter(t => new Date(t.timestamp) <= beforeDate);
         }
-        const matchAfter = state.searchTerm.match(/after:(\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01]))/);
+        const matchAfter = state.searchTerm.match(AFTER_DATE_RE);
         if (matchAfter) {
-            const afterDate = new Date(matchAfter[1]);
-            filtered = filtered.filter(t => new Date(t.timestamp) >= afterDate);
+            const afterDate = parseFuzzyDate(matchAfter[1]);
+            if (afterDate) filtered = filtered.filter(t => new Date(t.timestamp) >= afterDate);
         }
 
         const searchTerm = getSearchTerm();
