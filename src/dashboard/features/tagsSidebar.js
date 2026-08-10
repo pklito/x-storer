@@ -1,9 +1,10 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
-import { tagList, clearTagsBtn, tagMatchModeBtn, tagMatchModeLabel } from '../dom.js';
+import { tagList, clearTagsBtn, tagMatchModeBtn, tagMatchModeLabel, searchInput } from '../dom.js';
 import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf, groupIconOf, hexToRgba } from './tagGroups.js';
 
 
 import { updateUI, getFilteredTweets, getExclusionOverlapCount, getBuiltInTagsForTweet, getAllTagNames, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
+import { reapplyActiveTab } from './searchTabs.js';
 
 // Tags with more bookmarks than this get a bold chip in the sidebar.
 const HEAVY_TAG_THRESHOLD = 50;
@@ -11,10 +12,13 @@ const HEAVY_TAG_THRESHOLD = 50;
 const GROUP_TINT_ALPHA = 0.14;
 // When in "match ALL" mode, tags with no overlap are hidden. they are grayed out instead if false
 const HIDE_UNRELATED_INTERSECTION_TAGS = false;
+// Tags with more bookmarks than this get a bold chip in the sidebar.
+
 
 export function clearTagsBtnAction() {
-    state.selectedTags.clear();
-    state.excludedTags.clear();
+    reapplyActiveTab();
+    searchInput.value = '';
+    state.searchTerm = '';
     updateUI();
 }
 
@@ -63,9 +67,10 @@ export function renderTagsSidebar() {
         tagCounts[tag] = coOccurrenceMode ? getExclusionOverlapCount(tag) : (tagCounts[tag] || 0);
     });
 
-    // Clear button lives in the header row above the list (see index.html);
-    // just toggle its visibility here.
-    clearTagsBtn.style.display = (state.selectedTags.size > 0 || state.excludedTags.size > 0) ? 'flex' : 'none';
+    
+    var selectedDifferent = state.selectedTags.symmetricDifference(state.tabSelectedTags);
+    var excludedDifferent = state.excludedTags.symmetricDifference(state.tabExcludedTags);
+    clearTagsBtn.style.display = (selectedDifferent.size > 0 || excludedDifferent.size > 0 || state.searchTerm.length > 0) ? 'flex' : 'none'; 
 
     tagList.replaceChildren();
 

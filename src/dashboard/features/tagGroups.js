@@ -107,32 +107,15 @@ export function hexToRgba(hex, alpha) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// Splits a group name like "Purpose/Reminders" into its parent and sub
-// parts. A plain name like "Quality" has no sub (sub: null). Only the
-// first "/" counts, so "A/B/C" is parent "A", sub "B/C" — one level of
-// nesting is all the sidebar/manage-modal render, deeper paths just show
-// the whole remainder as the sub's label.
+// Splits a group name like "Purpose/Reminders" into its parent and sub parts
 export function splitGroupPath(name) {
     const idx = name.indexOf('/');
     if (idx === -1) return { parent: name, sub: null };
     return { parent: name.slice(0, idx), sub: name.slice(idx + 1) };
 }
 
-// Folds the flat state.tagGroups list + a tag-bucket map (group name ->
-// tags[]) into a parent -> subgroups tree, preserving the order groups
-// appear in state.tagGroups. A parent that only exists implicitly (e.g.
-// only "Purpose/Reminders" was ever added, never bare "Purpose") still
-// gets a node here with an empty `tags` array, so callers don't need to
-// special-case it.
-//
-// Returns: [{ name, tags, subgroups, explicit }, ...] where each subgroup
-// is { name, fullName, tags }. `fullName` on a subgroup is the real group
-// key ("Purpose/Reminders") — use that (not `name`) for
-// assignment/rename/delete/reorder/collapse. `explicit` on a top-level
-// node is false when the parent only exists because a subgroup implies it
-// (only "Source/Debug" was ever added, "Source" itself never was) — such
-// a parent isn't a real entry in state.tagGroups, so nothing should be
-// assignable to it directly.
+// Given a map of key group -> value [tags], returns the tagGroup tree where each node is {name, tags[strings], subgroups[nodes], explicit}
+// returns the ordered tree
 export function buildGroupTree(tagsByGroup) {
     const nodes = new Map(); // parent name -> node
     const order = [];
@@ -356,6 +339,11 @@ function renameTagGroup(oldName, newName) {
     if (state.collapsedGroups.has(oldName)) {
         state.collapsedGroups.delete(oldName);
         state.collapsedGroups.add(clean);
+    }
+
+    if (state.tagGroupColors[oldName]) {
+        state.tagGroupColors[clean] = state.tagGroupColors[oldName];
+        delete state.tagGroupColors[oldName];
     }
 
     saveTagGroupState();
