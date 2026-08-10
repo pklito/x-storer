@@ -6,6 +6,7 @@
     --text-primary: #e6edf3;
     --text-secondary: #8b949e;
     --accent-color: #2f81f7;
+    --accent-color-alt: #a371f7;
     --accent-hover: #58a6ff;
     --glass-blur: blur(12px);
     --overlay-bg: rgba(0, 0, 0, 0.7);
@@ -21,6 +22,7 @@
         --text-primary: #1f2328;
         --text-secondary: #656d76;
         --accent-color: #0969da;
+        --accent-color-alt: #8250df;
         --accent-hover: #218bff;
         --glass-blur: blur(10px);
         --overlay-bg: rgba(255, 255, 255, 0.8);
@@ -451,9 +453,13 @@ body.sidebar-resizing {
     white-space: nowrap;
     color: var(--text-secondary);
 }
-.tag-match-mode-btn.active {
+.tag-match-mode-btn.mode-any {
     color: var(--accent-color);
     border-color: var(--accent-color);
+}
+.tag-match-mode-btn.mode-all {
+    color: var(--accent-color-alt);
+    border-color: var(--accent-color-alt);
 }
 
 .xb-group-color-clear {
@@ -497,6 +503,25 @@ body.sidebar-resizing {
     background: var(--accent-color);
     color: white;
     border-color: var(--accent-color);
+}
+
+/* Selected while in "match ALL" mode — visually distinct from a normal
+   (ANY-mode) selection so it's obvious at a glance which mode you're in. */
+.tag-chip.active.match-all {
+    background: var(--accent-color-alt);
+    border-color: var(--accent-color-alt);
+}
+
+/* A tag with zero overlap with the current ALL-mode selection. Only ever
+   applied when HIDE_UNRELATED_INTERSECTION_TAGS is false (tagsSidebar.js)
+   — otherwise these tags aren't rendered at all. :not() guards keep an
+   edge case (a selected/excluded tag that happens to be at 0) looking
+   like a normal selection rather than fading it out. */
+.tag-chip-zero-match:not(.active):not(.excluded) {
+    opacity: 0.35;
+}
+.tag-chip-zero-match:not(.active):not(.excluded):hover {
+    opacity: 0.65;
 }
 
 /* Shift-click exclusion */

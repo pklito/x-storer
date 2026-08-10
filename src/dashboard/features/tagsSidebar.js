@@ -7,7 +7,14 @@ const HEAVY_TAG_THRESHOLD = 50;
 // Alpha for a group's background tint — translucent so tag chips sitting
 // on top of it stay legible.
 const GROUP_TINT_ALPHA = 0.14;
-import { updateUI, getFilteredTweets, getBuiltInTagsForTweet, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
+import { updateUI, getFilteredTweets, getBuiltInTagsForTweet, getAllTagNames, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
+
+// When true, a tag with zero overlap with the current ALL-mode selection
+// is dropped from the sidebar entirely (the original behavior). When
+// false, it's still shown, just muted (.tag-chip-zero-match in styles.css)
+// — set this back to true if the grayed-out list ends up feeling noisier
+// than useful.
+const HIDE_UNRELATED_INTERSECTION_TAGS = false;
 
 export function clearTagsBtnAction() {
     state.selectedTags.clear();
@@ -30,7 +37,8 @@ export function toggleTagMatchMode() {
     const icon = tagMatchModeBtn.querySelector('i');
     icon.className = state.tagMatchAll ? 'bi bi-toggle2-on' : 'bi bi-toggle2-off';
     tagMatchModeLabel.textContent = state.tagMatchAll ? 'All' : 'Any';
-    tagMatchModeBtn.classList.toggle('active', state.tagMatchAll);
+    tagMatchModeBtn.classList.toggle('mode-all', state.tagMatchAll);
+    tagMatchModeBtn.classList.toggle('mode-any', !state.tagMatchAll);
     updateUI(); // re-filters the grid and re-renders the sidebar (chip counts, etc.)
 }
 
@@ -45,6 +53,16 @@ export function renderTagsSidebar() {
     const coOccurrenceMode = state.tagMatchAll && state.selectedTags.size > 0;
     const baseTweetsForCounts = coOccurrenceMode ? getFilteredTweets() : state.allTweets;
     const tagCounts = coOccurrenceMode ? getCoOccurringTagCounts(baseTweetsForCounts) : getAllTagCounts();
+    if (coOccurrenceMode && !HIDE_UNRELATED_INTERSECTION_TAGS) {
+        // getCoOccurringTagCounts only produces a key for a tag if it
+        // actually occurred — a tag with zero overlap is simply absent,
+        // which is exactly right for hiding it, but wrong for graying it
+        // out (there'd be nothing to render). Backfill every known tag
+        // name at 0 so it still gets a (muted) chip.
+        getAllTagNames().forEach(tag => {
+            if (!(tag in tagCounts)) tagCounts[tag] = 0;
+        });
+    }
     state.selectedTags.forEach(tag => {
         if (!tagCounts[tag]) tagCounts[tag] = 0; // ensure selected tags are shown even if count is 0
     });
@@ -67,8 +85,22 @@ export function renderTagsSidebar() {
     baseTweetsForCounts.forEach(t => {
         getBuiltInTagsForTweet(t).forEach(name => { builtInCounts[name]++; });
     });
+
+    // In "gray out" mode, a built-in tag should still only appear at all
+    // if it's relevant to the library *at large* (no point graying in
+    // "gif" if you've never bookmarked one) — so visibility is gated on
+    // the global count, while the number actually shown is the (possibly
+    // zero) co-occurrence count.
+    let builtInGlobalCounts = builtInCounts;
+    if (coOccurrenceMode && !HIDE_UNRELATED_INTERSECTION_TAGS) {
+        builtInGlobalCounts = {};
+        BUILT_IN_TAG_NAMES.forEach(name => { builtInGlobalCounts[name] = 0; });
+        state.allTweets.forEach(t => {
+            getBuiltInTagsForTweet(t).forEach(name => { builtInGlobalCounts[name]++; });
+        });
+    }
     const builtInWithCounts = BUILT_IN_TAG_NAMES
-        .filter(name => builtInCounts[name] > 0)
+        .filter(name => builtInGlobalCounts[name] > 0)
         .filter(name => !state.tagSearchTerm || name.toLowerCase().includes(state.tagSearchTerm));
 
     if (builtInWithCounts.length) {
@@ -219,7 +251,11 @@ export function createTagChip(tag, count) {
     const chip = document.createElement('div');
     chip.className = 'tag-chip';
     if (count > HEAVY_TAG_THRESHOLD) chip.classList.add('tag-chip-heavy');
-    if (state.selectedTags.has(tag)) chip.classList.add('active');
+    if (count === 0) chip.classList.add('tag-chip-zero-match'); // only ever reached via the backfill above — normal counts are never a key with value 0
+    if (state.selectedTags.has(tag)) {
+        chip.classList.add('active');
+        if (state.tagMatchAll) chip.classList.add('match-all'); // purple instead of blue, so the color itself signals which mode you're filtering in
+    }
     if (state.excludedTags.has(tag)) chip.classList.add('excluded');
 
     chip.textContent = `#${tag} (${count})`;
