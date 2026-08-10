@@ -28,7 +28,12 @@ function getSearchTerm() {
     return state.searchTerm.replace(/before:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').replace(/after:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').trim();
 }
 
-export function getFilteredTweets() {
+// Core of getFilteredTweets, but with the exclusion set as a parameter —
+// lets a caller ask "what would match if the exclusions were different"
+// without duplicating the selected-tags/search logic. `excludedSet` is
+// still expected to already fold in hidden tags where relevant (callers
+// use getExcludedOrHiddenTags() as the normal case).
+function applyTagAndSearchFilters(excludedSet) {
     let filtered = state.allTweets;
 
     if (state.selectedTags.size > 0) {
@@ -40,8 +45,8 @@ export function getFilteredTweets() {
             : filtered.filter(t => getEffectiveTags(t).some(tag => state.selectedTags.has(tag)));
     }
 
-    if (getExcludedOrHiddenTags().size > 0) {
-        filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => getExcludedOrHiddenTags().has(tag)));
+    if (excludedSet.size > 0) {
+        filtered = filtered.filter(t => !getEffectiveTags(t).some(tag => excludedSet.has(tag)));
     }
 
     if (state.searchTerm) {
@@ -67,6 +72,25 @@ export function getFilteredTweets() {
     }
 
     return filtered;
+}
+
+export function getFilteredTweets() {
+    return applyTagAndSearchFilters(getExcludedOrHiddenTags());
+}
+
+// For an excluded tag, "how many tweets would match right now if this one
+// exclusion were lifted" — every other active filter (selected tags in
+// ALL/ANY mode, every *other* exclusion, search) still applies. This is
+// what the sidebar shows next to an excluded tag in ALL mode instead of
+// always 0 — a tweet with this tag can never appear in the *actual*
+// filtered results while it's excluded, so counting within those results
+// is definitionally always zero; this counts within the "what if" set
+// instead.
+export function getExclusionOverlapCount(tag) {
+    const excludedSet = new Set(getExcludedOrHiddenTags());
+    excludedSet.delete(tag);
+    const wouldBeTweets = applyTagAndSearchFilters(excludedSet);
+    return wouldBeTweets.reduce((n, t) => n + (getEffectiveTags(t).includes(tag) ? 1 : 0), 0);
 }
 
 export function updateUI() {

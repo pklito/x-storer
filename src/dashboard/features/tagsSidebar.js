@@ -7,7 +7,7 @@ const HEAVY_TAG_THRESHOLD = 50;
 // Alpha for a group's background tint — translucent so tag chips sitting
 // on top of it stay legible.
 const GROUP_TINT_ALPHA = 0.14;
-import { updateUI, getFilteredTweets, getBuiltInTagsForTweet, getAllTagNames, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
+import { updateUI, getFilteredTweets, getExclusionOverlapCount, getBuiltInTagsForTweet, getAllTagNames, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
 
 // When true, a tag with zero overlap with the current ALL-mode selection
 // is dropped from the sidebar entirely (the original behavior). When
@@ -67,7 +67,15 @@ export function renderTagsSidebar() {
         if (!tagCounts[tag]) tagCounts[tag] = 0; // ensure selected tags are shown even if count is 0
     });
     state.excludedTags.forEach(tag => {
-        if (!tagCounts[tag] && (!state.hiddenTags.has(tag) || state.showHiddenTags) && !BUILT_IN_TAG_NAMES.includes(tag)) tagCounts[tag] = 0; // ensure excluded tags are shown even if count is 0
+        if (!(!state.hiddenTags.has(tag) || state.showHiddenTags) || BUILT_IN_TAG_NAMES.includes(tag)) return;
+        // In co-occurrence mode, a normal count is always 0 for an excluded
+        // tag by construction — the base tweet set already has every tweet
+        // containing it filtered out, so there's nothing left to count.
+        // getExclusionOverlapCount answers a more useful question instead:
+        // "if this exclusion were lifted, how many would come back" —
+        // computed against everything else currently active (selection,
+        // other exclusions, search).
+        tagCounts[tag] = coOccurrenceMode ? getExclusionOverlapCount(tag) : (tagCounts[tag] || 0);
     });
 
     // Clear button lives in the header row above the list (see index.html);
@@ -85,6 +93,14 @@ export function renderTagsSidebar() {
     baseTweetsForCounts.forEach(t => {
         getBuiltInTagsForTweet(t).forEach(name => { builtInCounts[name]++; });
     });
+    if (coOccurrenceMode) {
+        // Same fix as the regular-tag exclusion handling above — an
+        // excluded built-in (e.g. you've excluded "cw") would otherwise
+        // always show 0 here too, for the same reason.
+        BUILT_IN_TAG_NAMES.forEach(name => {
+            if (state.excludedTags.has(name)) builtInCounts[name] = getExclusionOverlapCount(name);
+        });
+    }
 
     // In "gray out" mode, a built-in tag should still only appear at all
     // if it's relevant to the library *at large* (no point graying in
