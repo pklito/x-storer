@@ -2,18 +2,14 @@ import { state, BUILT_IN_TAG_NAMES } from '../state.js';
 import { tagList, clearTagsBtn, tagMatchModeBtn, tagMatchModeLabel } from '../dom.js';
 import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf, groupIconOf, hexToRgba } from './tagGroups.js';
 
-// Tags with more bookmarks than this get a bold chip in the sidebar.
-const HEAVY_TAG_THRESHOLD = 50;
-// Alpha for a group's background tint — translucent so tag chips sitting
-// on top of it stay legible.
-const GROUP_TINT_ALPHA = 0.14;
+
 import { updateUI, getFilteredTweets, getExclusionOverlapCount, getBuiltInTagsForTweet, getAllTagNames, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
 
-// When true, a tag with zero overlap with the current ALL-mode selection
-// is dropped from the sidebar entirely (the original behavior). When
-// false, it's still shown, just muted (.tag-chip-zero-match in styles.css)
-// — set this back to true if the grayed-out list ends up feeling noisier
-// than useful.
+// Tags with more bookmarks than this get a bold chip in the sidebar.
+const HEAVY_TAG_THRESHOLD = 50;
+// Alpha for a group's background tint
+const GROUP_TINT_ALPHA = 0.14;
+// When in "match ALL" mode, tags with no overlap are hidden. they are grayed out instead if false
 const HIDE_UNRELATED_INTERSECTION_TAGS = false;
 
 export function clearTagsBtnAction() {
@@ -22,16 +18,12 @@ export function clearTagsBtnAction() {
     updateUI();
 }
 
-// Filters which chips are *shown* in the sidebar — purely a display
-// filter, doesn't touch selectedTags/excludedTags at all.
+//tagSearchTerm shows only tags that match. not to be confused with state.searchTerm, for tweets.
 export function tagSearchInputUpdate(e) {
     state.tagSearchTerm = e.target.value.trim().toLowerCase();
     renderTagsSidebar();
 }
 
-// Flips between union (any selected tag matches) and intersection (every
-// selected tag must match). Updates the button's own icon/label directly
-// (it's static markup, not rebuilt by renderTagsSidebar) then re-filters.
 export function toggleTagMatchMode() {
     state.tagMatchAll = !state.tagMatchAll;
     const icon = tagMatchModeBtn.querySelector('i');
@@ -39,26 +31,19 @@ export function toggleTagMatchMode() {
     tagMatchModeLabel.textContent = state.tagMatchAll ? 'All' : 'Any';
     tagMatchModeBtn.classList.toggle('mode-all', state.tagMatchAll);
     tagMatchModeBtn.classList.toggle('mode-any', !state.tagMatchAll);
-    updateUI(); // re-filters the grid and re-renders the sidebar (chip counts, etc.)
+    if(state.selectedTags.size > 1) //dont rerender tweets unless necessary
+        updateUI(); 
+    else
+        renderTagsSidebar();
 }
 
 export function renderTagsSidebar() {
-    // In "match ALL" mode with a selection active, counts (and visibility)
-    // reflect co-occurrence with what's currently matching — e.g. a tag
-    // used on 500 tweets overall but none of them among the ones matching
-    // your current selection shows as 0 and gets hidden, rather than
-    // showing its unrelated global count of 500. With "match ANY" (or no
-    // selection yet), there's nothing meaningful to intersect against, so
-    // counts stay global as before.
+
     const coOccurrenceMode = state.tagMatchAll && state.selectedTags.size > 0;
     const baseTweetsForCounts = coOccurrenceMode ? getFilteredTweets() : state.allTweets;
     const tagCounts = coOccurrenceMode ? getCoOccurringTagCounts(baseTweetsForCounts) : getAllTagCounts();
     if (coOccurrenceMode && !HIDE_UNRELATED_INTERSECTION_TAGS) {
-        // getCoOccurringTagCounts only produces a key for a tag if it
-        // actually occurred — a tag with zero overlap is simply absent,
-        // which is exactly right for hiding it, but wrong for graying it
-        // out (there'd be nothing to render). Backfill every known tag
-        // name at 0 so it still gets a (muted) chip.
+
         getAllTagNames().forEach(tag => {
             if (!(tag in tagCounts)) tagCounts[tag] = 0;
         });
@@ -85,9 +70,6 @@ export function renderTagsSidebar() {
     tagList.replaceChildren();
 
     // --- Built-in tags (video / gif / text-only / cw) ---
-    // Computed from media, never stored in the DB — kept in their own
-    // section so they can't be edited/deleted like a real tag, but still
-    // work with the same select/exclude click behavior via createTagChip.
     const builtInCounts = {};
     BUILT_IN_TAG_NAMES.forEach(name => { builtInCounts[name] = 0; });
     baseTweetsForCounts.forEach(t => {
