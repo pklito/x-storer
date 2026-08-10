@@ -24,7 +24,7 @@ export async function loadData() {
     }
 }
 
-function getSearchTermCleanText() {
+function getSearchTerm() {
     return state.searchTerm.replace(/before:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').replace(/after:\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/, '').trim();
 }
 
@@ -32,7 +32,12 @@ export function getFilteredTweets() {
     let filtered = state.allTweets;
 
     if (state.selectedTags.size > 0) {
-        filtered = filtered.filter(t => getEffectiveTags(t).some(tag => state.selectedTags.has(tag)));
+        filtered = state.tagMatchAll
+            ? filtered.filter(t => {
+                const effective = new Set(getEffectiveTags(t));
+                return Array.from(state.selectedTags).every(tag => effective.has(tag));
+            })
+            : filtered.filter(t => getEffectiveTags(t).some(tag => state.selectedTags.has(tag)));
     }
 
     if (getExcludedOrHiddenTags().size > 0) {
@@ -51,7 +56,7 @@ export function getFilteredTweets() {
             filtered = filtered.filter(t => new Date(t.timestamp) >= afterDate);
         }
 
-        const searchTerm = getSearchTermCleanText();
+        const searchTerm = getSearchTerm();
         if (searchTerm) {
             filtered = filtered.filter(t =>
                 (t.text && t.text.toLowerCase().includes(searchTerm)) ||
@@ -70,8 +75,9 @@ export function updateUI() {
     const parts = [];
     if (state.selectedTags.size > 0) parts.push(Array.from(state.selectedTags).map(t => '#' + t).join(', '));
     if (state.excludedTags.size > 0) parts.push(Array.from(state.excludedTags).map(t => '−#' + t).join(', '));
-    feedTitle.textContent = `Filtered: ${state.selectedTags.size} included, ${state.excludedTags.size} excluded` + (getSearchTermCleanText() && getSearchTermCleanText().length > 0 ? `, "${getSearchTermCleanText()}"` : '');
-    if (state.selectedTags.size === 0 && state.excludedTags.size === 0 && (!getSearchTermCleanText() || getSearchTermCleanText().length === 0)) {
+    const modeLabel = state.selectedTags.size > 1 ? (state.tagMatchAll ? ' [ALL]' : ' [ANY]') : '';
+    feedTitle.textContent = `Filtered: ${state.selectedTags.size} included${modeLabel}, ${state.excludedTags.size} excluded` + (getSearchTerm() && getSearchTerm().length > 0 ? `, "${getSearchTerm()}"` : '');
+    if (state.selectedTags.size === 0 && state.excludedTags.size === 0 && (!getSearchTerm() || getSearchTerm().length === 0)) {
         feedTitle.textContent = 'All Bookmarks';
     }
     renderGrid(tweets);

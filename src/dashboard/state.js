@@ -10,6 +10,8 @@ export const state = {
     selectedTags: new Set(),   // tags included via normal click
     excludedTags: new Set(),   // tags excluded via shift-click
     searchTerm: '',
+    tagSearchTerm: '',         // filters which tag chips are shown in the sidebar (display only — doesn't affect selectedTags)
+    tagMatchAll: false,        // false = a tweet matches if it has ANY selected tag (union); true = ALL of them (intersection)
     currentEditTweetId: null,
     currentEditTagsDiv: null,
 

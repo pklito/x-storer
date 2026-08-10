@@ -1,5 +1,5 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
-import { tagList, clearTagsBtn } from '../dom.js';
+import { tagList, clearTagsBtn, tagMatchModeBtn, tagMatchModeLabel } from '../dom.js';
 import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf, groupIconOf, hexToRgba } from './tagGroups.js';
 
 // Tags with more bookmarks than this get a bold chip in the sidebar.
@@ -13,6 +13,25 @@ export function clearTagsBtnAction() {
     state.selectedTags.clear();
     state.excludedTags.clear();
     updateUI();
+}
+
+// Filters which chips are *shown* in the sidebar — purely a display
+// filter, doesn't touch selectedTags/excludedTags at all.
+export function tagSearchInputUpdate(e) {
+    state.tagSearchTerm = e.target.value.trim().toLowerCase();
+    renderTagsSidebar();
+}
+
+// Flips between union (any selected tag matches) and intersection (every
+// selected tag must match). Updates the button's own icon/label directly
+// (it's static markup, not rebuilt by renderTagsSidebar) then re-filters.
+export function toggleTagMatchMode() {
+    state.tagMatchAll = !state.tagMatchAll;
+    const icon = tagMatchModeBtn.querySelector('i');
+    icon.className = state.tagMatchAll ? 'bi bi-toggle2-on' : 'bi bi-toggle2-off';
+    tagMatchModeLabel.textContent = state.tagMatchAll ? 'All' : 'Any';
+    tagMatchModeBtn.classList.toggle('active', state.tagMatchAll);
+    updateUI(); // re-filters the grid and re-renders the sidebar (chip counts, etc.)
 }
 
 export function renderTagsSidebar() {
@@ -39,13 +58,18 @@ export function renderTagsSidebar() {
     state.allTweets.forEach(t => {
         getBuiltInTagsForTweet(t).forEach(name => { builtInCounts[name]++; });
     });
-    const builtInWithCounts = BUILT_IN_TAG_NAMES.filter(name => builtInCounts[name] > 0);
+    const builtInWithCounts = BUILT_IN_TAG_NAMES
+        .filter(name => builtInCounts[name] > 0)
+        .filter(name => !state.tagSearchTerm || name.toLowerCase().includes(state.tagSearchTerm));
 
     if (builtInWithCounts.length) {
         const groupEl = document.createElement('div');
         groupEl.className = 'tag-group';
 
-        const collapsed = state.collapsedGroups.has('Built-in');
+        // While a search is active, force every group open — otherwise a
+        // match could be sitting inside a group you'd previously collapsed
+        // and you'd never see it.
+        const collapsed = state.tagSearchTerm ? false : state.collapsedGroups.has('Built-in');
         const header = document.createElement('div');
         header.className = 'tag-group-header';
         const caret = document.createElement('i');
@@ -70,7 +94,9 @@ export function renderTagsSidebar() {
         tagList.appendChild(groupEl);
     }
 
-    const sortedTagNames = Object.keys(tagCounts).sort();
+    const sortedTagNames = Object.keys(tagCounts)
+        .filter(tag => !state.tagSearchTerm || tag.toLowerCase().includes(state.tagSearchTerm))
+        .sort();
     if (sortedTagNames.length === 0) return;
 
     // Bucket tags by their assigned group (full "Parent/Sub" string, or a
@@ -92,7 +118,7 @@ export function renderTagsSidebar() {
         const groupEl = document.createElement('div');
         groupEl.className = 'tag-group';
 
-        const collapsed = state.collapsedGroups.has(node.name);
+        const collapsed = state.tagSearchTerm ? false : state.collapsedGroups.has(node.name);
         const header = document.createElement('div');
         header.className = 'tag-group-header';
         const caret = document.createElement('i');
@@ -128,7 +154,7 @@ export function renderTagsSidebar() {
             node.subgroups.forEach(sub => {
                 if (sub.tags.length === 0) return;
 
-                const subCollapsed = state.collapsedGroups.has(sub.fullName);
+                const subCollapsed = state.tagSearchTerm ? false : state.collapsedGroups.has(sub.fullName);
                 const subEl = document.createElement('div');
                 subEl.className = 'tag-subgroup';
 

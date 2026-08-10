@@ -29,3 +29,6 @@ export const mainContent = document.querySelector('.main-content');
 export const sidebar = document.querySelector('.sidebar');
 
 export const tagAllBtn = document.getElementById('tag-all-btn');
+
+export const tagMatchModeBtn = document.getElementById('tag-match-mode-btn');
+export const tagMatchModeLabel = document.getElementById('tag-match-mode-label');

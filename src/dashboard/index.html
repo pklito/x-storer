@@ -32,6 +32,17 @@
                     </button>
                 </div>
                 <div class="tags-header-row">
+                    <div class="tag-search-wrapper">
+                        <i class="bi bi-search search-icon"></i>
+                        <input type="text" id="tag-search-input" class="tag-search-input" placeholder="Filter tags…" autocomplete="off">
+                    </div>
+                    <button id="tag-match-mode-btn" class="tag-match-mode-btn"
+                        title="Toggle whether selected tags must ALL match (intersection) or ANY match (union)">
+                        <i class="bi bi-toggle2-off"></i>
+                        <span id="tag-match-mode-label">Any</span>
+                    </button>
+                </div>
+                <div class="tags-header-row">
                 
                 <button id="mass-tags-btn" class="mass-tags-btn" title="Pick tags, then click tweets to apply/remove them in bulk">
                         <i class="bi bi-tags"></i> Mass Edit

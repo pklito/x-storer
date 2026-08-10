@@ -23,7 +23,7 @@ import { searchInputUpdate } from './features/tweets.js';
 import { setupEventHandlersMassTagging } from './features/massTagging.js';
 import { setupEventHandlersTagAll } from './features/tagAll.js';
 
-import { clearTagsBtnAction } from './features/tagsSidebar.js';
+import { clearTagsBtnAction, tagSearchInputUpdate, toggleTagMatchMode } from './features/tagsSidebar.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadHiddenTagsState();
@@ -87,7 +87,8 @@ function setupEventListeners() {
         }
     });
 
-    
+    document.getElementById('tag-search-input').addEventListener('input', tagSearchInputUpdate);
+    DOM.tagMatchModeBtn.addEventListener('click', toggleTagMatchMode);
 
     DOM.toggleHiddenTagsBtn.addEventListener('click', toggleHiddenTagsBtnAction);
 }
