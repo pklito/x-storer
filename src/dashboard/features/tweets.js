@@ -125,6 +125,21 @@ export function getAllTagCounts() {
     return tagCounts;
 }
 
+// Like getAllTagCounts, but counts within an arbitrary tweet subset
+// instead of the whole library — used by the sidebar in "match ALL" mode
+// so counts reflect "how many of the currently-matching tweets also have
+// this tag" rather than that tag's count across everything.
+export function getCoOccurringTagCounts(tweetSubset) {
+    const tagCounts = {};
+    tweetSubset.forEach(t => {
+        (t.tags || []).forEach(tag => {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        });
+    });
+    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => delete tagCounts[tag]);
+    return tagCounts;
+}
+
 export function getSelectedTags() {
     return state.selectedTags
 }

@@ -7,7 +7,7 @@ const HEAVY_TAG_THRESHOLD = 50;
 // Alpha for a group's background tint — translucent so tag chips sitting
 // on top of it stay legible.
 const GROUP_TINT_ALPHA = 0.14;
-import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
+import { updateUI, getFilteredTweets, getBuiltInTagsForTweet, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
 
 export function clearTagsBtnAction() {
     state.selectedTags.clear();
@@ -35,7 +35,16 @@ export function toggleTagMatchMode() {
 }
 
 export function renderTagsSidebar() {
-    const tagCounts = getAllTagCounts();
+    // In "match ALL" mode with a selection active, counts (and visibility)
+    // reflect co-occurrence with what's currently matching — e.g. a tag
+    // used on 500 tweets overall but none of them among the ones matching
+    // your current selection shows as 0 and gets hidden, rather than
+    // showing its unrelated global count of 500. With "match ANY" (or no
+    // selection yet), there's nothing meaningful to intersect against, so
+    // counts stay global as before.
+    const coOccurrenceMode = state.tagMatchAll && state.selectedTags.size > 0;
+    const baseTweetsForCounts = coOccurrenceMode ? getFilteredTweets() : state.allTweets;
+    const tagCounts = coOccurrenceMode ? getCoOccurringTagCounts(baseTweetsForCounts) : getAllTagCounts();
     state.selectedTags.forEach(tag => {
         if (!tagCounts[tag]) tagCounts[tag] = 0; // ensure selected tags are shown even if count is 0
     });
@@ -55,7 +64,7 @@ export function renderTagsSidebar() {
     // work with the same select/exclude click behavior via createTagChip.
     const builtInCounts = {};
     BUILT_IN_TAG_NAMES.forEach(name => { builtInCounts[name] = 0; });
-    state.allTweets.forEach(t => {
+    baseTweetsForCounts.forEach(t => {
         getBuiltInTagsForTweet(t).forEach(name => { builtInCounts[name]++; });
     });
     const builtInWithCounts = BUILT_IN_TAG_NAMES
