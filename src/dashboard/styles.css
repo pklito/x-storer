@@ -1,4 +1,37 @@
-/* CSS Variables & Reset */
+/* ==========================================================================
+   XBookmarks Revised — stylesheet
+   ==========================================================================
+   Contents:
+     1. Variables & Global Reset
+     2. Layout Shell
+     3. Sidebar — Structure & Resize
+     4. Sidebar — Search Bar
+     5. Sidebar — Tag Panel (headers, filter/match-mode row)
+     6. Sidebar — Tag Groups & Chips
+     7. Sidebar — Group Color/Icon Picker (Configure Groups modal)
+     8. Sidebar — Export Section
+     9. Buttons (generic, shared across the app)
+    10. Main Content — Header & Search Tabs
+    11. Tweet Grid (Masonry)
+    12. Tweet Card
+    13. Tweet Card — Media Gallery, Badges & Lightbox
+    14. Tweet Card — OG Link Carousel
+    15. Modals — Generic Shell (HTML-based, index.html)
+    16. Modals — Generic Shell (JS-generated, app.js)
+    17. Modals — Tag Groups Management
+    18. Modals — Mass Tagging
+    19. Modals — Import
+    20. Modals — Recently Removed
+    21. Tag Input / Autocomplete (shared widget)
+    22. Form & Layout Utilities
+    23. Legacy / Unverified (nav menu appears removed from index.html —
+        left in rather than deleted blind; check before removing)
+   ========================================================================== */
+
+
+/* ==========================================================================
+   1. Variables & Global Reset
+   ========================================================================== */
 :root {
     --bg-color: #0d1117;
     --card-bg: rgba(22, 27, 34, 0.8);
@@ -60,7 +93,10 @@ body {
     background: var(--text-secondary);
 }
 
-/* Layout */
+
+/* ==========================================================================
+   2. Layout Shell
+   ========================================================================== */
 .app-container {
     margin: 0 auto;
     padding: 1.5rem;
@@ -69,7 +105,10 @@ body {
     gap: 2rem;
 }
 
-/* Sidebar */
+
+/* ==========================================================================
+   3. Sidebar — Structure & Resize
+   ========================================================================== */
 .sidebar {
     position: sticky;
     top: 1.5rem;
@@ -83,13 +122,13 @@ body {
     flex-direction: column;
     gap: 1.25rem;
     box-shadow: var(--shadow-sm);
- 
+
     /* Fills whatever width .app-container's grid track gives it — the
        actual sizing now lives on the grid column, not here. */
     width: 100%;
     min-width: 0; /* lets it shrink below content size instead of forcing overflow */
 }
- 
+
 /* Draggable strip on the sidebar's right edge. `position: sticky` on
    .sidebar already establishes a positioning context, so this just needs
    position: absolute — no extra `position: relative` required. */
@@ -103,7 +142,7 @@ body {
     z-index: 5;
     touch-action: none; /* let pointer events drive dragging on touch too */
 }
- 
+
 /* Thin visual indicator, centered in the wider hit-target above so it's
    easy to grab without being visually intrusive. */
 .sidebar-resize-handle::after {
@@ -117,12 +156,12 @@ body {
     border-radius: 1px;
     transition: background 0.15s ease;
 }
- 
+
 .sidebar-resize-handle:hover::after,
 .sidebar.resizing .sidebar-resize-handle::after {
     background: var(--accent, #3b82f6);
 }
- 
+
 /* Applied to <body> while dragging so the cursor/selection stay consistent
    even if the pointer moves off the thin handle mid-drag. */
 body.sidebar-resizing {
@@ -144,45 +183,10 @@ body.sidebar-resizing {
     color: var(--accent-color);
 }
 
-.nav-menu {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
 
-.nav-item {
-    padding: 0.6rem 0.75rem;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: var(--text-secondary);
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 0.9rem;
-}
-
-.nav-item i {
-    font-size: 1.1rem;
-}
-
-.nav-item:hover,
-.nav-item.active {
-    background: rgba(127, 127, 127, 0.1);
-    color: var(--text-primary);
-}
-
-.badge-count {
-    margin-left: auto;
-    font-size: 0.75rem;
-    background: var(--card-border);
-    padding: 2px 8px;
-    border-radius: 10px;
-}
-
-/* Search Bar with Icon */
+/* ==========================================================================
+   4. Sidebar — Search Bar
+   ========================================================================== */
 .search-wrapper {
     position: relative;
     margin-bottom: 0.5rem;
@@ -215,6 +219,9 @@ body.sidebar-resizing {
 }
 
 
+/* ==========================================================================
+   5. Sidebar — Tag Panel (headers, filter/match-mode row)
+   ========================================================================== */
 .tags-section {
     border-top: 1px solid var(--card-border);
     padding-top: 1rem;
@@ -302,6 +309,58 @@ body.sidebar-resizing {
     flex-shrink: 0;
 }
 
+/* Filter-the-sidebar search box (distinct from the main .search-input,
+   which searches tweet text/author) */
+.tag-search-wrapper {
+    position: relative;
+    flex: 1;
+}
+.tag-search-wrapper .search-icon {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.6;
+    font-size: 0.8rem;
+}
+.tag-search-input {
+    width: 100%;
+    padding: 4px 8px 4px 24px;
+    font-size: 0.78rem;
+    background: rgba(127, 127, 127, 0.08);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text-primary);
+}
+
+/* ANY/ALL match-mode toggle — colored in both states (not just when
+   "active") so the color itself signals which mode you're in. */
+.tag-match-mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    padding: 4px 8px;
+    background: rgba(127, 127, 127, 0.08);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    color: var(--text-secondary);
+}
+.tag-match-mode-btn.mode-any {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+.tag-match-mode-btn.mode-all {
+    color: var(--accent-color-alt);
+    border-color: var(--accent-color-alt);
+}
+
+
+/* ==========================================================================
+   6. Sidebar — Tag Groups & Chips
+   ========================================================================== */
 .tag-list {
     display: flex;
     flex-direction: column;
@@ -314,10 +373,99 @@ body.sidebar-resizing {
     transition: background-color 0.15s;
 }
 
+.tag-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 2px 0;
+    user-select: none;
+}
+
+.tag-group-header:hover {
+    color: var(--text-primary);
+}
+
 .tag-group-icon {
     margin: 0 2px;
 }
 
+.tag-group-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+    padding-left: 0.2rem;
+}
+
+.tag-subgroup {
+    margin-left: 14px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    padding-left: 8px;
+}
+.tag-subgroup-header {
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+
+.tag-chip {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+    background: rgba(127, 127, 127, 0.1);
+    border-radius: 12px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.tag-chip:hover {
+    border-color: var(--text-secondary);
+}
+
+.tag-chip-heavy {
+    font-weight: 700;
+}
+
+.tag-chip.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+/* Selected while in "match ALL" mode — visually distinct from a normal
+   (ANY-mode) selection so it's obvious at a glance which mode you're in. */
+.tag-chip.active.match-all {
+    background: var(--accent-color-alt);
+    border-color: var(--accent-color-alt);
+}
+
+/* A tag with zero overlap with the current ALL-mode selection. Only ever
+   applied when HIDE_UNRELATED_INTERSECTION_TAGS is false (tagsSidebar.js)
+   — otherwise these tags aren't rendered at all. :not() guards keep an
+   edge case (a selected/excluded tag that happens to be at 0) looking
+   like a normal selection rather than fading it out. */
+.tag-chip-zero-match:not(.active):not(.excluded) {
+    opacity: 0.35;
+}
+.tag-chip-zero-match:not(.active):not(.excluded):hover {
+    opacity: 0.65;
+}
+
+/* Shift-click exclusion */
+.tag-chip.excluded {
+    background: #d73a49;
+    color: white;
+    border-color: #d73a49;
+}
+
+
+/* ==========================================================================
+   7. Sidebar — Group Color/Icon Picker (Configure Groups modal)
+   ========================================================================== */
 .xb-group-style-wrap {
     display: inline-flex;
     align-items: center;
@@ -365,41 +513,10 @@ body.sidebar-resizing {
     background: rgba(255, 255, 255, 0.1);
 }
 
-.xb-group-color-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 2px;
-}
-
 .xb-group-icon-input {
     width: 80px;
     font-size: 0.75rem;
     padding: 2px 4px;
-}
-
-.xb-group-color-input {
-    width: 20px;
-    height: 20px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    background: none;
-}
-
-.xb-group-style-clear {
-    font-size: 0.85rem;
-    opacity: 0.7;
-}
-
-.xb-group-name-icon {
-    margin-right: 2px;
-}
-
-.tag-group-header {
-    border-left: 3px solid transparent;
-    padding-left: 6px;
-    /* your existing rules stay as-is */
 }
 
 .xb-group-color-wrap {
@@ -419,119 +536,45 @@ body.sidebar-resizing {
     background: none;
 }
 
-.tag-search-wrapper {
-    position: relative;
-    flex: 1;
-}
-.tag-search-wrapper .search-icon {
-    position: absolute;
-    left: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0.6;
-    font-size: 0.8rem;
-}
-.tag-search-input {
-    width: 100%;
-    padding: 4px 8px 4px 24px;
-    font-size: 0.78rem;
-    background: rgba(127, 127, 127, 0.08);
-    border: 1px solid transparent;
-    border-radius: 6px;
-    color: var(--text-primary);
-}
-.tag-match-mode-btn {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.75rem;
-    padding: 4px 8px;
-    background: rgba(127, 127, 127, 0.08);
-    border: 1px solid transparent;
-    border-radius: 6px;
-    cursor: pointer;
-    white-space: nowrap;
-    color: var(--text-secondary);
-}
-.tag-match-mode-btn.mode-any {
-    color: var(--accent-color);
-    border-color: var(--accent-color);
-}
-.tag-match-mode-btn.mode-all {
-    color: var(--accent-color-alt);
-    border-color: var(--accent-color-alt);
-}
-
-.xb-group-color-clear {
+/* FIX: the icon-clear and color-clear buttons are both built in JS with
+   class "xb-group-style-clear" — this rule used to be named
+   "xb-group-color-clear" (a leftover from before the icon+color pickers
+   were merged into one), so it never actually matched either button.
+   Renamed to match what's really in the DOM. */
+.xb-group-style-clear {
     font-size: 0.85rem;
     opacity: 0.7;
 }
 
-.tag-group-header:hover {
-    color: var(--text-primary);
+.xb-group-name-icon {
+    margin-right: 2px;
 }
 
-.tag-group-body {
+
+/* ==========================================================================
+   8. Sidebar — Export Section
+   ========================================================================== */
+.export-section {
+    margin-top: auto;
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-top: 0.4rem;
-    padding-left: 0.2rem;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
-.tag-subgroup { margin-left: 14px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 8px; }
-.tag-subgroup-header { font-size: 0.9em; opacity: 0.85; }
-.tag-chip-heavy { font-weight: 700; }
-.group-manage-card-indent { margin-left: 20px; opacity: 0.92; }
-
-.tag-chip {
-    font-size: 0.8rem;
-    padding: 0.2rem 0.6rem;
-    background: rgba(127, 127, 127, 0.1);
-    border-radius: 12px;
-    border: 1px solid transparent;
+.export-settings-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85em;
+    color: var(--text-secondary, #888);
+    margin-top: 4px;
     cursor: pointer;
-    transition: all 0.2s;
-    user-select: none;
 }
 
-.tag-chip:hover {
-    border-color: var(--text-secondary);
-}
 
-.tag-chip.active {
-    background: var(--accent-color);
-    color: white;
-    border-color: var(--accent-color);
-}
-
-/* Selected while in "match ALL" mode — visually distinct from a normal
-   (ANY-mode) selection so it's obvious at a glance which mode you're in. */
-.tag-chip.active.match-all {
-    background: var(--accent-color-alt);
-    border-color: var(--accent-color-alt);
-}
-
-/* A tag with zero overlap with the current ALL-mode selection. Only ever
-   applied when HIDE_UNRELATED_INTERSECTION_TAGS is false (tagsSidebar.js)
-   — otherwise these tags aren't rendered at all. :not() guards keep an
-   edge case (a selected/excluded tag that happens to be at 0) looking
-   like a normal selection rather than fading it out. */
-.tag-chip-zero-match:not(.active):not(.excluded) {
-    opacity: 0.35;
-}
-.tag-chip-zero-match:not(.active):not(.excluded):hover {
-    opacity: 0.65;
-}
-
-/* Shift-click exclusion */
-.tag-chip.excluded {
-    background: #d73a49;
-    color: white;
-    border-color: #d73a49;
-}
-
-/* Buttons */
+/* ==========================================================================
+   9. Buttons (generic, shared across the app)
+   ========================================================================== */
 .w-100 {
     width: 100%;
 }
@@ -569,7 +612,112 @@ body.sidebar-resizing {
     color: var(--text-primary);
 }
 
-/* MASONRY GRID (JS-based shortest-column distribution) */
+.icon-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 6px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.icon-btn:hover {
+    background: rgba(127, 127, 127, 0.1);
+    color: var(--text-primary);
+}
+
+.icon-btn.danger:hover {
+    color: #d73a49;
+    background: rgba(215, 58, 73, 0.1);
+}
+
+
+/* ==========================================================================
+   10. Main Content — Header & Search Tabs
+   ========================================================================== */
+.main-content-count {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.search-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.search-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.9rem;
+    border-radius: 20px;
+    border: 1px solid var(--card-border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.search-tab:hover {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+}
+
+.search-tab.active {
+    background: var(--accent-color);
+    border-color: var(--accent-color);
+    color: white;
+}
+
+.search-tab-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.search-tab-close:hover {
+    opacity: 1;
+}
+
+.add-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px dashed var(--card-border);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.add-tab-btn:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+
+/* ==========================================================================
+   11. Tweet Grid (Masonry — JS-based shortest-column distribution)
+   ========================================================================== */
 .tweets-grid {
     display: flex;
     gap: 1rem;
@@ -583,9 +731,20 @@ body.sidebar-resizing {
     gap: 1rem;
 }
 
-/* Tweet Card */
+.xb-empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem;
+}
+.xb-empty-state i {
+    font-size: 2rem;
+}
 
-/* Fade In Animation - Keyframes */
+
+/* ==========================================================================
+   12. Tweet Card
+   ========================================================================== */
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -625,6 +784,13 @@ body.sidebar-resizing {
 .tweet-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* content-visibility perf hint — was set via inline style, now a class */
+.tweet-card-perf {
+    content-visibility: auto;
+    contain-intrinsic-size: 350px 480px;
+    position: relative; /* positioning context for the local-media badge */
 }
 
 .tweet-header {
@@ -667,16 +833,9 @@ body.sidebar-resizing {
     font-size: 0.9rem;
 }
 
-.tweet-media {
-    margin-top: 0.25rem;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.tweet-media img {
-    width: 100%;
-    height: auto;
-    display: block;
+/* Linkified URLs inside tweet text */
+.linkified-url {
+    color: var(--accent-color);
 }
 
 .tweet-meta {
@@ -702,31 +861,239 @@ body.sidebar-resizing {
     opacity: 1;
 }
 
-.icon-btn {
-    background: transparent;
-    border: none;
+/* Built-in tag badges (video/gif/text-only/cw) get a dashed outline so
+   they read as distinct from real, stored tags */
+.tweet-tag-badge-builtin {
+    border: 1px dashed currentColor;
+    opacity: 0.75;
+}
+
+
+/* ==========================================================================
+   13. Tweet Card — Media Gallery, Badges & Lightbox
+   ========================================================================== */
+/* FIX: this selector was defined twice (once with margin/border-radius/
+   overflow, once with display:grid/gap) — CSS merges non-conflicting
+   declarations from both regardless of source order, so this was already
+   the effective combined result, just spread across two places. Combined
+   into one rule; no visual change. */
+.tweet-media {
+    margin-top: 0.25rem;
+    border-radius: 8px;
+    overflow: hidden;
+    display: grid;
+    gap: 4px;
+}
+.tweet-media img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.tweet-media-grid {
+    grid-template-columns: 1fr 1fr;
+}
+.tweet-media-item {
+    position: relative;
+    overflow: hidden;
+}
+.tweet-media-item img,
+.tweet-media-item video {
+    width: 100%;
+    display: block;
+}
+.tweet-media-item.clickable-watch {
     cursor: pointer;
-    font-size: 1rem;
-    padding: 6px;
-    border-radius: 6px;
-    color: var(--text-secondary);
+}
+.tweet-media-item.clickable-zoom {
+    cursor: zoom-in;
+}
+.tweet-media-item.playable {
+    cursor: default;
+}
+
+.xb-local-media-badge {
+    display: none;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    pointer-events: none;
+}
+.xb-local-media-badge.visible {
+    display: flex;
+}
+
+.xb-media-type-badge {
+    position: absolute;
+    bottom: 6px;
+    right: 6px;
+    z-index: 3;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    font-size: 16px;
+    pointer-events: none;
+}
+.xb-media-type-badge.hidden {
+    display: none;
 }
 
-.icon-btn:hover {
-    background: rgba(127, 127, 127, 0.1);
-    color: var(--text-primary);
+.xb-lightbox-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0, 0, 0, 0.88);
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+}
+.xb-lightbox-overlay.active {
+    display: flex;
+}
+.xb-lightbox-img {
+    height: 92vh;
+    object-fit: contain;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+    cursor: default;
+}
+.xb-lightbox-close-btn {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    z-index: 2001;
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    font-size: 16px;
 }
 
-.icon-btn.danger:hover {
-    color: #d73a49;
-    background: rgba(215, 58, 73, 0.1);
+
+/* ==========================================================================
+   14. Tweet Card — OG Link Carousel
+   ========================================================================== */
+.og-carousel.relative-border {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
 }
 
-/* Modal */
+.og-carousel-track.track-flex {
+    display: flex;
+    transition: transform 0.3s ease;
+}
+
+.og-card.block-width {
+    min-width: 100%;
+    display: block;
+    text-decoration: none;
+}
+
+.carousel-image {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+}
+
+.carousel-image-block {
+    align-items: center;
+    justify-content: center;
+}
+
+.carousel-image-block.c-image-one {
+    display: none;
+    aspect-ratio: 1200/630;
+    background: linear-gradient(135deg, #e74c3c, #e67e22);
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.carousel-image-block.c-image-two {
+    display: none;
+    aspect-ratio: 1200/630;
+    background: linear-gradient(135deg, #9b59b6, #8e44ad);
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.carousel-image-block.c-image-three {
+    display: flex;
+    width: 100%;
+    aspect-ratio: 1200/630;
+    background: #fff;
+    border-radius: 8px;
+    color: #111;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.carousel-image-block.c-image-four {
+    display: flex;
+    width: 100%;
+    aspect-ratio: 1200/630;
+    background: linear-gradient(135deg, #f1c40f, #e67e22);
+    border-radius: 8px;
+    color: #fff;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.og-dots-group {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+/* FIX: was defined twice, identically, in two different places in the old
+   file — deduped to one copy. */
+.og-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: none;
+    background: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.5;
+}
+.og-dot.active {
+    background: var(--accent-color);
+    opacity: 1;
+}
+
+.carousel-title {
+    display: block;
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+
+/* ==========================================================================
+   15. Modals — Generic Shell (HTML-based, index.html)
+   ========================================================================== */
 .modal-overlay {
     position: fixed;
     inset: 0;
@@ -802,7 +1169,103 @@ body.sidebar-resizing {
     margin-top: 1.5rem;
 }
 
-/* Tag Groups Modal */
+
+/* ==========================================================================
+   16. Modals — Generic Shell (JS-generated, app.js)
+   ==========================================================================
+   Extracted from app.js's inline style.cssText usage — everything here is
+   prefixed "xb-" to avoid clashing with the HTML-based modal classes
+   above. Used by modals app.js builds itself (mass-tag select, import,
+   recently-removed) rather than ones declared in index.html.
+   ========================================================================== */
+.xb-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+.xb-modal-overlay.active {
+    display: flex;
+}
+
+.xb-modal-box {
+    background: #192734;
+    color: #ffffff;
+    max-width: 90vw;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.xb-modal-box.w-340 {
+    width: 340px;
+}
+.xb-modal-box.w-360 {
+    width: 360px;
+}
+.xb-modal-box.w-420 {
+    width: 420px;
+    max-height: 80vh;
+}
+
+.xb-modal-title {
+    font-weight: 600;
+    font-size: 15px;
+}
+.xb-modal-hint {
+    font-size: 12px;
+    opacity: 0.75;
+    line-height: 1.4;
+}
+.xb-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+.xb-align-self-end {
+    align-self: flex-end;
+}
+
+/* Shared buttons/inputs used inside those modals */
+.xb-btn-secondary {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+}
+.xb-btn-primary {
+    background: #1d9bf0;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.xb-input {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+}
+.xb-flex-1 {
+    flex: 1;
+    flex-grow: 1;
+}
+
+
+/* ==========================================================================
+   17. Modals — Tag Groups Management
+   ========================================================================== */
 .new-group-row {
     display: flex;
     gap: 0.5rem;
@@ -822,7 +1285,7 @@ body.sidebar-resizing {
     padding-right: 4px;
 }
 
-.tag-assign-list{
+.tag-assign-list {
     display: block;
 }
 
@@ -845,34 +1308,54 @@ body.sidebar-resizing {
 }
 
 .group-manage-card {
-    border:1px solid rgba(127,127,127,0.08);
-    border-radius:3px;
-    padding:5px;
-    margin-bottom:3px;
+    border: 1px solid rgba(127, 127, 127, 0.08);
+    border-radius: 3px;
+    padding: 5px;
+    margin-bottom: 3px;
+}
+
+.group-manage-card-indent {
+    margin-left: 20px;
+    opacity: 0.92;
 }
 
 .group-manage-card-header {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-bottom:3px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 3px;
 }
 
 .group-manage-chips-row {
-     display:flex;
-     flex-wrap:wrap;
-     gap:6px;
-     margin-bottom:8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
 }
 
 .group-manage-tag-chip {
-    display:inline-flex;
-    align-items:center;
-    gap:5px;
-    padding:3px 8px;
-    border-radius:999px;
-    background:rgba(255,255,255,0.08);
-    font-size:12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 12px;
+}
+
+/* ADDED: the unassigned-tag chips got a click-to-match interaction in
+   JS (class "group-manage-tag-chip-clickable") but never got matching
+   CSS, so they rendered with a default arrow cursor and no hover
+   feedback. Filling that gap here rather than leaving it unstyled. */
+.group-manage-tag-chip-clickable {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.group-manage-tag-chip-clickable:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+.group-manage-tag-chip-clickable.active {
+    background: rgba(255, 255, 255, 0.15);
 }
 
 .group-select {
@@ -885,7 +1368,230 @@ body.sidebar-resizing {
     font-size: 0.8rem;
 }
 
-/* Tag Autocomplete */
+.xb-group-name {
+    font-weight: 600;
+    font-size: 1.5em;
+}
+.xb-group-name.hidden {
+    font-style: italic;
+    color: #5e2012;
+}
+
+.xb-group-empty-text {
+    font-size: 12px;
+    opacity: 0.6;
+}
+.xb-chip-remove-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    opacity: 0.7;
+}
+.xb-group-add-input-wrap {
+    position: relative;
+}
+.xb-group-add-suggestion-item {
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 13px;
+}
+.xb-group-add-suggestion-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+
+/* ==========================================================================
+   18. Modals — Mass Tagging
+   ========================================================================== */
+.xb-mass-tag-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    overflow-y: auto;
+    max-height: 220px;
+    padding: 4px 0;
+}
+.xb-mass-tag-new-row {
+    display: flex;
+    gap: 6px;
+}
+
+.xb-tag-select-chip {
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(199, 195, 195, 0.171);
+    color: #000000;
+}
+.xb-tag-select-chip.tinted {
+    background: rgba(102, 101, 101, 0.171);
+}
+.xb-tag-select-chip.tinted.chosen {
+    background: #1675b4;
+    color: #ffffff;
+    border-color: #1576b6;
+}
+.xb-tag-select-chip.chosen {
+    background: #1d9bf0;
+    color: #ffffff;
+    border-color: #1d9bf0;
+}
+.xb-tag-select-chip.tinted.excluded {
+    background: #c41717;
+    color: #000000;
+    border-color: #c93319;
+}
+.xb-tag-select-chip.excluded {
+    background: #f01d1d;
+    color: #000000;
+    border-color: #f03d1d;
+}
+
+.xb-status-bar {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 999;
+    background: #1d9bf0;
+    color: #ffffff;
+    padding: 10px 16px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    font-size: 14px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+.xb-status-bar.active {
+    display: flex;
+}
+.xb-status-bar-stop-btn {
+    background: rgba(0, 0, 0, 0.25);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 13px;
+}
+/* Adds room at the top of the page while the status bar is fixed/visible */
+body.xb-mass-tag-padding {
+    padding-top: 42px;
+}
+
+/* Brief flash on a tweet card to confirm a mass-tag click registered */
+.xb-flash-tagged {
+    outline: 9px solid #5f62e4;
+    outline-offset: -3px;
+}
+.xb-flash-untagged {
+    outline: 3px solid #e0245e;
+    outline-offset: -3px;
+}
+
+
+/* ==========================================================================
+   19. Modals — Import
+   ========================================================================== */
+.xb-import-mode-row {
+    display: flex;
+    gap: 16px;
+    font-size: 14px;
+}
+.xb-import-mode-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+.xb-import-status {
+    font-size: 13px;
+    opacity: 0.85;
+    min-height: 16px;
+}
+
+.xb-warning-box {
+    display: none;
+    font-size: 12px;
+    color: #ffb020;
+    background: rgba(255, 176, 32, 0.12);
+    border: 1px solid rgba(255, 176, 32, 0.4);
+    border-radius: 6px;
+    padding: 8px 10px;
+    line-height: 1.4;
+}
+.xb-warning-box.visible {
+    display: block;
+}
+
+
+/* ==========================================================================
+   20. Modals — Recently Removed
+   ========================================================================== */
+.xb-rr-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    max-height: 340px;
+}
+.xb-rr-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+}
+.xb-rr-info {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+}
+.xb-rr-author {
+    font-weight: 600;
+}
+.xb-rr-text {
+    opacity: 0.75;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.xb-rr-time {
+    opacity: 0.5;
+    font-size: 11px;
+}
+.xb-rr-undo-btn {
+    background: #1d9bf0;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.xb-rr-empty {
+    font-size: 13px;
+    opacity: 0.7;
+    padding: 8px 0;
+}
+
+
+/* ==========================================================================
+   21. Tag Input / Autocomplete (shared widget)
+   ==========================================================================
+   Used by the per-tweet tag editor modal and the mass-tag "add new tag"
+   input.
+   ========================================================================== */
 .tag-input-wrapper {
     position: relative;
     width: 100%;
@@ -1001,6 +1707,24 @@ body.sidebar-resizing {
     background: rgba(127, 127, 127, 0.1);
 }
 
+
+/* ==========================================================================
+   22. Form & Layout Utilities
+   ========================================================================== */
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.form-label-margin {
+    margin-bottom: 1rem;
+}
+.form-label-margin.top-margin {
+    margin-top: 1rem;
+}
+
 .sidebar-footer {
     margin-top: 1.5rem;
     border-top: 1px solid var(--card-border);
@@ -1010,442 +1734,50 @@ body.sidebar-resizing {
     text-align: center;
 }
 
-.og-carousel.relative-border {
-    position:relative;
-     overflow:hidden;
-      border-radius:8px;
-}
-
-.og-carousel-track.track-flex {
-    display:flex;
-     transition:transform 0.3s ease;
-}
-
-.og-card.block-width {
-    min-width:100%;
-     display:block;
-      text-decoration:none;
-}
-
-.carousel-image {
-    width:100%; border-radius:8px; display:block;
-}
-
-.carousel-image-block {
-    align-items:center; justify-content:center;
-}
-
-.carousel-image-block.c-image-one {
-    display:none; aspect-ratio:1200/630; background:linear-gradient(135deg,#e74c3c,#e67e22); border-radius:8px; color:#fff; font-weight:600; font-size:1rem;
-}
-
-.carousel-image-block.c-image-two {
-    display:none; aspect-ratio:1200/630; background:linear-gradient(135deg,#9b59b6,#8e44ad); border-radius:8px; color:#fff; font-weight:600; font-size:1rem;
-}
-
-.carousel-image-block.c-image-three {
-    display:flex; width:100%; aspect-ratio:1200/630; background:#fff; border-radius:8px; color:#111; font-weight:600; font-size:1.1rem;
-}
-
-.carousel-image-block.c-image-four {
-    display:flex; width:100%; aspect-ratio:1200/630; background:linear-gradient(135deg,#f1c40f,#e67e22); border-radius:8px; color:#fff; font-weight:600; font-size:1.1rem;
-}
-
-.og-dots-group {
-    display:flex; justify-content:center; gap:6px; margin-top:8px;
-}
-
-.og-dot {
-    width:8px;height:8px;border-radius:50%;border:none;background:var(--text-secondary);cursor:pointer;padding:0;opacity:0.5;
-}
-
-.og-dot.active {
-    background:var(--accent-color); opacity:1;
-}
-
-
-.main-content-count {
-    color:var(--text-secondary); font-size:0.9rem;
-}
-
-/* Search Tabs */
-.search-tabs {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.25rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--card-border);
-}
-
-.search-tab {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.4rem 0.9rem;
-    border-radius: 20px;
-    border: 1px solid var(--card-border);
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    font-weight: 500;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.search-tab:hover {
-    color: var(--text-primary);
-    border-color: var(--text-secondary);
-}
-
-.search-tab.active {
-    background: var(--accent-color);
-    border-color: var(--accent-color);
-    color: white;
-}
-
-.search-tab-close {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-}
-
-.search-tab-close:hover {
-    opacity: 1;
-}
-
-.add-tab-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 1px dashed var(--card-border);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-    transition: all 0.2s;
-    flex-shrink: 0;
-}
-
-.add-tab-btn:hover {
-    color: var(--accent-color);
-    border-color: var(--accent-color);
-}
-
-.export-section {
-   margin-top: auto; display:flex; flex-direction:column; gap:0.5rem
-}
-
-.form-label {
-   display:block; margin-bottom:0.5rem;font-size:0.9rem;color:var(--text-secondary)
-}
-
-.form-label-margin {
-   margin-bottom:1rem
-}
-
-.form-label-margin.top-margin {
-   margin-top:1rem
-}
-
-.carousel-title {
-    display:block; margin-top:0.5rem; margin-bottom:0.5rem;
-}
 
 /* ==========================================================================
-   Extracted from app.js's inline style.cssText usage.
-   Add this file's contents into your main stylesheet (or link it directly)
-   and it should look identical to before — just now editable as real CSS.
-   Everything is prefixed "xb-" to avoid clashing with your existing classes.
+   23. Legacy / Unverified
+   ==========================================================================
+   index.html has a comment reading "Simplified Menu - Removed Inbox/All
+   List Items" and no longer contains any .nav-menu/.nav-item/.badge-count
+   elements. Likely dead — left in rather than deleted blind, since other
+   files (grid.js, etc.) weren't available to confirm nothing else
+   references these classes. Safe to delete once confirmed.
    ========================================================================== */
-
-/* ---- Generic modal shell (mass-tag select, import, recently-removed) ---- */
-.xb-modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    background: rgba(0, 0, 0, 0.55);
-    align-items: center;
-    justify-content: center;
-}
-.xb-modal-overlay.active { display: flex; }
-
-.xb-modal-box {
-    background: #192734;
-    color: #ffffff;
-    max-width: 90vw;
-    border-radius: 10px;
-    padding: 16px;
+.nav-menu {
+    list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    gap: 0.25rem;
 }
-.xb-modal-box.w-340 { width: 340px; }
-.xb-modal-box.w-360 { width: 360px; }
-.xb-modal-box.w-420 { width: 420px; max-height: 80vh; }
 
-.xb-modal-title { font-weight: 600; font-size: 15px; }
-.xb-modal-hint { font-size: 12px; opacity: 0.75; line-height: 1.4; }
-.xb-modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
-.xb-align-self-end { align-self: flex-end; }
-
-/* ---- Shared buttons/inputs used inside those modals ---- */
-.xb-btn-secondary {
-    background: rgba(255, 255, 255, 0.12);
-    color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+.nav-item {
+    padding: 0.6rem 0.75rem;
     border-radius: 6px;
-    padding: 6px 14px;
     cursor: pointer;
-}
-.xb-btn-primary {
-    background: #1d9bf0;
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 14px;
-    cursor: pointer;
-    font-weight: 600;
-}
-.xb-input {
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.08);
-    color: #ffffff;
-}
-.xb-flex-1 { flex: 1; flex-grow: 1; }
-
-/* ---- Mass tagging: tag-selection modal ---- */
-.xb-mass-tag-chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    overflow-y: auto;
-    max-height: 220px;
-    padding: 4px 0;
-}
-.xb-mass-tag-new-row { display: flex; gap: 6px; }
-
-.xb-tag-select-chip {
-    padding: 5px 10px;
-    border-radius: 999px;
-    font-size: 13px;
-    cursor: pointer;
-    user-select: none;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    background: rgba(199, 195, 195, 0.171);
-    color: #000000;
-}
-.xb-tag-select-chip.tinted { background: rgba(102, 101, 101, 0.171); }
-.xb-tag-select-chip.tinted.chosen { background: #1675b4; color: #ffffff; border-color: #1576b6; }
-.xb-tag-select-chip.chosen { background: #1d9bf0; color: #ffffff; border-color: #1d9bf0; }
-
-.xb-tag-select-chip.tinted.excluded { background: #c41717; color: #000000; border-color: #c93319; }
-.xb-tag-select-chip.excluded { background: #f01d1d; color: #000000; border-color: #f03d1d; }
-
-/* ---- Mass tagging: fixed status bar while active ---- */
-.xb-status-bar {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 999;
-    background: #1d9bf0;
-    color: #ffffff;
-    padding: 10px 16px;
-    align-items: center;
-    justify-content: center;
-    gap: 14px;
-    font-size: 14px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-}
-.xb-status-bar.active { display: flex; }
-.xb-status-bar-stop-btn {
-    background: rgba(0, 0, 0, 0.25);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 4px 10px;
-    cursor: pointer;
-    font-size: 13px;
-}
-/* Adds room at the top of the page while the status bar is fixed/visible */
-body.xb-mass-tag-padding { padding-top: 42px; }
-
-/* Brief flash on a tweet card to confirm a mass-tag click registered */
-.xb-flash-tagged { outline: 9px solid #5f62e4; outline-offset: -3px; }
-.xb-flash-untagged { outline: 3px solid #e0245e; outline-offset: -3px; }
-
-/* ---- Import modal specifics ---- */
-.xb-import-mode-row { display: flex; gap: 16px; font-size: 14px; }
-.xb-import-mode-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.xb-import-status { font-size: 13px; opacity: 0.85; min-height: 16px; }
-
-.xb-warning-box {
-    display: none;
-    font-size: 12px;
-    color: #ffb020;
-    background: rgba(255, 176, 32, 0.12);
-    border: 1px solid rgba(255, 176, 32, 0.4);
-    border-radius: 6px;
-    padding: 8px 10px;
-    line-height: 1.4;
-}
-.xb-warning-box.visible { display: block; }
-
-/* ---- Recently Removed panel ---- */
-.xb-rr-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: 340px; }
-.xb-rr-row { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); }
-.xb-rr-info { flex: 1; min-width: 0; font-size: 13px; }
-.xb-rr-author { font-weight: 600; }
-.xb-rr-text { opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.xb-rr-time { opacity: 0.5; font-size: 11px; }
-.xb-rr-undo-btn {
-    background: #1d9bf0;
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    padding: 5px 12px;
-    cursor: pointer;
-    font-weight: 600;
-    flex-shrink: 0;
-}
-.xb-rr-empty { font-size: 13px; opacity: 0.7; padding: 8px 0; }
-
-/* ---- Image lightbox ---- */
-.xb-lightbox-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 2000;
-    background: rgba(0, 0, 0, 0.88);
-    align-items: center;
-    justify-content: center;
-    cursor: zoom-out;
-}
-.xb-lightbox-overlay.active { display: flex; }
-.xb-lightbox-img {
-    height: 92vh;
-    object-fit: contain;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-    cursor: default;
-}
-.xb-lightbox-close-btn {
-    position: fixed;
-    top: 16px; right: 20px;
-    z-index: 2001;
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    border: none;
-    border-radius: 50%;
-    width: 36px; height: 36px;
-    cursor: pointer;
-    font-size: 16px;
-}
-
-/* ---- Tweet card badges ---- */
-.xb-local-media-badge {
-    display: none;
-    position: absolute;
-    top: 8px; right: 8px;
-    z-index: 5;
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.65);
-    color: #fff;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    pointer-events: none;
-}
-.xb-local-media-badge.visible { display: flex; }
-
-.xb-media-type-badge {
-    position: absolute;
-    bottom: 6px; right: 6px;
-    z-index: 3;
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.65);
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    pointer-events: none;
-}
-.xb-media-type-badge.hidden { display: none; }
-
-/* Tweet card perf hint (content-visibility) — was set via inline style */
-.tweet-card-perf {
-    content-visibility: auto;
-    contain-intrinsic-size: 350px 480px;
-    position: relative; /* positioning context for the local-media badge */
-}
-
-/* ---- Tweet media gallery ---- */
-.tweet-media { display: grid; gap: 4px; }
-.tweet-media-grid { grid-template-columns: 1fr 1fr; }
-.tweet-media-item { position: relative; overflow: hidden; }
-.tweet-media-item img,
-.tweet-media-item video { width: 100%; display: block; }
-.tweet-media-item.clickable-watch { cursor: pointer; }
-.tweet-media-item.clickable-zoom { cursor: zoom-in; }
-.tweet-media-item.playable { cursor: default; }
-
-/* Built-in tag badges (video/gif/text-only/cw) get a dashed outline so
-   they read as distinct from real, stored tags */
-.tweet-tag-badge-builtin { border: 1px dashed currentColor; opacity: 0.75; }
-
-/* Linkified URLs inside tweet text */
-.linkified-url { color: var(--accent-color); }
-
-/* ---- Tag Groups modal ---- */
-.xb-group-name { font-weight: 600; font-size: 1.5em; }
-.xb-group-name.hidden { font-style: italic;  color: #5e2012; }
-
-.xb-group-empty-text { font-size: 12px; opacity: 0.6; }
-.xb-chip-remove-btn {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 14px;
-    line-height: 1;
-    padding: 0;
-    opacity: 0.7;
-}
-.xb-group-add-input-wrap { position: relative; }
-.xb-group-add-suggestion-item { padding: 6px 10px; cursor: pointer; font-size: 13px; }
-.xb-group-add-suggestion-item:hover { background: rgba(255, 255, 255, 0.08); }
-
-/* ---- Empty grid state ---- */
-.xb-empty-state {
-    grid-column: 1 / -1;
-    text-align: center;
+    transition: all 0.2s ease;
     color: var(--text-secondary);
-    padding: 2rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
 }
-.xb-empty-state i { font-size: 2rem; }
 
-/* ---- OG carousel dots ---- */
-.og-dot { background: var(--text-secondary); opacity: 0.5; }
-.og-dot.active { background: var(--accent-color); opacity: 1; }
+.nav-item i {
+    font-size: 1.1rem;
+}
 
-.export-settings-toggle {
-       display: flex;
-       align-items: center;
-       gap: 6px;
-       font-size: 0.85em;
-       color: var(--text-secondary, #888);
-       margin-top: 4px;
-       cursor: pointer;
-   }
+.nav-item:hover,
+.nav-item.active {
+    background: rgba(127, 127, 127, 0.1);
+    color: var(--text-primary);
+}
+
+.badge-count {
+    margin-left: auto;
+    font-size: 0.75rem;
+    background: var(--card-border);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
