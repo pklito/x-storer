@@ -90,6 +90,10 @@ function renderNextBatch(token) {
         }
         masonryColumnHeights[shortest] += 10;
         masonryColumns[shortest].appendChild(card);
+
+        // Only clippable once the card is actually in the document — offsetTop
+        // is meaningless (always 0) until layout has run against real geometry.
+        clipTagsToTwoLines(card.querySelector('.tweet-tags'));
     });
 
     state.renderedCount += batch.length;
@@ -146,6 +150,58 @@ export function refreshTweetBadges(tagsDiv, tweet) {
         tagBadge.textContent = '#' + tag;
         tagsDiv.appendChild(tagBadge);
     });
+
+    // Live updates (mass-tagging, tag modal edits) hit a tagsDiv that's
+    // already in the document, so it's safe to reclip right away. A
+    // freshly-created card's tagsDiv isn't attached yet at this point —
+    // renderNextBatch reclips it explicitly once the card is appended.
+    if (tagsDiv.isConnected) clipTagsToTwoLines(tagsDiv);
+}
+
+// Keeps only as many tag badges as fit on two lines and swaps the rest
+// for a single "+n" chip, instead of letting a heavily-tagged tweet grow
+// the whole card to fit every badge. Requires tagsDiv to already be
+// connected to the document, since it works by reading each badge's
+// real offsetTop.
+function clipTagsToTwoLines(tagsDiv) {
+    if (!tagsDiv) return;
+    const badges = Array.from(tagsDiv.children);
+    if (badges.length === 0) return;
+
+    // Walk the badges in order, recording each newly-seen row's offsetTop.
+    // The badge where a 3rd distinct top appears is where overflow starts.
+    const rowTops = [];
+    let cutIndex = -1;
+    for (let i = 0; i < badges.length; i++) {
+        const top = badges[i].offsetTop;
+        if (!rowTops.includes(top)) rowTops.push(top);
+        if (rowTops.length > 2) { cutIndex = i; break; }
+    }
+    if (cutIndex === -1) return; // everything already fits within two lines
+
+    const hidden = badges.slice(cutIndex);
+    hidden.forEach(b => b.remove());
+    let hiddenLabels = hidden.map(b => b.textContent);
+
+    const [firstTop, secondTop] = rowTops;
+    const more = document.createElement('span');
+    more.className = 'tweet-tag-badge tweet-tag-badge-more';
+    tagsDiv.appendChild(more);
+    more.textContent = `+${hiddenLabels.length}`;
+
+    // The "+n" chip itself takes up space — if row two was already full,
+    // adding it can push it onto a 3rd line. If so, trade the last
+    // remaining real tag for it and check again, growing the count.
+    while (more.offsetTop !== firstTop && more.offsetTop !== secondTop && tagsDiv.children.length > 1) {
+        more.remove();
+        const bumped = tagsDiv.lastElementChild;
+        hiddenLabels.unshift(bumped.textContent);
+        bumped.remove();
+        tagsDiv.appendChild(more);
+        more.textContent = `+${hiddenLabels.length}`;
+    }
+
+    more.title = hiddenLabels.join(', ');
 }
 
 function createTweetCard(tweet) {
