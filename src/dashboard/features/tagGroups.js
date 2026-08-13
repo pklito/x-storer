@@ -5,6 +5,11 @@ import { getAllTagNames, getTagsByGroup } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 import { renderSearchTabs } from './searchTabs.js';
 
+// Alpha for a group's background tint. Shared by the sidebar (group
+// headers) and the grid (individual tag badges) so a tag reads as the
+// same color in both places.
+export const GROUP_TINT_ALPHA = 0.14;
+
 export function addTagGroupAction() {
     addTagGroup(newGroupInput.value);
     newGroupInput.value = '';

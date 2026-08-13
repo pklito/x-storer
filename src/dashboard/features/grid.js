@@ -6,7 +6,8 @@ import { openLightbox } from './lightbox.js';
 import { openTagModal } from './tagModal.js';
 import { exportTweets } from './importExport.js';
 import { resolveLocalMediaFile, resolveLocalVideoFile } from './mediaFolder.js';
-import { updateUI, getBuiltInTagsForTweet } from './tweets.js';
+import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
+import { tagGroupOf, groupColorOf, hexToRgba, GROUP_TINT_ALPHA } from './tagGroups.js';
 
 let masonryColumns = [];
 let masonryColumnHeights = [];
@@ -137,10 +138,19 @@ export function refreshTweetBadges(tagsDiv, tweet) {
         if (!tagsDiv) return; // not found, maybe the card was removed from the grid
     }
     tagsDiv.replaceChildren();
-    (tweet.tags || []).forEach(tag => {
+
+    // Most-used tags first, so when clipTagsToTwoLines has to clip a
+    // heavily-tagged tweet, it's the rarer/more niche tags that get
+    // folded into "+n" rather than whichever ones happened to be stored
+    // first.
+    const tagCounts = getAllTagCounts();
+    const sortedTags = (tweet.tags || []).slice().sort((b, a) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
+
+    sortedTags.forEach(tag => {
         const tagBadge = document.createElement('span');
         tagBadge.className = 'tweet-tag-badge';
         tagBadge.textContent = '#' + tag;
+        applyTagGroupTint(tagBadge, tag);
         tagsDiv.appendChild(tagBadge);
     });
     getBuiltInTagsForTweet(tweet).forEach(tag => {
@@ -158,6 +168,16 @@ export function refreshTweetBadges(tagsDiv, tweet) {
     if (tagsDiv.isConnected) clipTagsToTwoLines(tagsDiv);
 }
 
+// Tints a tag badge with the same background color its group gets in the
+// sidebar, so a tag reads as part of the same group in both places.
+// Built-in tags (video/gif/cw/etc.) skip this — they aren't part of the
+// group system. No-ops (leaves the default CSS background) for a tag
+// whose group has no color configured anywhere in its chain.
+function applyTagGroupTint(tagBadge, tag) {
+    const color = groupColorOf(tagGroupOf(tag));
+    if (color) tagBadge.style.backgroundColor = hexToRgba(color, GROUP_TINT_ALPHA);
+}
+
 // Keeps only as many tag badges as fit on two lines and swaps the rest
 // for a single "+n" chip, instead of letting a heavily-tagged tweet grow
 // the whole card to fit every badge. Requires tagsDiv to already be
@@ -166,7 +186,7 @@ export function refreshTweetBadges(tagsDiv, tweet) {
 function clipTagsToTwoLines(tagsDiv) {
     if (!tagsDiv) return;
     const badges = Array.from(tagsDiv.children);
-    if (badges.length === 0) return;
+    if (badges.length < 8) return;
 
     // Walk the badges in order, recording each newly-seen row's offsetTop.
     // The badge where a 3rd distinct top appears is where overflow starts.
@@ -272,11 +292,11 @@ function createTweetCard(tweet) {
             itemWrap.className = 'tweet-media-item';
 
             const img = document.createElement('img');
-            img.src = item.url; // remote URL (or poster, for video/gif) as the immediate default
             img.loading = 'lazy';
             img.referrerPolicy = 'no-referrer';
             img.draggable = false;
             img.addEventListener('error', function () { this.parentElement.style.display = 'none'; });
+            img.src = item.url; // remote URL (or poster, for video/gif) as the immediate default
             itemWrap.appendChild(img);
 
             if (item.type === 'video' || item.type === 'gif') {

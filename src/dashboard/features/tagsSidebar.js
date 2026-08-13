@@ -1,6 +1,6 @@
 import { state, BUILT_IN_TAG_NAMES } from '../state.js';
 import { tagList, clearTagsBtn, tagMatchModeBtn, tagMatchModeLabel, searchInput } from '../dom.js';
-import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf, groupIconOf, hexToRgba } from './tagGroups.js';
+import { tagGroupOf, saveTagGroupState, buildGroupTree, groupColorOf, groupIconOf, hexToRgba, GROUP_TINT_ALPHA } from './tagGroups.js';
 
 
 import { updateUI, getFilteredTweets, getExclusionOverlapCount, getBuiltInTagsForTweet, getAllTagNames, getAllTagCounts, getCoOccurringTagCounts } from './tweets.js';
@@ -8,8 +8,6 @@ import { reapplyActiveTab } from './searchTabs.js';
 
 // Tags with more bookmarks than this get a bold chip in the sidebar.
 const HEAVY_TAG_THRESHOLD = 50;
-// Alpha for a group's background tint
-const GROUP_TINT_ALPHA = 0.14;
 // When in "match ALL" mode, tags with no overlap are hidden. they are grayed out instead if false
 const HIDE_UNRELATED_INTERSECTION_TAGS = false;
 // Tags with more bookmarks than this get a bold chip in the sidebar.
