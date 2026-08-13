@@ -246,10 +246,10 @@ function createTweetCard(tweet) {
 
     const avatar = document.createElement('img');
     avatar.className = 'avatar';
-    avatar.src = tweet.authorAvatar || '';
     avatar.referrerPolicy = 'no-referrer';
     avatar.draggable = false;
     avatar.addEventListener('error', function () { this.style.backgroundColor = '#333'; });
+    avatar.src = tweet.authorAvatar || '';
     header.appendChild(avatar);
 
     const userInfo = document.createElement('div');
