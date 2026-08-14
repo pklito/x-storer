@@ -158,15 +158,21 @@ export function getAllTagNames() {
     return Array.from(set).sort();
 }
 
-export function getAllTagCounts() {
-    const tagCounts = {};
-    state.allTweets.forEach(t => {
-        (t.tags || []).forEach(tag => {
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+var cachedTagCounts = {}
+export function getAllTagCounts(lazy = false) {
+    if(!lazy || Math.random() < 0.05){
+        const tagCounts = {};
+        state.allTweets.forEach(t => {
+            (t.tags || []).forEach(tag => {
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                cachedTagCounts[tag] = tagCounts[tag]
+            });
         });
-    });
-    if(!state.showHiddenTags) state.hiddenTags.forEach(tag => delete tagCounts[tag]);
-    return tagCounts;
+        if(!state.showHiddenTags) state.hiddenTags.forEach(tag => delete tagCounts[tag]);
+        cachedTagCounts = { ...tagCounts }
+        return tagCounts;
+    }
+    return cachedTagCounts
 }
 
 // Like getAllTagCounts, but counts within an arbitrary tweet subset

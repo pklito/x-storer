@@ -143,7 +143,7 @@ export function refreshTweetBadges(tagsDiv, tweet) {
     // heavily-tagged tweet, it's the rarer/more niche tags that get
     // folded into "+n" rather than whichever ones happened to be stored
     // first.
-    const tagCounts = getAllTagCounts();
+    const tagCounts = getAllTagCounts(true);
     const sortedTags = (tweet.tags || []).slice().sort((b, a) => (tagCounts[b] || 0) - (tagCounts[a] || 0));
 
     sortedTags.forEach(tag => {
