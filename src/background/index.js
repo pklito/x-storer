@@ -23,15 +23,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         handleRemoveTweet(message.payload);
         return true;
     }
+
+    if (message.type === 'AUTO_SCAN_START') {
+        isAutoScanning = true;
+        autoScanCount = 0;
+        chrome.action.setBadgeText({ text: 'B:0' });
+        return true;
+    }
+
+    if (message.type === 'AUTO_SCAN_STOP') {
+        isAutoScanning = false;
+        chrome.action.setBadgeText({ text: '' });
+        return true;
+    }
 });
+
+let autoScanCount = 0;
+let isAutoScanning = false;
 
 async function handleSaveTweet(tweetData) {
     try {
         await db.addTweet(tweetData);
 
-        if (tweetData.source !== 'auto_scan') {
+        if (tweetData.source === 'auto_scan') {
+            autoScanCount++;
+            chrome.action.setBadgeText({ text: `B:${autoScanCount}` });
+        } else {
             chrome.action.setBadgeText({ text: '!' });
-            setTimeout(() => chrome.action.setBadgeText({ text: '' }), 1500);
+            // Revert to the running B:count if auto-scan is still active,
+            // instead of blanking a badge that was mid-count.
+            setTimeout(() => {
+                chrome.action.setBadgeText({
+                    text: isAutoScanning ? `B:${autoScanCount}` : '',
+                });
+            }, 1500);
         }
 
     } catch (err) {

@@ -54,19 +54,50 @@ function parseMediaItems(article) {
 
 let observer = null;
 let currentUrl = window.location.href;
+let scanActive = false;
 
-// --- Main Loop: Watch URL ---
+// --- Bookmarks Tab Detection ---
+// X now also exposes Bookmarks as a selectable tab under /i/history,
+// alongside sibling tabs (e.g. /i/history/likes) that live under the same
+// URL prefix. Matching on visible tab text breaks on non-English UIs, so
+// this matches on the tab's href instead:
+//   Bookmarks tab: <a href="/i/history" role="tab" aria-selected="true">
+//   Likes tab:     <a href="/i/history/likes" role="tab" ...>
+// aria-selected can flip between tabs without the URL changing (SPA tab
+// switch), so this has to be polled independently of the URL watcher. Only
+// checked once we're already somewhere under /i/history, since the href
+// alone ('/i/history') isn't a distinguishing signal anywhere else on site.
+function isBookmarksTabActive() {
+    if (!window.location.pathname.includes('/i/history')) return false;
+
+    const tabs = document.querySelectorAll('a[role="tab"][aria-selected="true"]');
+    for (const tab of tabs) {
+        if (tab.getAttribute('href') === '/i/history') {
+            return true;
+        }
+    }
+    return false;
+}
+
+// --- Main Loop: Watch URL + Bookmarks tab state ---
 setInterval(() => {
     if (window.location.href !== currentUrl) {
         currentUrl = window.location.href;
-        handleNavigation();
     }
+    handleNavigation();
 }, 1000);
 
 handleNavigation();
 
 function handleNavigation() {
-    if (window.location.pathname.includes('/i/bookmarks')) {
+    const shouldScan =
+        window.location.pathname.includes('/i/bookmarks') ||
+        isBookmarksTabActive();
+
+    if (shouldScan === scanActive) return; // no state change, skip
+
+    scanActive = shouldScan;
+    if (shouldScan) {
         startAutoScan();
     } else {
         stopAutoScan();
@@ -76,6 +107,10 @@ function handleNavigation() {
 // --- Auto-Scan Logic ---
 function startAutoScan() {
     if (observer) return;
+
+    // Resets the badge counter to B:0 in the background — every fresh
+    // start of auto-scan (new visit to the tab/page) starts the count over.
+    safelySendMessage({ type: 'AUTO_SCAN_START' });
 
     observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -105,6 +140,8 @@ function attachObserverToTweets() {
 }
 
 function stopAutoScan() {
+    safelySendMessage({ type: 'AUTO_SCAN_STOP' });
+
     if (observer) {
         observer.disconnect();
         observer = null;
