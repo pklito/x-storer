@@ -14,6 +14,7 @@ export const state = {
     tagMatchAll: false,        // false = a tweet matches if it has ANY selected tag (union); true = ALL of them (intersection)
     currentEditTweetId: null,
     currentEditTagsDiv: null,
+    currentShownTweets : [],
 
     // Tag Groups (categorization)
     tagGroups: ['Uncategorized'],     // ordered list of group names; 'Uncategorized' is implicit/default

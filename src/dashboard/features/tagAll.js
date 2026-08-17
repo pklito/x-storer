@@ -11,7 +11,7 @@ const addTagBtnEl = document.getElementById('tag-all-add-btn');
 const cancelBtn = document.getElementById('tag-all-cancel-btn');
 const startBtn = document.getElementById('tag-all-start-btn');
 
-import { getAllTagNames, updateUI, getTagsByGroup, getFilteredTweets } from './tweets.js';
+import { getAllTagNames, updateUI, getTagsByGroup } from './tweets.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 
 import { refreshTweetBadges } from './grid.js';
@@ -51,7 +51,6 @@ export function tagAllBtnAction() {
 }
 
 export function openTagAllModal() {
-    updateUI();
     chosen.clear();
     excludeChosen.clear();
     pendingNewTags.clear();
@@ -124,7 +123,7 @@ function refreshChipList() {
 }
 
 function refreshStartBtnLabel() {
-    const count = getFilteredTweets().length;
+    const count = state.currentShownTweets.length;
     startBtn.textContent = `Tag (${count}) tweets`;
 }
 
@@ -139,7 +138,7 @@ function addNewTag() {
 }
 
 async function applyTagsToAll() {
-    const tweets = getFilteredTweets();
+    const tweets = state.currentShownTweets;
     const addTags = Array.from(chosen);
     const removeTags = Array.from(excludeChosen);
 

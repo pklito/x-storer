@@ -124,6 +124,7 @@ export function updateUI() {
     if (state.selectedTags.size === 0 && state.excludedTags.size === 0 && (!getSearchTerm() || getSearchTerm().length === 0)) {
         feedTitle.textContent = 'All Bookmarks';
     }
+    state.currentShownTweets = tweets
     renderGrid(tweets);
     renderTagsSidebar();
 }
