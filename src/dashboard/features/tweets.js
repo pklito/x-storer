@@ -2,7 +2,7 @@ import { db } from '../../utils/db.js';
 import { state } from '../state.js';
 import { feedTitle } from '../dom.js';
 import { renderGrid } from './grid.js';
-import { renderForceGraph } from './forceGraph.js';
+import { renderForceGraph } from './graph/index.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 import { searchInput } from '../dom.js';
 import { tagGroupOf } from './tagGroups.js';
