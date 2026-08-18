@@ -6,13 +6,13 @@
 // filter), using that tag's group color. So color still reads as
 // "topic", it's just carried by the tweet itself instead of a hub node.
 //
-// Edges are built per shared tag: for every tag a tweet has, it gets
-// linked to a handful (2-3) of other random tweets that also have that
-// tag — not *all* of them, or tags with many tweets would turn into an
-// unreadable clique. A tweet with several tags ends up woven into
-// several of these little meshes at once, which is what pulls the
-// whole graph into clusters without ever pinning a single hub node in
-// the middle of each one.
+// Edges are built per shared tag, but each tweet has one total link
+// budget (2-3), not one budget per tag — otherwise a tweet with several
+// tags gets a separate connectivity pass per tag, and two clusters that
+// happen to share multiple tags end up with several independent link
+// attempts between them, over-connecting fast. A tweet with several
+// tags still ends up woven into more than one little mesh, it just
+// doesn't get a fresh quota for each one.
 //
 // Click a tweet = open its original link, if it has one.
 
@@ -22,8 +22,9 @@ import { tagGroupOf, groupColorOf } from './tagGroups.js';
 const CONTAINER_ID = 'force-graph-container';
 
 // Tunables, adjustable live via the toolbar controls.
-let maxTweets = 400;   // cap on nodes shown at once, for perf/legibility
-let linksPerTag = 2;   // each tweet links to linksPerTag..linksPerTag+1 random tweets per shared tag
+let maxTweets = 400;    // cap on nodes shown at once, for perf/legibility
+let linksPerTweet = 2;  // each tweet's total link budget is linksPerTweet..linksPerTweet+1, spread across its tags
+let hoverEnabled = true; // highlight + tooltip on hover; toggleable since it can get noisy in a dense mesh
 
 const NODE_SIZE_RANGE = [7, 11]; // subtle: bigger tag count = slightly bigger square
 
@@ -72,7 +73,7 @@ function shuffle(arr) {
 function buildGraphData(tweets) {
     const capped = tweets.length > maxTweets
         ? [...tweets]
-            .sort((b, a) => new Date(b.timestamp) - new Date(a.timestamp))
+            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
             .slice(0, maxTweets)
         : tweets;
 
@@ -103,24 +104,34 @@ function buildGraphData(tweets) {
         n.group = tagGroupOf(n.dominantTag);
     });
 
-    // Per shared tag, link each tweet to a handful of other co-tagged
-    // tweets — but bias picks toward whichever candidates currently
-    // have the *fewest* links so far. Plain random picking lets a
-    // popular tag's tweets keep re-selecting each other and snowball
-    // into tight 7-8-neighbor cliques; sampling from the low-degree end
-    // instead spreads connections out more evenly across the tag.
+    // Each tweet gets a total link budget, decided once up front — not
+    // a budget per tag. Without that, a tweet with 3 tags gets 3
+    // separate connectivity passes (one per tag), each handing out its
+    // own 2-3 links, so two clusters sharing several tags end up with
+    // several independent link attempts between them and everything
+    // over-connects. Here, once a tweet has spent its budget, later
+    // tags it belongs to are skipped entirely — so its total degree
+    // stays close to the target regardless of how many tags it has.
+    //
+    // Picks are still biased toward whichever candidates currently have
+    // the fewest links, so a popular tag's tweets don't just keep
+    // re-selecting each other and snowballing into tight cliques.
     // Links are deduped across tags, accumulating weight/shared tags
     // for edge thickness and tooltips.
+    const budget = new Map(nodes.map(n => [n.id, linksPerTweet + (Math.random() < 0.5 ? 0 : 1)]));
     const degree = new Map(nodes.map(n => [n.id, 0]));
     const linkMap = new Map();
 
     shuffle(Array.from(tagToNodeIds.keys())).forEach(tag => {
         const idsInTag = tagToNodeIds.get(tag);
         shuffle(idsInTag).forEach(id => {
+            const remaining = budget.get(id) - degree.get(id);
+            if (remaining <= 0) return; // budget already spent via an earlier shared tag
+
             const others = idsInTag.filter(oid => oid !== id);
             if (others.length === 0) return;
 
-            const count = Math.min(others.length, linksPerTag + (Math.random() < 0.5 ? 0 : 1));
+            const count = Math.min(others.length, remaining);
             const lowestDegreeFirst = shuffle(others).sort((a, b) => degree.get(a) - degree.get(b));
             const pool = lowestDegreeFirst.slice(0, Math.min(others.length, count + 3));
 
@@ -164,7 +175,8 @@ export function renderForceGraph(tweets) {
         return;
     }
 
-    root.appendChild(buildToolbar(tweets, shownCount, links.length));
+    const toolbarEl = buildToolbar(tweets, shownCount, links.length);
+    root.appendChild(toolbarEl);
 
     const canvasWrap = document.createElement('div');
     canvasWrap.className = 'force-graph-canvas-wrap';
@@ -223,13 +235,27 @@ export function renderForceGraph(tweets) {
 
     const tooltip = getTooltip();
 
+    // Placed at the front of the toolbar since it's the control most
+    // worth reaching for first in a dense mesh (hover gets noisy fast).
+    toolbarEl.insertBefore(buildToggle('Hover', hoverEnabled, (v) => {
+        hoverEnabled = v;
+        if (!v) {
+            clearHighlight(nodeSel, linkSel);
+            tooltip.style.display = 'none';
+        }
+    }), toolbarEl.firstChild);
+
     nodeSel
         .on('mouseenter', (event, d) => {
+            if (!hoverEnabled) return;
             highlightNode(d, nodeSel, linkSel);
             showTooltip(tooltip, event, d, links);
         })
-        .on('mousemove', (event) => positionTooltip(tooltip, event))
+        .on('mousemove', (event) => {
+            if (hoverEnabled) positionTooltip(tooltip, event);
+        })
         .on('mouseleave', () => {
+            if (!hoverEnabled) return;
             clearHighlight(nodeSel, linkSel);
             tooltip.style.display = 'none';
         })
@@ -367,8 +393,8 @@ function buildToolbar(tweets, shownTweetCount, linkCount) {
         renderForceGraph(lastTweets);
     }));
 
-    bar.appendChild(buildSlider('Links/tag', linksPerTag, 1, 5, (v) => {
-        linksPerTag = v;
+    bar.appendChild(buildSlider('Links/tweet', linksPerTweet, 1, 5, (v) => {
+        linksPerTweet = v;
         renderForceGraph(lastTweets);
     }));
 
@@ -389,6 +415,20 @@ function buildSlider(label, value, min, max, onChange) {
     input.addEventListener('change', () => onChange(Number(input.value)));
     wrap.appendChild(span);
     wrap.appendChild(input);
+    return wrap;
+}
+
+function buildToggle(label, checked, onChange) {
+    const wrap = document.createElement('label');
+    wrap.className = 'force-graph-toggle';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.addEventListener('change', () => onChange(input.checked));
+    const span = document.createElement('span');
+    span.textContent = label;
+    wrap.appendChild(input);
+    wrap.appendChild(span);
     return wrap;
 }
 
