@@ -49,6 +49,18 @@
     accent-color: var(--accent-color, #6c8cff);
 }
 
+.force-graph-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary, #c3c9d6);
+}
+
+.force-graph-toggle input {
+    accent-color: var(--accent-color, #6c8cff);
+}
+
 /* Canvas */
 
 .force-graph-canvas-wrap {
@@ -83,26 +95,43 @@
     stroke-opacity: 0.08;
 }
 
+.force-graph-links-group line {
+    stroke-dasharray: 2 4;
+    stroke-opacity: 0.15;
+}
+
+.force-graph-links-group line.is-highlighted {
+    stroke-opacity: 0.6;
+}
+
 .force-graph-node {
     cursor: pointer;
 }
 
-.force-graph-node circle {
+.force-graph-node circle,
+.force-graph-node .force-graph-star {
     stroke: var(--bg-panel, #14161c);
     stroke-width: 1.5px;
     transition: opacity 120ms ease, stroke-width 120ms ease;
+}
+
+.force-graph-planet {
+    fill: var(--text-muted, #8b93a7);
+    stroke-width: 1px;
 }
 
 .force-graph-node.is-dimmed {
     opacity: 0.15;
 }
 
-.force-graph-node.is-selected circle {
+.force-graph-node.is-selected circle,
+.force-graph-node.is-selected .force-graph-star {
     stroke: #6c8cff;
     stroke-width: 3px;
 }
 
-.force-graph-node.is-excluded circle {
+.force-graph-node.is-excluded circle,
+.force-graph-node.is-excluded .force-graph-star {
     stroke: #ff5c6c;
     stroke-width: 3px;
     opacity: 0.55;
@@ -179,6 +208,11 @@
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+.force-graph-legend-meta {
+    opacity: 0.8;
+    margin-bottom: 2px;
 }
 
 .force-graph-legend-swatch {
