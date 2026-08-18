@@ -24,7 +24,6 @@ const CONTAINER_ID = 'force-graph-container';
 // Tunables, adjustable live via the toolbar controls.
 let maxTweets = 400;    // cap on nodes shown at once, for perf/legibility
 let linksPerTweet = 2;  // each tweet's total link budget is linksPerTweet..linksPerTweet+1, spread across its tags
-let hoverEnabled = true; // highlight + tooltip on hover; toggleable since it can get noisy in a dense mesh
 
 const NODE_SIZE_RANGE = [7, 11]; // subtle: bigger tag count = slightly bigger square
 
@@ -35,6 +34,48 @@ const positionCache = new Map();
 let lastTweets = [];
 let tooltipEl = null;
 let resizeQueued = false;
+
+// Hover highlight/tooltip only shows while Shift is held — otherwise a
+// dense mesh lights up and re-lights constantly as the cursor passes
+// over it. These are module-level (not per-render) so a single pair of
+// window listeners can drive whichever render is current, rather than
+// piling up a new listener on every re-render.
+let shiftDown = false;
+let hoveredNode = null;
+let lastMouseEvent = null;
+let currentNodeSel = null;
+let currentLinkSel = null;
+let currentLinks = [];
+
+function refreshHoverVisual() {
+    if (!currentNodeSel || !currentLinkSel) return;
+    const tooltip = getTooltip();
+    if (shiftDown && hoveredNode) {
+        highlightNode(hoveredNode, currentNodeSel, currentLinkSel);
+        if (lastMouseEvent) showTooltip(tooltip, lastMouseEvent, hoveredNode, currentLinks);
+    } else {
+        clearHighlight(currentNodeSel, currentLinkSel);
+        tooltip.style.display = 'none';
+    }
+}
+
+window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Shift' || shiftDown) return;
+    shiftDown = true;
+    refreshHoverVisual();
+});
+window.addEventListener('keyup', (e) => {
+    if (e.key !== 'Shift') return;
+    shiftDown = false;
+    refreshHoverVisual();
+});
+// In case Shift was released while the window didn't have focus (e.g. an
+// alt-tab), don't leave the highlight stuck on.
+window.addEventListener('blur', () => {
+    if (!shiftDown) return;
+    shiftDown = false;
+    refreshHoverVisual();
+});
 
 function getContainer() {
     return document.getElementById(CONTAINER_ID);
@@ -64,6 +105,43 @@ function shuffle(arr) {
         [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
+}
+
+// --- Tag hulls ----------------------------------------------------------
+
+const HULL_PAD = 22; // how far the hull balloons out past its outermost tweet
+
+function circlePathD(cx, cy, r) {
+    return `M${cx - r},${cy} a${r},${r} 0 1,0 ${r * 2},0 a${r},${r} 0 1,0 ${-r * 2},0`;
+}
+
+// A tag's hull is a padded convex hull around all of its tweets. With
+// fewer than 3 tweets (or all of them collinear, so no real hull
+// exists) it falls back to a simple circle around them instead.
+function hullGeometry(tagNodes, pad) {
+    const pts = tagNodes.map(n => [n.x, n.y]);
+    if (pts.some(p => p[0] == null || p[1] == null)) return null;
+
+    if (pts.length >= 3) {
+        const hull = d3.polygonHull(pts);
+        if (hull) {
+            const centroid = d3.polygonCentroid(hull);
+            const padded = hull.map(([x, y]) => {
+                const dx = x - centroid[0], dy = y - centroid[1];
+                const dist = Math.hypot(dx, dy) || 1;
+                const scale = (dist + pad) / dist;
+                return [centroid[0] + dx * scale, centroid[1] + dy * scale];
+            });
+            const top = padded.reduce((a, b) => (b[1] < a[1] ? b : a));
+            return { d: 'M' + padded.map(p => p.join(',')).join('L') + 'Z', label: { x: top[0], y: top[1] - 8 } };
+        }
+    }
+
+    // <3 points, or collinear: a circle around whatever points there are.
+    const cx = d3.mean(pts, p => p[0]);
+    const cy = d3.mean(pts, p => p[1]);
+    const r = Math.max(pad, (d3.max(pts, p => Math.hypot(p[0] - cx, p[1] - cy)) || 0) + pad);
+    return { d: circlePathD(cx, cy, r), label: { x: cx, y: cy - r - 8 } };
 }
 
 // Builds { nodes, links, shownCount } from a tweet list. Only real
@@ -150,6 +228,21 @@ function buildGraphData(tweets) {
         });
     });
 
+    // Shape: a tweet is a square if its links reach neighbors through
+    // more than one distinct tag — i.e. it bridges more than one topic
+    // in this mesh. A tweet whose links all happen to run through a
+    // single shared tag stays a circle.
+    const incidentTags = new Map(nodes.map(n => [n.id, new Set()]));
+    linkMap.forEach(link => {
+        link.tags.forEach(tag => {
+            incidentTags.get(link.source).add(tag);
+            incidentTags.get(link.target).add(tag);
+        });
+    });
+    nodes.forEach(n => {
+        n.shape = incidentTags.get(n.id).size > 1 ? 'square' : 'circle';
+    });
+
     return {
         nodes,
         links: Array.from(linkMap.values()),
@@ -161,6 +254,9 @@ function buildGraphData(tweets) {
 
 export function renderForceGraph(tweets) {
     lastTweets = tweets;
+    hoveredNode = null;
+    if (tooltipEl) tooltipEl.style.display = 'none';
+
     const root = getContainer();
     if (!root) return;
 
@@ -203,12 +299,38 @@ export function renderForceGraph(tweets) {
     const nodeSize = d3.scaleLinear().domain([1, maxTagsPerTweet]).range(NODE_SIZE_RANGE).clamp(true);
     const nodeRadius = d => nodeSize(d.tags.length) / 2;
 
+    const tagToNodes = new Map();
+    nodes.forEach(n => {
+        n.tags.forEach(tag => {
+            if (!tagToNodes.has(tag)) tagToNodes.set(tag, []);
+            tagToNodes.get(tag).push(n);
+        });
+    });
+    const hullEntries = Array.from(tagToNodes.entries()).map(([tag, tagNodes]) => ({
+        tag, group: tagGroupOf(tag), nodes: tagNodes,
+    }));
+
     const simulation = d3.forceSimulation(nodes)
         .force('link', d3.forceLink(links).id(d => d.id).distance(45).strength(0.35))
         .force('charge', d3.forceManyBody().strength(-40))
         .force('x', d3.forceX())
         .force('y', d3.forceY())
         .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 2).strength(0.9));
+
+    const hullGroup = zoomGroup.append('g').attr('class', 'force-graph-hulls');
+    const hullSel = hullGroup.selectAll('g')
+        .data(hullEntries, d => d.tag)
+        .join(enter => {
+            const g = enter.append('g').attr('class', 'force-graph-hull');
+            g.append('path')
+                .attr('class', 'force-graph-hull-shape')
+                .style('fill', d => groupColorOf(d.group) || '#7c8ba1');
+            g.append('text')
+                .attr('class', 'force-graph-hull-label')
+                .style('fill', d => groupColorOf(d.group) || '#7c8ba1')
+                .text(d => `#${d.tag}`);
+            return g;
+        });
 
     const linkSel = zoomGroup.append('g')
         .attr('class', 'force-graph-links force-graph-links-tweet')
@@ -225,7 +347,8 @@ export function renderForceGraph(tweets) {
         .attr('class', 'force-graph-node force-graph-node-tweet')
         .call(drag(simulation));
 
-    nodeSel.append('rect')
+    nodeSel.filter(d => d.shape === 'square')
+        .append('rect')
         .attr('class', 'force-graph-planet')
         .attr('x', d => -nodeSize(d.tags.length) / 2)
         .attr('y', d => -nodeSize(d.tags.length) / 2)
@@ -233,31 +356,30 @@ export function renderForceGraph(tweets) {
         .attr('height', d => nodeSize(d.tags.length))
         .style('fill', d => groupColorOf(d.group) || '#7c8ba1');
 
-    const tooltip = getTooltip();
+    nodeSel.filter(d => d.shape === 'circle')
+        .append('circle')
+        .attr('class', 'force-graph-planet')
+        .attr('r', d => nodeSize(d.tags.length) / 2)
+        .style('fill', d => groupColorOf(d.group) || '#7c8ba1');
 
-    // Placed at the front of the toolbar since it's the control most
-    // worth reaching for first in a dense mesh (hover gets noisy fast).
-    toolbarEl.insertBefore(buildToggle('Hover', hoverEnabled, (v) => {
-        hoverEnabled = v;
-        if (!v) {
-            clearHighlight(nodeSel, linkSel);
-            tooltip.style.display = 'none';
-        }
-    }), toolbarEl.firstChild);
+    currentNodeSel = nodeSel;
+    currentLinkSel = linkSel;
+    currentLinks = links;
+    getTooltip(); // ensure it exists before any hover events can fire
 
     nodeSel
         .on('mouseenter', (event, d) => {
-            if (!hoverEnabled) return;
-            highlightNode(d, nodeSel, linkSel);
-            showTooltip(tooltip, event, d, links);
+            hoveredNode = d;
+            lastMouseEvent = event;
+            refreshHoverVisual();
         })
         .on('mousemove', (event) => {
-            if (hoverEnabled) positionTooltip(tooltip, event);
+            lastMouseEvent = event;
+            if (shiftDown) positionTooltip(getTooltip(), event);
         })
         .on('mouseleave', () => {
-            if (!hoverEnabled) return;
-            clearHighlight(nodeSel, linkSel);
-            tooltip.style.display = 'none';
+            hoveredNode = null;
+            refreshHoverVisual();
         })
         .on('click', (event, d) => {
             if (d._dragged) { d._dragged = false; return; } // suppress click right after a drag
@@ -266,6 +388,13 @@ export function renderForceGraph(tweets) {
         });
 
     simulation.on('tick', () => {
+        hullSel.each(function (d) {
+            const geo = hullGeometry(d.nodes, HULL_PAD);
+            if (!geo) return;
+            const g = d3.select(this);
+            g.select('.force-graph-hull-shape').attr('d', geo.d);
+            g.select('.force-graph-hull-label').attr('x', geo.label.x).attr('y', geo.label.y);
+        });
         linkSel
             .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
@@ -384,7 +513,7 @@ function buildToolbar(tweets, shownTweetCount, linkCount) {
     const stats = document.createElement('div');
     stats.className = 'force-graph-stats';
     const cappedNote = shownTweetCount < tweets.length ? ` (of ${tweets.length})` : '';
-    stats.textContent = `${shownTweetCount} tweets shown${cappedNote} · ${linkCount} links`;
+    stats.textContent = `${shownTweetCount} tweets shown${cappedNote} · ${linkCount} links · hold Shift + hover to inspect`;
     bar.appendChild(stats);
 
     const sliderMax = Math.max(50, tweets.length);
@@ -415,20 +544,6 @@ function buildSlider(label, value, min, max, onChange) {
     input.addEventListener('change', () => onChange(Number(input.value)));
     wrap.appendChild(span);
     wrap.appendChild(input);
-    return wrap;
-}
-
-function buildToggle(label, checked, onChange) {
-    const wrap = document.createElement('label');
-    wrap.className = 'force-graph-toggle';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.checked = checked;
-    input.addEventListener('change', () => onChange(input.checked));
-    const span = document.createElement('span');
-    span.textContent = label;
-    wrap.appendChild(input);
-    wrap.appendChild(span);
     return wrap;
 }
 
