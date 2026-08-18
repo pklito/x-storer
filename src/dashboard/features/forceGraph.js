@@ -1,20 +1,3 @@
-// Force-directed mesh of tweets, connected through shared tags.
-//
-// Every node is a tweet, drawn as a small uniform square. There are no
-// separate tag nodes — instead, each tweet is colored by its "dominant"
-// tag (the most common tag among its own tags, within the current
-// filter), using that tag's group color. So color still reads as
-// "topic", it's just carried by the tweet itself instead of a hub node.
-//
-// Edges are built per shared tag, but each tweet has one total link
-// budget (2-3), not one budget per tag — otherwise a tweet with several
-// tags gets a separate connectivity pass per tag, and two clusters that
-// happen to share multiple tags end up with several independent link
-// attempts between them, over-connecting fast. A tweet with several
-// tags still ends up woven into more than one little mesh, it just
-// doesn't get a fresh quota for each one.
-//
-// Click a tweet = open its original link, if it has one.
 
 import { state } from '../state.js';
 import { tagGroupOf, groupColorOf } from './tagGroups.js';
@@ -24,6 +7,7 @@ const CONTAINER_ID = 'force-graph-container';
 // Tunables, adjustable live via the toolbar controls.
 let maxTweets = 400;    // cap on nodes shown at once, for perf/legibility
 let linksPerTweet = 2;  // each tweet's total link budget is linksPerTweet..linksPerTweet+1, spread across its tags
+let groupHullThreshold = 0.5;
 
 const NODE_SIZE_RANGE = [7, 11]; // subtle: bigger tag count = slightly bigger square
 
@@ -526,6 +510,11 @@ function buildToolbar(tweets, shownTweetCount, linkCount) {
         linksPerTweet = v;
         renderForceGraph(lastTweets);
     }));
+
+    bar.appendChild(buildSlider('Group Threshold', groupHullThreshold, 0, 1, (v) => {
+        groupHullThreshold = v;
+        renderForceGraph(lastTweets);
+    }))
 
     return bar;
 }
