@@ -7,14 +7,14 @@
     height: 100%;
     min-height: 500px;
     position: relative;
-    background: var(--bg-panel, #14161c);
+    background: var(--bg-panel, #f7f8fa);
     border-radius: 10px;
     overflow: hidden;
 }
 
 .force-graph-empty {
     margin: auto;
-    color: var(--text-muted, #8b93a7);
+    color: var(--text-muted, #6b7280);
     font-size: 14px;
 }
 
@@ -25,14 +25,14 @@
     align-items: center;
     gap: 20px;
     padding: 10px 16px;
-    border-bottom: 1px solid var(--border-color, #262a34);
-    background: var(--bg-panel-alt, #191c24);
+    border-bottom: 1px solid var(--border-color, #d8dbe2);
+    background: var(--bg-panel-alt, #eef0f4);
     flex-wrap: wrap;
 }
 
 .force-graph-stats {
     font-size: 12px;
-    color: var(--text-muted, #8b93a7);
+    color: var(--text-muted, #6b7280);
     white-space: nowrap;
 }
 
@@ -41,7 +41,7 @@
     align-items: center;
     gap: 8px;
     font-size: 12px;
-    color: var(--text-secondary, #c3c9d6);
+    color: var(--text-secondary, #3c4150);
 }
 
 .force-graph-slider input[type="range"] {
@@ -54,7 +54,7 @@
     align-items: center;
     gap: 6px;
     font-size: 12px;
-    color: var(--text-secondary, #c3c9d6);
+    color: var(--text-secondary, #3c4150);
 }
 
 .force-graph-toggle input {
@@ -81,7 +81,7 @@
 }
 
 .force-graph-links line {
-    stroke: var(--border-color, #3a3f4d);
+    stroke: var(--border-color, #c7cbd4);
     stroke-opacity: 0.55;
     transition: stroke-opacity 120ms ease, stroke 120ms ease;
 }
@@ -110,13 +110,13 @@
 
 .force-graph-node circle,
 .force-graph-node .force-graph-star {
-    stroke: var(--bg-panel, #14161c);
+    stroke: var(--bg-panel, #f7f8fa);
     stroke-width: 1.5px;
     transition: opacity 120ms ease, stroke-width 120ms ease;
 }
 
 .force-graph-planet {
-    fill: var(--text-muted, #8b93a7);
+    fill: var(--text-muted, #6b7280);
     stroke-width: 1px;
 }
 
@@ -139,7 +139,7 @@
 
 .force-graph-label {
     font-size: 10px;
-    fill: var(--text-secondary, #c3c9d6);
+    fill: var(--text-secondary, #3c4150);
     pointer-events: none;
     user-select: none;
 }
@@ -152,12 +152,12 @@
     z-index: 1000;
     max-width: 240px;
     padding: 10px 12px;
-    background: var(--bg-elevated, #20232c);
-    border: 1px solid var(--border-color, #333844);
+    background: var(--bg-elevated, #ffffff);
+    border: 1px solid var(--border-color, #d8dbe2);
     border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 6px 20px rgba(20, 20, 30, 0.12);
     font-size: 12px;
-    color: var(--text-primary, #e6e9f0);
+    color: var(--text-primary, #1a1d24);
     pointer-events: none;
 }
 
@@ -167,12 +167,12 @@
 }
 
 .force-graph-tooltip-count {
-    color: var(--text-muted, #8b93a7);
+    color: var(--text-muted, #6b7280);
     margin-bottom: 6px;
 }
 
 .force-graph-tooltip-related {
-    border-top: 1px solid var(--border-color, #333844);
+    border-top: 1px solid var(--border-color, #d8dbe2);
     padding-top: 6px;
     display: flex;
     flex-direction: column;
@@ -195,11 +195,11 @@
     flex-direction: column;
     gap: 4px;
     padding: 8px 10px;
-    background: var(--bg-panel-alt, rgba(25, 28, 36, 0.85));
-    border: 1px solid var(--border-color, #262a34);
+    background: var(--bg-panel-alt, rgba(255, 255, 255, 0.92));
+    border: 1px solid var(--border-color, #d8dbe2);
     border-radius: 8px;
     font-size: 11px;
-    color: var(--text-secondary, #c3c9d6);
+    color: var(--text-secondary, #3c4150);
     max-height: 160px;
     overflow-y: auto;
 }

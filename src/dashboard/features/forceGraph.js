@@ -25,7 +25,7 @@ const CONTAINER_ID = 'force-graph-container';
 let maxTweets = 400;   // cap on nodes shown at once, for perf/legibility
 let linksPerTag = 2;   // each tweet links to linksPerTag..linksPerTag+1 random tweets per shared tag
 
-const NODE_SIZE = 8;
+const NODE_SIZE_RANGE = [7, 11]; // subtle: bigger tag count = slightly bigger square
 
 // Node positions persist across re-renders (keyed by tweet id) so
 // filtering doesn't restart the whole layout from scratch every time.
@@ -56,6 +56,15 @@ function pickRandom(arr, n) {
     return picked;
 }
 
+function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
 // Builds { nodes, links, shownCount } from a tweet list. Only real
 // (user-assigned) tags are considered — built-in computed tags
 // (video/gif/text-only/cw) aren't part of this graph. Untagged tweets
@@ -63,7 +72,7 @@ function pickRandom(arr, n) {
 function buildGraphData(tweets) {
     const capped = tweets.length > maxTweets
         ? [...tweets]
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            .sort((b, a) => new Date(b.timestamp) - new Date(a.timestamp))
             .slice(0, maxTweets)
         : tweets;
 
@@ -94,20 +103,36 @@ function buildGraphData(tweets) {
         n.group = tagGroupOf(n.dominantTag);
     });
 
-    // Per shared tag, link each tweet to a handful of random co-tagged
-    // tweets. Links are deduped across tags, accumulating weight/shared
-    // tags for edge thickness and tooltips.
+    // Per shared tag, link each tweet to a handful of other co-tagged
+    // tweets — but bias picks toward whichever candidates currently
+    // have the *fewest* links so far. Plain random picking lets a
+    // popular tag's tweets keep re-selecting each other and snowball
+    // into tight 7-8-neighbor cliques; sampling from the low-degree end
+    // instead spreads connections out more evenly across the tag.
+    // Links are deduped across tags, accumulating weight/shared tags
+    // for edge thickness and tooltips.
+    const degree = new Map(nodes.map(n => [n.id, 0]));
     const linkMap = new Map();
-    nodes.forEach(n => {
-        n.tags.forEach(tag => {
-            const others = tagToNodeIds.get(tag).filter(id => id !== n.id);
-            const count = linksPerTag + (Math.random() < 0.5 ? 0 : 1);
-            pickRandom(others, count).forEach(otherId => {
-                const key = n.id < otherId ? `${n.id}|${otherId}` : `${otherId}|${n.id}`;
-                if (!linkMap.has(key)) {
-                    linkMap.set(key, { source: n.id, target: otherId, weight: 0, tags: new Set() });
+
+    shuffle(Array.from(tagToNodeIds.keys())).forEach(tag => {
+        const idsInTag = tagToNodeIds.get(tag);
+        shuffle(idsInTag).forEach(id => {
+            const others = idsInTag.filter(oid => oid !== id);
+            if (others.length === 0) return;
+
+            const count = Math.min(others.length, linksPerTag + (Math.random() < 0.5 ? 0 : 1));
+            const lowestDegreeFirst = shuffle(others).sort((a, b) => degree.get(a) - degree.get(b));
+            const pool = lowestDegreeFirst.slice(0, Math.min(others.length, count + 3));
+
+            pickRandom(pool, count).forEach(otherId => {
+                const key = id < otherId ? `${id}|${otherId}` : `${otherId}|${id}`;
+                let link = linkMap.get(key);
+                if (!link) {
+                    link = { source: id, target: otherId, weight: 0, tags: new Set() };
+                    linkMap.set(key, link);
+                    degree.set(id, degree.get(id) + 1);
+                    degree.set(otherId, degree.get(otherId) + 1);
                 }
-                const link = linkMap.get(key);
                 link.weight += 1;
                 link.tags.add(tag);
             });
@@ -162,11 +187,16 @@ export function renderForceGraph(tweets) {
     const maxWeight = d3.max(links, d => d.weight) || 1;
     const edgeWidth = d3.scaleLinear().domain([1, maxWeight]).range([1, 3]).clamp(true);
 
+    const maxTagsPerTweet = d3.max(nodes, d => d.tags.length) || 1;
+    const nodeSize = d3.scaleLinear().domain([1, maxTagsPerTweet]).range(NODE_SIZE_RANGE).clamp(true);
+    const nodeRadius = d => nodeSize(d.tags.length) / 2;
+
     const simulation = d3.forceSimulation(nodes)
         .force('link', d3.forceLink(links).id(d => d.id).distance(45).strength(0.35))
         .force('charge', d3.forceManyBody().strength(-40))
-        .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collide', d3.forceCollide().radius(NODE_SIZE + 2).strength(0.9));
+        .force('x', d3.forceX())
+        .force('y', d3.forceY())
+        .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 2).strength(0.9));
 
     const linkSel = zoomGroup.append('g')
         .attr('class', 'force-graph-links force-graph-links-tweet')
@@ -185,10 +215,10 @@ export function renderForceGraph(tweets) {
 
     nodeSel.append('rect')
         .attr('class', 'force-graph-planet')
-        .attr('x', -NODE_SIZE / 2)
-        .attr('y', -NODE_SIZE / 2)
-        .attr('width', NODE_SIZE)
-        .attr('height', NODE_SIZE)
+        .attr('x', d => -nodeSize(d.tags.length) / 2)
+        .attr('y', d => -nodeSize(d.tags.length) / 2)
+        .attr('width', d => nodeSize(d.tags.length))
+        .attr('height', d => nodeSize(d.tags.length))
         .style('fill', d => groupColorOf(d.group) || '#7c8ba1');
 
     const tooltip = getTooltip();
