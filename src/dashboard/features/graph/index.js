@@ -80,10 +80,10 @@ export function renderForceGraph(tweets) {
         .filter(entry => (entry.nodes.length / (taggedCount || 1)) >= config.groupHullThreshold);
 
     const simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(45).strength(0.35))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(20).strength(0.35))
         .force('charge', d3.forceManyBody().strength(-40))
-        .force('x', d3.forceX())
-        .force('y', d3.forceY())
+        .force('x', d3.forceX().strength(v => v.tags?.length ? 0.1 : 0.07))
+        .force('y', d3.forceY().strength(v => v.tags?.length ? 0.1 : 0.07))
         .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 2).strength(0.9));
 
     const hullGroup = zoomGroup.append('g').attr('class', 'force-graph-hulls');
@@ -124,13 +124,13 @@ export function renderForceGraph(tweets) {
         .attr('y', d => -nodeSize(Math.max(1, d.tags.length)) / 2)
         .attr('width', d => nodeSize(Math.max(1, d.tags.length)))
         .attr('height', d => nodeSize(Math.max(1, d.tags.length)))
-        .style('fill', d => groupColorOf(d.group) || NEUTRAL_COLOR);
+        .style('fill', d => d.group && groupColorOf(d.group) || NEUTRAL_COLOR);
 
     nodeSel.filter(d => d.shape === 'circle')
         .append('circle')
         .attr('class', 'force-graph-planet')
         .attr('r', d => nodeRadius(d))
-        .style('fill', d => groupColorOf(d.group) || NEUTRAL_COLOR);
+        .style('fill', d => d.group && groupColorOf(d.group) || NEUTRAL_COLOR);
 
     setCurrentSelection(nodeSel, linkSel, links);
     bindHoverHandlers(nodeSel);

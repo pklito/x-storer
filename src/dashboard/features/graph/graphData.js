@@ -2,15 +2,8 @@ import { state } from '../../state.js';
 import { tagGroupOf } from '../tagGroups.js';
 import { config } from './config.js';
 
-// Built-in / computed tags that describe a tweet's media shape rather
-// than its topic (auto-applied based on attachments, not chosen by a
-// person). These never take part in the graph — no node grouping, no
-// hulling, no link budget — the same way state.hiddenTags are excluded.
-//
-// NOTE: this list is an assumption made while finishing up this file —
-// double check it matches whatever computed-tag names your tagging
-// pipeline actually emits, and adjust here if not.
-export const IGNORED_TAGS = ['video', 'gif', 'text-only', 'cw'];
+
+export const IGNORED_TAGS = ['video', 'gif', 'text-only', 'cw', 'old-untagged','art'];
 
 // Node positions persist across re-renders (keyed by tweet id) so
 // filtering doesn't restart the whole layout from scratch every time.
