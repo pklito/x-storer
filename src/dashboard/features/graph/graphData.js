@@ -39,6 +39,13 @@ function shuffle(arr) {
 // no tags (either because they never had any, or every tag they had
 // got filtered out) are still rendered as nodes — they just have
 // nothing to link or hull through, so they sit ungrouped.
+//
+// NOTE: this function is not deterministic — pickRandom/shuffle mean
+// calling it twice with identical inputs produces different link
+// sets. Callers that want to know whether topology *actually* needs
+// to change (vs. just re-drawing) must not use "call this again and
+// diff the result" as their signal; see index.js's updateGraphData
+// vs. updateHulls split.
 export function buildGraphData(tweets) {
     const capped = tweets.length > config.maxTweets
         ? [...tweets]
@@ -121,7 +128,10 @@ export function buildGraphData(tweets) {
                 const key = id < otherId ? `${id}|${otherId}` : `${otherId}|${id}`;
                 let link = linkMap.get(key);
                 if (!link) {
-                    link = { source: id, target: otherId, weight: 0, tags: new Set() };
+                    // `id` is the stable key used for DOM/simulation data
+                    // joins across re-renders (see index.js) — keep it
+                    // distinct from d3-force's own `.index`.
+                    link = { id: key, source: id, target: otherId, weight: 0, tags: new Set() };
                     linkMap.set(key, link);
                     degree.set(id, degree.get(id) + 1);
                     degree.set(otherId, degree.get(otherId) + 1);
