@@ -1,37 +1,33 @@
-// Force-directed graph of tweets and tags: a little galaxy.
+// Force-directed mesh of tweets, connected through shared tags.
 //
-// Tags = stars. Bigger star = more of the currently-filtered tweets
-// have that tag. Colored by the tag's group (same colors as the
-// sidebar), so group doubles as "constellation" color for free.
+// Every node is a tweet, drawn as a small uniform square. There are no
+// separate tag nodes — instead, each tweet is colored by its "dominant"
+// tag (the most common tag among its own tags, within the current
+// filter), using that tag's group color. So color still reads as
+// "topic", it's just carried by the tweet itself instead of a hub node.
 //
-// Tweets = planets. All the same size, one per filtered tweet, each
-// linked to every tag it carries — so a tweet with 3 tags sits pulled
-// between 3 stars, landing wherever those pulls balance out.
+// Edges are built per shared tag: for every tag a tweet has, it gets
+// linked to a handful (2-3) of other random tweets that also have that
+// tag — not *all* of them, or tags with many tweets would turn into an
+// unreadable clique. A tweet with several tags ends up woven into
+// several of these little meshes at once, which is what pulls the
+// whole graph into clusters without ever pinning a single hub node in
+// the middle of each one.
 //
-// Tags in the same group also get a very soft link to each other —
-// weak enough that it doesn't fight the tweet/tag links, but enough to
-// nudge same-group stars into loose neighborhoods instead of scattering
-// uniformly.
-//
-// Click a tag = toggle tag selection (same as clicking a sidebar
-// chip). Shift-click a tag = toggle exclusion. Click a tweet = open its
-// original link, if it has one. Both funnel through updateUI() so the
-// grid/sidebar/graph all stay in sync with the rest of the app.
+// Click a tweet = open its original link, if it has one.
 
 import { state } from '../state.js';
 import { tagGroupOf, groupColorOf } from './tagGroups.js';
-import { updateUI } from './tweets.js';
 
 const CONTAINER_ID = 'force-graph-container';
 
 // Tunables, adjustable live via the toolbar controls.
-let maxTweets = 400;       // cap on planets shown at once, for perf/legibility
-let showGroupLinks = true; // soft tag-tag links within a group
+let maxTweets = 400;   // cap on nodes shown at once, for perf/legibility
+let linksPerTag = 2;   // each tweet links to linksPerTag..linksPerTag+1 random tweets per shared tag
 
-const TWEET_RADIUS = 4;
-const TAG_RADIUS_RANGE = [16, 64];
+const NODE_SIZE = 8;
 
-// Node positions persist across re-renders (keyed by "type:id") so
+// Node positions persist across re-renders (keyed by tweet id) so
 // filtering doesn't restart the whole layout from scratch every time.
 const positionCache = new Map();
 
@@ -46,14 +42,24 @@ function getContainer() {
 // --- Data -------------------------------------------------------------
 
 function tweetNodeId(t, i) {
-    return `t:${t.id ?? t.tweetId ?? `${t.timestamp || 'na'}-${i}`}`;
+    return `${t.id ?? t.tweetId ?? `${t.timestamp || 'na'}-${i}`}`;
 }
 
-// Builds { nodes, tweetLinks, groupLinks, shownCount } from a tweet
-// list. Only real (user-assigned) tags are considered — built-in
-// computed tags (video/gif/text-only/cw) aren't part of this graph,
-// they're a different kind of thing. Untagged tweets have nothing to
-// orbit, so they're left out entirely.
+function pickRandom(arr, n) {
+    if (arr.length <= n) return arr.slice();
+    const pool = arr.slice();
+    const picked = [];
+    while (picked.length < n && pool.length > 0) {
+        const idx = Math.floor(Math.random() * pool.length);
+        picked.push(pool.splice(idx, 1)[0]);
+    }
+    return picked;
+}
+
+// Builds { nodes, links, shownCount } from a tweet list. Only real
+// (user-assigned) tags are considered — built-in computed tags
+// (video/gif/text-only/cw) aren't part of this graph. Untagged tweets
+// have nothing to connect through, so they're left out entirely.
 function buildGraphData(tweets) {
     const capped = tweets.length > maxTweets
         ? [...tweets]
@@ -62,50 +68,56 @@ function buildGraphData(tweets) {
         : tweets;
 
     const tagCounts = new Map();
-    const tweetNodes = [];
-    const tweetLinks = [];
+    const tagToNodeIds = new Map();
+    const nodes = [];
 
     capped.forEach((t, i) => {
         const tags = (t.tags || []).filter(tag => state.showHiddenTags || !state.hiddenTags.has(tag));
         if (tags.length === 0) return;
 
         const id = tweetNodeId(t, i);
-        const cached = positionCache.get(`tweet:${id}`);
-        tweetNodes.push({ id, type: 'tweet', tweet: t, tags, x: cached?.x, y: cached?.y });
+        const cached = positionCache.get(id);
+        nodes.push({ id, tweet: t, tags, x: cached?.x, y: cached?.y });
 
         tags.forEach(tag => {
             tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
-            tweetLinks.push({ source: id, target: tag });
+            if (!tagToNodeIds.has(tag)) tagToNodeIds.set(tag, []);
+            tagToNodeIds.get(tag).push(id);
         });
     });
 
-    const tagNodes = Array.from(tagCounts.entries()).map(([tag, count]) => {
-        const cached = positionCache.get(`tag:${tag}`);
-        return { id: tag, type: 'tag', count, group: tagGroupOf(tag), x: cached?.x, y: cached?.y };
+    // Dominant tag = the most common of a tweet's own tags, within the
+    // current filter — decides which group color the square gets.
+    nodes.forEach(n => {
+        n.dominantTag = n.tags.reduce((best, tag) =>
+            (tagCounts.get(tag) || 0) > (tagCounts.get(best) || 0) ? tag : best, n.tags[0]);
+        n.group = tagGroupOf(n.dominantTag);
     });
 
-    // Soft same-group tag-tag links (a loose clique per group).
-    const groupLinks = [];
-    if (showGroupLinks) {
-        const byGroup = new Map();
-        tagNodes.forEach(n => {
-            if (!byGroup.has(n.group)) byGroup.set(n.group, []);
-            byGroup.get(n.group).push(n.id);
-        });
-        byGroup.forEach(tagsInGroup => {
-            for (let i = 0; i < tagsInGroup.length; i++) {
-                for (let j = i + 1; j < tagsInGroup.length; j++) {
-                    groupLinks.push({ source: tagsInGroup[i], target: tagsInGroup[j] });
+    // Per shared tag, link each tweet to a handful of random co-tagged
+    // tweets. Links are deduped across tags, accumulating weight/shared
+    // tags for edge thickness and tooltips.
+    const linkMap = new Map();
+    nodes.forEach(n => {
+        n.tags.forEach(tag => {
+            const others = tagToNodeIds.get(tag).filter(id => id !== n.id);
+            const count = linksPerTag + (Math.random() < 0.5 ? 0 : 1);
+            pickRandom(others, count).forEach(otherId => {
+                const key = n.id < otherId ? `${n.id}|${otherId}` : `${otherId}|${n.id}`;
+                if (!linkMap.has(key)) {
+                    linkMap.set(key, { source: n.id, target: otherId, weight: 0, tags: new Set() });
                 }
-            }
+                const link = linkMap.get(key);
+                link.weight += 1;
+                link.tags.add(tag);
+            });
         });
-    }
+    });
 
     return {
-        nodes: [...tagNodes, ...tweetNodes],
-        tweetLinks,
-        groupLinks,
-        shownCount: tweetNodes.length,
+        nodes,
+        links: Array.from(linkMap.values()),
+        shownCount: nodes.length,
     };
 }
 
@@ -116,7 +128,7 @@ export function renderForceGraph(tweets) {
     const root = getContainer();
     if (!root) return;
 
-    const { nodes, tweetLinks, groupLinks, shownCount } = buildGraphData(tweets);
+    const { nodes, links, shownCount } = buildGraphData(tweets);
     root.replaceChildren();
 
     if (nodes.length === 0) {
@@ -127,8 +139,7 @@ export function renderForceGraph(tweets) {
         return;
     }
 
-    const tagNodeCount = nodes.filter(n => n.type === 'tag').length;
-    root.appendChild(buildToolbar(tweets, tagNodeCount, shownCount, tweetLinks.length));
+    root.appendChild(buildToolbar(tweets, shownCount, links.length));
 
     const canvasWrap = document.createElement('div');
     canvasWrap.className = 'force-graph-canvas-wrap';
@@ -148,95 +159,58 @@ export function renderForceGraph(tweets) {
         .scaleExtent([0.15, 4])
         .on('zoom', (event) => zoomGroup.attr('transform', event.transform)));
 
-    const maxTagCount = d3.max(nodes.filter(n => n.type === 'tag'), d => d.count) || 1;
-    const tagRadius = d3.scaleSqrt().domain([1, maxTagCount]).range(TAG_RADIUS_RANGE);
-    const radius = d => d.type === 'tag' ? tagRadius(d.count) : TWEET_RADIUS;
+    const maxWeight = d3.max(links, d => d.weight) || 1;
+    const edgeWidth = d3.scaleLinear().domain([1, maxWeight]).range([1, 3]).clamp(true);
 
     const simulation = d3.forceSimulation(nodes)
-        .force('tweetTag', d3.forceLink(tweetLinks).id(d => d.id).distance(50).strength(0.7))
-        .force('group', d3.forceLink(groupLinks).id(d => d.id).distance(240).strength(0.025))
-        .force('charge', d3.forceManyBody().strength(d => d.type === 'tag' ? -320 : -16))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(45).strength(0.35))
+        .force('charge', d3.forceManyBody().strength(-40))
         .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collide', d3.forceCollide().radius(d => radius(d) + (d.type === 'tag' ? 6 : 2)).strength(0.9));
+        .force('collide', d3.forceCollide().radius(NODE_SIZE + 2).strength(0.9));
 
-    const tweetLinkSel = zoomGroup.append('g')
+    const linkSel = zoomGroup.append('g')
         .attr('class', 'force-graph-links force-graph-links-tweet')
         .selectAll('line')
-        .data(tweetLinks)
-        .join('line');
-
-    const groupLinkSel = zoomGroup.append('g')
-        .attr('class', 'force-graph-links force-graph-links-group')
-        .selectAll('line')
-        .data(groupLinks)
-        .join('line');
+        .data(links)
+        .join('line')
+        .attr('stroke-width', d => edgeWidth(d.weight));
 
     const nodeSel = zoomGroup.append('g')
         .attr('class', 'force-graph-nodes')
         .selectAll('g')
         .data(nodes, d => d.id)
         .join('g')
-        .attr('class', d => `force-graph-node force-graph-node-${d.type} ${d.type === 'tag' ? nodeStateClass(d.id) : ''}`)
+        .attr('class', 'force-graph-node force-graph-node-tweet')
         .call(drag(simulation));
 
-    // Stars: a spiky shape with a soft glow, colored by tag group.
-    nodeSel.filter(d => d.type === 'tag')
-        .append('path')
-        .attr('class', 'force-graph-star')
-        .attr('d', d => starPath(radius(d)))
-        .attr('fill', d => groupColorOf(d.group) || '#7c8ba1')
-        .style('filter', d => `drop-shadow(0 0 6px ${groupColorOf(d.group) || '#7c8ba1'})`);
-
-    // Planets: plain small uniform circles, deliberately neutral so the
-    // star colors read as the graph's "constellations".
-    nodeSel.filter(d => d.type === 'tweet')
-        .append('circle')
+    nodeSel.append('rect')
         .attr('class', 'force-graph-planet')
-        .attr('r', TWEET_RADIUS);
-
-    nodeSel.filter(d => d.type === 'tag')
-        .append('text')
-        .attr('class', 'force-graph-label')
-        .attr('dy', d => radius(d) + 14)
-        .attr('text-anchor', 'middle')
-        .text(d => `#${d.id}`);
+        .attr('x', -NODE_SIZE / 2)
+        .attr('y', -NODE_SIZE / 2)
+        .attr('width', NODE_SIZE)
+        .attr('height', NODE_SIZE)
+        .style('fill', d => groupColorOf(d.group) || '#7c8ba1');
 
     const tooltip = getTooltip();
 
     nodeSel
         .on('mouseenter', (event, d) => {
-            highlightNode(d, nodeSel, tweetLinkSel, groupLinkSel);
-            showTooltip(tooltip, event, d, tweetLinks);
+            highlightNode(d, nodeSel, linkSel);
+            showTooltip(tooltip, event, d, links);
         })
         .on('mousemove', (event) => positionTooltip(tooltip, event))
         .on('mouseleave', () => {
-            clearHighlight(nodeSel, tweetLinkSel, groupLinkSel);
+            clearHighlight(nodeSel, linkSel);
             tooltip.style.display = 'none';
         })
         .on('click', (event, d) => {
             if (d._dragged) { d._dragged = false; return; } // suppress click right after a drag
-
-            if (d.type === 'tag') {
-                if (event.shiftKey) {
-                    if (state.excludedTags.has(d.id)) state.excludedTags.delete(d.id);
-                    else { state.excludedTags.add(d.id); state.selectedTags.delete(d.id); }
-                } else {
-                    if (state.selectedTags.has(d.id)) state.selectedTags.delete(d.id);
-                    else if (state.excludedTags.has(d.id)) state.excludedTags.delete(d.id);
-                    else { state.selectedTags.add(d.id); state.excludedTags.delete(d.id); }
-                }
-                updateUI();
-            } else {
-                const url = d.tweet.url || d.tweet.link || d.tweet.permalink;
-                if (url) window.open(url, '_blank', 'noopener');
-            }
+            const url = d.tweet.url || d.tweet.link || d.tweet.permalink;
+            if (url) window.open(url, '_blank', 'noopener');
         });
 
     simulation.on('tick', () => {
-        tweetLinkSel
-            .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-            .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-        groupLinkSel
+        linkSel
             .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
         nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
@@ -246,30 +220,10 @@ export function renderForceGraph(tweets) {
     // filter change) starts from where things already were instead of
     // re-simulating from scratch.
     simulation.on('end', () => {
-        nodes.forEach(n => positionCache.set(`${n.type}:${n.id}`, { x: n.x, y: n.y }));
+        nodes.forEach(n => positionCache.set(n.id, { x: n.x, y: n.y }));
     });
 
     root.appendChild(buildLegend());
-}
-
-// A simple 5-pointed star path, centered on (0,0), sized to outerR.
-function starPath(outerR, points = 5, innerRatio = 0.45) {
-    const innerR = outerR * innerRatio;
-    let d = '';
-    for (let i = 0; i < points * 2; i++) {
-        const r = i % 2 === 0 ? outerR : innerR;
-        const angle = (Math.PI / points) * i - Math.PI / 2;
-        const x = (r * Math.cos(angle)).toFixed(2);
-        const y = (r * Math.sin(angle)).toFixed(2);
-        d += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
-    }
-    return d + 'Z';
-}
-
-function nodeStateClass(tag) {
-    if (state.selectedTags.has(tag)) return 'is-selected';
-    if (state.excludedTags.has(tag)) return 'is-excluded';
-    return '';
 }
 
 function drag(sim) {
@@ -290,31 +244,21 @@ function drag(sim) {
         });
 }
 
-function highlightNode(d, nodeSel, tweetLinkSel, groupLinkSel) {
+function highlightNode(d, nodeSel, linkSel) {
     const neighbors = new Set([d.id]);
-    tweetLinkSel.each(function (l) {
+    linkSel.each(function (l) {
         if (l.source.id === d.id) neighbors.add(l.target.id);
         if (l.target.id === d.id) neighbors.add(l.source.id);
     });
-    if (d.type === 'tag') {
-        groupLinkSel.each(function (l) {
-            if (l.source.id === d.id) neighbors.add(l.target.id);
-            if (l.target.id === d.id) neighbors.add(l.source.id);
-        });
-    }
     nodeSel.classed('is-dimmed', n => !neighbors.has(n.id));
-    tweetLinkSel
+    linkSel
         .classed('is-dimmed', l => l.source.id !== d.id && l.target.id !== d.id)
         .classed('is-highlighted', l => l.source.id === d.id || l.target.id === d.id);
-    groupLinkSel
-        .classed('is-dimmed', l => !(d.type === 'tag' && (l.source.id === d.id || l.target.id === d.id)))
-        .classed('is-highlighted', l => d.type === 'tag' && (l.source.id === d.id || l.target.id === d.id));
 }
 
-function clearHighlight(nodeSel, tweetLinkSel, groupLinkSel) {
+function clearHighlight(nodeSel, linkSel) {
     nodeSel.classed('is-dimmed', false);
-    tweetLinkSel.classed('is-dimmed', false).classed('is-highlighted', false);
-    groupLinkSel.classed('is-dimmed', false).classed('is-highlighted', false);
+    linkSel.classed('is-dimmed', false).classed('is-highlighted', false);
 }
 
 // --- Tooltip -------------------------------------------------------------
@@ -333,26 +277,17 @@ function positionTooltip(el, event) {
     el.style.top = `${event.clientY + 14}px`;
 }
 
-function showTooltip(el, event, d, tweetLinks) {
-    if (d.type === 'tag') {
-        const related = tweetLinks
-            .filter(l => l.source.id === d.id || l.target.id === d.id)
-            .length;
-        el.innerHTML = `
-            <div class="force-graph-tooltip-title">★ #${escapeHtml(d.id)}</div>
-            <div class="force-graph-tooltip-count">${d.count} tweet${d.count === 1 ? '' : 's'} &middot; ${escapeHtml(d.group)}</div>
-        `;
-    } else {
-        const t = d.tweet;
-        const who = t.authorHandle ? `@${t.authorHandle}` : (t.authorName || 'unknown');
-        const text = (t.text || '').slice(0, 140) + ((t.text || '').length > 140 ? '…' : '');
-        const tagList = d.tags.map(tag => `#${tag}`).join(' ');
-        el.innerHTML = `
-            <div class="force-graph-tooltip-title">${escapeHtml(who)}</div>
-            <div class="force-graph-tooltip-count">${escapeHtml(text)}</div>
-            ${tagList ? `<div class="force-graph-tooltip-related">${escapeHtml(tagList)}</div>` : ''}
-        `;
-    }
+function showTooltip(el, event, d, links) {
+    const t = d.tweet;
+    const who = t.authorHandle ? `@${t.authorHandle}` : (t.authorName || 'unknown');
+    const text = (t.text || '').slice(0, 140) + ((t.text || '').length > 140 ? '…' : '');
+    const tagList = d.tags.map(tag => tag === d.dominantTag ? `<strong>#${escapeHtml(tag)}</strong>` : `#${escapeHtml(tag)}`).join(' ');
+    const linkCount = links.filter(l => l.source.id === d.id || l.target.id === d.id).length;
+    el.innerHTML = `
+        <div class="force-graph-tooltip-title">${escapeHtml(who)}</div>
+        <div class="force-graph-tooltip-count">${escapeHtml(text)}</div>
+        <div class="force-graph-tooltip-related">${tagList} &middot; ${linkCount} link${linkCount === 1 ? '' : 's'}</div>
+    `;
     el.style.display = 'block';
     positionTooltip(el, event);
 }
@@ -369,7 +304,7 @@ function buildLegend() {
 
     const meta = document.createElement('div');
     meta.className = 'force-graph-legend-item force-graph-legend-meta';
-    meta.textContent = '★ tag   ● tweet';
+    meta.textContent = '■ tweet, colored by its most common tag';
     legend.appendChild(meta);
 
     state.tagGroups.forEach(g => {
@@ -386,14 +321,14 @@ function buildLegend() {
     return legend;
 }
 
-function buildToolbar(tweets, tagCount, shownTweetCount, linkCount) {
+function buildToolbar(tweets, shownTweetCount, linkCount) {
     const bar = document.createElement('div');
     bar.className = 'force-graph-toolbar';
 
     const stats = document.createElement('div');
     stats.className = 'force-graph-stats';
     const cappedNote = shownTweetCount < tweets.length ? ` (of ${tweets.length})` : '';
-    stats.textContent = `${tagCount} tags · ${shownTweetCount} tweets shown${cappedNote} · ${linkCount} links`;
+    stats.textContent = `${shownTweetCount} tweets shown${cappedNote} · ${linkCount} links`;
     bar.appendChild(stats);
 
     const sliderMax = Math.max(50, tweets.length);
@@ -402,8 +337,8 @@ function buildToolbar(tweets, tagCount, shownTweetCount, linkCount) {
         renderForceGraph(lastTweets);
     }));
 
-    bar.appendChild(buildToggle('Group links', showGroupLinks, (v) => {
-        showGroupLinks = v;
+    bar.appendChild(buildSlider('Links/tag', linksPerTag, 1, 5, (v) => {
+        linksPerTag = v;
         renderForceGraph(lastTweets);
     }));
 
@@ -424,20 +359,6 @@ function buildSlider(label, value, min, max, onChange) {
     input.addEventListener('change', () => onChange(Number(input.value)));
     wrap.appendChild(span);
     wrap.appendChild(input);
-    return wrap;
-}
-
-function buildToggle(label, checked, onChange) {
-    const wrap = document.createElement('label');
-    wrap.className = 'force-graph-toggle';
-    const input = document.createElement('input');
-    input.type = 'checkbox';
-    input.checked = checked;
-    input.addEventListener('change', () => onChange(input.checked));
-    const span = document.createElement('span');
-    span.textContent = label;
-    wrap.appendChild(input);
-    wrap.appendChild(span);
     return wrap;
 }
 
