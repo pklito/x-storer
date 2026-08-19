@@ -81,6 +81,11 @@
             <header class="feed-header">
                 <h1 class="feed-title" id="feed-title">All Bookmarks</h1>
                 <div class="main-actions">
+                    <div class="view-mode-switch" id="view-mode-switch" role="tablist" aria-label="View mode">
+                        <button type="button" class="view-mode-option active" data-mode="grid" role="tab" aria-selected="true">GRID</button>
+                        <button type="button" class="view-mode-option" data-mode="graph" role="tab" aria-selected="false">GRAPH</button>
+                        <span class="view-mode-thumb" aria-hidden="true"></span>
+                    </div>
                     <span id="total-count" class="main-content-count">0 items</span>
                 </div>
             </header>

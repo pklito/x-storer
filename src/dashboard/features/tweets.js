@@ -126,8 +126,10 @@ export function updateUI() {
         feedTitle.textContent = 'All Bookmarks';
     }
     state.currentShownTweets = tweets
-    // renderGrid(tweets); // swapped out for the force graph for now — flip back any time
-    renderForceGraph(tweets);
+    if(state.viewMode == 'graph')
+        renderForceGraph(tweets);
+    else
+        renderGrid(tweets); // swapped out for the force graph for now — flip back any time
     renderTagsSidebar();
 }
 

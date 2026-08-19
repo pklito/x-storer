@@ -24,6 +24,7 @@ import { setupEventHandlersMassTagging } from './features/massTagging.js';
 import { setupEventHandlersTagAll } from './features/tagAll.js';
 
 import { clearTagsBtnAction, tagSearchInputUpdate, toggleTagMatchMode } from './features/tagsSidebar.js';
+import { initViewModeSwitch, getViewMode } from './features/viewMode.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     loadHiddenTagsState();
@@ -45,7 +46,10 @@ function setupEventListeners() {
     initSidebarResize();
     setupEventHandlersMassTagging();
     setupEventHandlersTagAll();
-    
+
+
+    initViewModeSwitch();
+
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
@@ -165,3 +169,4 @@ export function initSidebarResize() {
         }
     });
 }
+

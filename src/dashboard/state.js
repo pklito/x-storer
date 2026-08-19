@@ -6,6 +6,7 @@
 // rebind the local variable in that one file, not the shared object.
 
 export const state = {
+    viewMode : 'grid',
     allTweets: [],
     selectedTags: new Set(),   // tags included via normal click
     excludedTags: new Set(),   // tags excluded via shift-click
