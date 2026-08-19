@@ -1,0 +1,238 @@
+/* Force-directed tag graph — visual layer only, no layout logic here. */
+
+.force-graph-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    position: relative;
+    background: var(--bg-panel, #f7f8fa);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.force-graph-empty {
+    margin: auto;
+    color: var(--text-muted, #6b7280);
+    font-size: 14px;
+}
+
+/* Toolbar */
+
+.force-graph-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color, #d8dbe2);
+    background: var(--bg-panel-alt, #eef0f4);
+    flex-wrap: wrap;
+}
+
+.force-graph-stats {
+    font-size: 12px;
+    color: var(--text-muted, #6b7280);
+    white-space: nowrap;
+}
+
+.force-graph-slider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-secondary, #3c4150);
+}
+
+.force-graph-slider input[type="range"] {
+    width: 110px;
+    accent-color: var(--accent-color, #6c8cff);
+}
+
+.force-graph-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-secondary, #3c4150);
+}
+
+.force-graph-toggle input {
+    accent-color: var(--accent-color, #6c8cff);
+}
+
+/* Canvas */
+
+.force-graph-canvas-wrap {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+
+.force-graph-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: grab;
+}
+
+.force-graph-svg:active {
+    cursor: grabbing;
+}
+
+.force-graph-links line {
+    stroke: var(--border-color, #c7cbd4);
+    stroke-opacity: 0.55;
+    transition: stroke-opacity 120ms ease, stroke 120ms ease;
+}
+
+.force-graph-links line.is-highlighted {
+    stroke: var(--accent-color, #6c8cff);
+    stroke-opacity: 0.9;
+}
+
+.force-graph-links line.is-dimmed {
+    stroke-opacity: 0.08;
+}
+
+.force-graph-links-group line {
+    stroke-dasharray: 2 4;
+    stroke-opacity: 0.15;
+}
+
+.force-graph-links-group line.is-highlighted {
+    stroke-opacity: 0.6;
+}
+
+.force-graph-hull-shape {
+    fill-opacity: 0.07;
+    stroke: none;
+    pointer-events: none;
+}
+
+.force-graph-hull-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-anchor: middle;
+    opacity: 0.65;
+    pointer-events: none;
+    user-select: none;
+}
+
+.force-graph-node {
+    cursor: pointer;
+}
+
+.force-graph-node circle,
+.force-graph-node .force-graph-star {
+    stroke: var(--bg-panel, #f7f8fa);
+    stroke-width: 1.5px;
+    transition: opacity 120ms ease, stroke-width 120ms ease;
+}
+
+.force-graph-planet {
+    fill: var(--text-muted, #6b7280);
+    stroke-width: 1px;
+}
+
+.force-graph-node.is-dimmed {
+    opacity: 0.15;
+}
+
+.force-graph-node.is-selected circle,
+.force-graph-node.is-selected .force-graph-star {
+    stroke: #6c8cff;
+    stroke-width: 3px;
+}
+
+.force-graph-node.is-excluded circle,
+.force-graph-node.is-excluded .force-graph-star {
+    stroke: #ff5c6c;
+    stroke-width: 3px;
+    opacity: 0.55;
+}
+
+.force-graph-label {
+    font-size: 10px;
+    fill: var(--text-secondary, #3c4150);
+    pointer-events: none;
+    user-select: none;
+}
+
+/* Tooltip (appended to body, positioned via inline left/top) */
+
+.force-graph-tooltip {
+    position: fixed;
+    display: none;
+    z-index: 1000;
+    max-width: 240px;
+    padding: 10px 12px;
+    background: var(--bg-elevated, #ffffff);
+    border: 1px solid var(--border-color, #d8dbe2);
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(20, 20, 30, 0.12);
+    font-size: 12px;
+    color: var(--text-primary, #1a1d24);
+    pointer-events: none;
+}
+
+.force-graph-tooltip-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.force-graph-tooltip-count {
+    color: var(--text-muted, #6b7280);
+    margin-bottom: 6px;
+}
+
+.force-graph-tooltip-related {
+    border-top: 1px solid var(--border-color, #d8dbe2);
+    padding-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.force-graph-tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* Legend */
+
+.force-graph-legend {
+    position: absolute;
+    bottom: 14px;
+    left: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px;
+    background: var(--bg-panel-alt, rgba(255, 255, 255, 0.92));
+    border: 1px solid var(--border-color, #d8dbe2);
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--text-secondary, #3c4150);
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.force-graph-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.force-graph-legend-meta {
+    opacity: 0.8;
+    margin-bottom: 2px;
+}
+
+.force-graph-legend-swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}

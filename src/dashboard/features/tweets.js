@@ -2,6 +2,7 @@ import { db } from '../../utils/db.js';
 import { state } from '../state.js';
 import { feedTitle } from '../dom.js';
 import { renderGrid } from './grid.js';
+import { renderForceGraph } from './graph/index.js';
 import { renderTagsSidebar } from './tagsSidebar.js';
 import { searchInput } from '../dom.js';
 import { tagGroupOf } from './tagGroups.js';
@@ -125,7 +126,10 @@ export function updateUI() {
         feedTitle.textContent = 'All Bookmarks';
     }
     state.currentShownTweets = tweets
-    renderGrid(tweets);
+    if(state.viewMode == 'graph')
+        renderForceGraph(tweets);
+    else
+        renderGrid(tweets); // swapped out for the force graph for now — flip back any time
     renderTagsSidebar();
 }
 

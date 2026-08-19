@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>XBookmarks Revised</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="forceGraph.css">
     <link rel="stylesheet" href="../../assets/fonts/inter/inter.css">
     <link rel="stylesheet" href="../../assets/fonts/bootstrap-icons/bootstrap-icons.css">
 </head>
@@ -80,6 +81,11 @@
             <header class="feed-header">
                 <h1 class="feed-title" id="feed-title">All Bookmarks</h1>
                 <div class="main-actions">
+                    <div class="view-mode-switch" id="view-mode-switch" role="tablist" aria-label="View mode">
+                        <button type="button" class="view-mode-option active" data-mode="grid" role="tab" aria-selected="true">GRID</button>
+                        <button type="button" class="view-mode-option" data-mode="graph" role="tab" aria-selected="false">GRAPH</button>
+                        <span class="view-mode-thumb" aria-hidden="true"></span>
+                    </div>
                     <span id="total-count" class="main-content-count">0 items</span>
                 </div>
             </header>
@@ -96,6 +102,9 @@
 
             <div class="tweets-grid" id="tweets-grid">
                 <!-- Tweet Cards injected here -->
+            </div>
+            <div class="force-graph-container" id="force-graph-container">
+                <!-- Force-directed tag graph rendered here by render/forceGraph.js -->
             </div>
         </main>
     </div>
@@ -206,7 +215,7 @@
             </div>
         </div>
     </div>
-
+    <script src="../packages/d3.v7.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 
