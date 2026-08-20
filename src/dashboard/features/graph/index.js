@@ -195,10 +195,10 @@ export function renderForceGraph(tweets) {
     computeScales(nodes, links);
 
     simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(20).strength(0.35))
-        .force('charge', d3.forceManyBody().strength(-40))
-        .force('x', d3.forceX(width/2).strength(v => v.tags?.length ? 0.1 : 0.07))
-        .force('y', d3.forceY(height/2).strength(v => v.tags?.length ? 0.1 : 0.07))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(15).strength(0.35))
+        .force('charge', d3.forceManyBody().strength(-30))
+        .force('x', d3.forceX(v => v.tags?.length ? width/2 : -width/4).strength(v => v.tags?.length ? 0.1 : 0.3))
+        .force('y', d3.forceY(height/2).strength(v => v.tags?.length ? 0.1 : 0.13))
         .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 2).strength(0.9));
 
     hullGroup = zoomGroup.append('g').attr('class', 'force-graph-hulls');

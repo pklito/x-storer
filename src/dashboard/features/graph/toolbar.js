@@ -23,6 +23,12 @@ export function buildToolbar(tweets, shownTweetCount, untaggedCount, linkCount, 
     stats.textContent = statsText(tweets, shownTweetCount, untaggedCount, linkCount);
     bar.appendChild(stats);
 
+    bar.appendChild(buildCheckbox({
+        label: 'Show untagged tweets',
+        checked: config.showUntaggedTweets,
+        onChange: (v) => { config.showUntaggedTweets = v; onDataChange(); },
+    }));
+
     const sliderMax = Math.max(50, tweets.length);
     bar.appendChild(buildSlider({
         label: 'Max tweets',
@@ -89,5 +95,18 @@ function buildSlider({ label, value, min, max, step = 1, format, onChange }) {
     input.addEventListener('change', () => onChange(Number(input.value)));
     wrap.appendChild(span);
     wrap.appendChild(input);
+    return wrap;
+}
+function buildCheckbox({ label, checked, onChange }) {
+    const wrap = document.createElement('label');
+    wrap.className = 'force-graph-checkbox';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.addEventListener('change', () => onChange(input.checked));
+    const span = document.createElement('span');
+    span.textContent = label;
+    wrap.appendChild(input);
+    wrap.appendChild(span);
     return wrap;
 }

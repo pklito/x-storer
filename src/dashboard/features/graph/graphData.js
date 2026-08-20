@@ -30,19 +30,8 @@ function shuffle(arr) {
     return a;
 }
 
-// Builds { nodes, links, shownCount } from a tweet list. Only real
-// (user-assigned) tags participate in grouping/linking — IGNORED_TAGS
-// and state.hiddenTags are filtered out first. Tweets that end up with
-// no tags (either because they never had any, or every tag they had
-// got filtered out) are still rendered as nodes — they just have
-// nothing to link or hull through, so they sit ungrouped.
-//
-// NOTE: this function is not deterministic — pickRandom/shuffle mean
-// calling it twice with identical inputs produces different link
-// sets. Callers that want to know whether topology *actually* needs
-// to change (vs. just re-drawing) must not use "call this again and
-// diff the result" as their signal; see index.js's updateGraphData
-// vs. updateHulls split.
+
+
 export function buildGraphData(tweets) {
     const capped = tweets.length > config.maxTweets
         ? [...tweets]
@@ -56,9 +45,10 @@ export function buildGraphData(tweets) {
 
     capped.forEach((t, i) => {
         const tags = (t.tags || []).filter(tag =>
-            !IGNORED_TAGS.includes(tag) &&
-            (state.showHiddenTags || !state.hiddenTags.has(tag))
-        );
+            !IGNORED_TAGS.includes(tag));
+
+        if(!config.showUntaggedTweets && !tags.length)
+            return;
 
         const id = tweetNodeId(t, i);
         nodes.push({ id, tweet: t, tags, x: Math.random()*900, y: Math.random()*450 });
