@@ -1,6 +1,6 @@
 import { config, NODE_SIZE_RANGE } from './config.js';
 import { buildGraphData } from './graphData.js';
-import { hullGeometry } from './hulls.js';
+import { computeHullEntries, joinHulls, applyHullOpacity, drawHulls, updateHulls, setHullGroup } from './hulls.js';
 import { tagGroupOf, groupColorOf } from '../tagGroups.js';
 import { drag, bindHoverHandlers, setCurrentSelection, resetHover, enableGraphListeners, disableGraphListeners } from './interactions.js';
 import { buildLegend } from './legend.js';
@@ -22,8 +22,6 @@ let nodes = [];
 let links = [];
 let nodeSel = null;
 let linkSel = null;
-let hullSel = null;
-let hullGroup = null;
 let zoomGroup = null;
 let canvasWrap = null;
 let width = 900;
@@ -59,58 +57,6 @@ function computeScales(nodesArr, linksArr) {
     const maxTagsPerTweet = d3.max(nodesArr, d => d.tags.length) || 1;
     nodeSize = d3.scaleLinear().domain([1, maxTagsPerTweet]).range(NODE_SIZE_RANGE).clamp(true);
     nodeRadius = d => nodeSize(Math.max(1, d.tags.length)) / 2;
-}
-
-// Group tweets by tag, then only keep tags whose share of tagged
-// tweets clears the configured threshold — that's what decides which
-// tags actually get a drawn hull. Operates on whatever node set is
-// passed in, so it works the same whether called after a full rebuild
-// or from updateHulls() against the live (unchanged) node set.
-function computeHullEntries(nodesArr, taggedCount) {
-    const tagToNodes = new Map();
-    nodesArr.forEach(n => {
-        n.tags.forEach(tag => {
-            if (!tagToNodes.has(tag)) tagToNodes.set(tag, []);
-            tagToNodes.get(tag).push(n);
-        });
-    });
-    return Array.from(tagToNodes.entries())
-        .map(([tag, tagNodes]) => ({ tag, group: tagGroupOf(tag), nodes: tagNodes }))
-        .filter(entry => (entry.nodes.length / (taggedCount || 1)) >= config.groupHullThreshold);
-}
-
-function joinHulls(entries) {
-    hullSel = hullGroup.selectAll('g')
-        .data(entries, d => d.tag)
-        .join(enter => {
-            const g = enter.append('g').attr('class', 'force-graph-hull');
-            g.append('path').attr('class', 'force-graph-hull-shape');
-            g.append('text').attr('class', 'force-graph-hull-label');
-            return g;
-        });
-    hullSel.select('.force-graph-hull-shape').style('fill', d => groupColorOf(d.group) || NEUTRAL_COLOR);
-    hullSel.select('.force-graph-hull-label')
-        .style('fill', d => groupColorOf(d.group) || NEUTRAL_COLOR)
-        .text(d => `#${d.tag}`);
-    return hullSel;
-}
-
-function applyHullOpacity() {
-    if (!hullGroup) return;
-    hullGroup.selectAll('.force-graph-hull-shape').style('fill-opacity', config.hullOpacity);
-}
-
-// Positions hull paths/labels immediately from current node.x/y. Needed
-// whenever we redraw hulls outside of a tick (e.g. a pure hull-threshold
-// change, where the simulation isn't running and no tick will fire).
-function drawHullGeometry(sel) {
-    sel.each(function (d) {
-        const geo = hullGeometry(d.nodes);
-        if (!geo) return;
-        const g = d3.select(this);
-        g.select('.force-graph-hull-shape').attr('d', geo.d);
-        g.select('.force-graph-hull-label').attr('x', geo.label.x).attr('y', geo.label.y);
-    });
 }
 
 // Ensures each node's shape element matches d.shape (square/circle) and
@@ -170,7 +116,7 @@ export function renderForceGraph(tweets) {
 
     const toolbarEl = buildToolbar(tweets, shownCount, untaggedCount, links.length, {
         onDataChange: updateGraphData,
-        onVisualChange: updateHulls,
+        onVisualChange: () => updateHulls(nodes),
     });
     tweetsGraph.appendChild(toolbarEl);
 
@@ -201,7 +147,7 @@ export function renderForceGraph(tweets) {
         .force('y', d3.forceY(height/2).strength(v => v.tags?.length ? 0.1 : 0.13))
         .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 2).strength(0.9));
 
-    hullGroup = zoomGroup.append('g').attr('class', 'force-graph-hulls');
+    setHullGroup(zoomGroup.append('g').attr('class', 'force-graph-hulls'));
     joinHulls(computeHullEntries(nodes, taggedCount));
     applyHullOpacity();
 
@@ -224,7 +170,7 @@ export function renderForceGraph(tweets) {
     bindHoverHandlers(nodeSel);
 
     simulation.on('tick', () => {
-        drawHullGeometry(hullSel);
+        drawHulls();
         linkSel
             .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
@@ -311,7 +257,7 @@ export function updateGraphData() {
     nodeSel.attr('class', d => `force-graph-node force-graph-node-tweet${d.tags.length === 0 ? ' force-graph-node-untagged' : ''}`);
     applyNodeShapes(nodeSel);
 
-    updateHulls();
+    updateHulls(nodes);
 
     setCurrentSelection(nodeSel, linkSel, links);
     bindHoverHandlers(nodeSel);
@@ -323,19 +269,4 @@ export function updateGraphData() {
     // their position and drift only as much as the new/changed links
     // pull them.
     simulation.alpha(Math.max(simulation.alpha(), 0.3)).restart();
-}
-
-// Config-driven visual-only update, for the Group threshold / Hull
-// opacity sliders. Deliberately never calls buildGraphData (which is
-// non-deterministic — see graphData.js) and never touches nodes, links,
-// or the simulation. Just re-filters which tags clear the hull
-// threshold and redraws hull geometry/opacity against the current,
-// unchanged node positions.
-export function updateHulls() {
-    if (!hullGroup || nodes.length === 0) return;
-    const untaggedCount = nodes.filter(n => n.tags.length === 0).length;
-    const taggedCount = nodes.length - untaggedCount;
-    joinHulls(computeHullEntries(nodes, taggedCount));
-    drawHullGeometry(hullSel);
-    applyHullOpacity();
 }

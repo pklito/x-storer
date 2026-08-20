@@ -1,5 +1,7 @@
 import { config } from './config.js';
 
+//Toolbar inputs and visuals, all logic is in onDataChange, onVisualChange, which is in `index.js`
+
 const pct = v => `${Math.round(v * 100)}%`;
 
 function statsText(tweets, shownTweetCount, untaggedCount, linkCount) {
@@ -8,12 +10,6 @@ function statsText(tweets, shownTweetCount, untaggedCount, linkCount) {
     return `${shownTweetCount} tweets shown${cappedNote}${untaggedNote} · ${linkCount} links · hold Shift + hover to inspect`;
 }
 
-// `onDataChange` fires for sliders that actually change which tweets/
-// links exist (maxTweets, linksPerTweet) — the caller rebuilds graph
-// data and merges it into the live simulation. `onVisualChange` fires
-// for sliders that only affect how existing data is drawn (hull
-// threshold, hull opacity) — the caller must NOT touch nodes/links/
-// the simulation for these, only redraw hulls.
 export function buildToolbar(tweets, shownTweetCount, untaggedCount, linkCount, { onDataChange, onVisualChange }) {
     const bar = document.createElement('div');
     bar.className = 'force-graph-toolbar';
