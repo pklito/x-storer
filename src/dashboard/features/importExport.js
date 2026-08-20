@@ -6,7 +6,7 @@
 
 import { db } from '../../utils/db.js';
 import { state } from '../state.js';
-import { totalCount } from '../dom.js';
+import { fakeTweetBtn } from '../dom.js';
 
 import { loadData } from './tweets.js';
 // NOTE: saveHiddenTagsState is currently not exported in its source file —
@@ -75,17 +75,8 @@ function applySettings(settings) {
 }
 
 export function createImportButton() {
-    if (!totalCount.parentElement || document.getElementById('import-btn')) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'import-btn';
-    btn.className = 'icon-btn';
-    btn.title = 'Import a previously exported JSON file';
-    const icon = document.createElement('i');
-    icon.className = 'bi bi-upload';
-    btn.appendChild(icon);
-    btn.appendChild(document.createTextNode(' Import'));
-    btn.addEventListener('click', () => {
+    
+    fakeTweetBtn.addEventListener('click', () => {
         if (!importFileInput) {
             importFileInput = document.createElement('input');
             importFileInput.type = 'file';
@@ -97,7 +88,6 @@ export function createImportButton() {
         importFileInput.value = ''; // so re-selecting the same file still fires 'change'
         importFileInput.click();
     });
-    totalCount.parentElement.appendChild(btn);
 }
 
 async function handleImportFileSelected(e) {

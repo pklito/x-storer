@@ -1,47 +1,13 @@
-// Lets you create a "fake tweet" purely as a way to store an image (with
-// optional caption text) inside the same collection as real bookmarks, so
-// it gets all the same tagging/search/export machinery for free.
-//
-// Fake tweets are given an id prefixed `local-` so they can never collide
-// with a real tweet id, and `source: 'manual_local'` so they're easy to
-// distinguish later if needed (e.g. excluding them from a re-scan).
-//
-// Image storage: base64 data URL when a file is uploaded (self-contained,
-// round-trips through exportJSON/import with zero special-casing since it's
-// just another `media[].url` string), or a resolved URL when you paste a
-// link instead of uploading a file. Pasted links are resolved by type:
-//   - YouTube (watch/youtu.be/embed/shorts) -> thumbnail poster, rendered
-//     as a `video` media item (click-to-watch opens the real YouTube link,
-//     same as grid.js already does for real video tweets).
-//   - Reddit post permalink (reddit.com/r/.../comments/...) -> fetched via
-//     the post's public `.json` endpoint to pull out the actual image
-//     (direct-link post, gallery, or preview image), since the permalink
-//     itself is an HTML page, not an image.
-//   - Anything else -> assumed to already be a direct image link (Discord
-//     CDN, i.redd.it, imgur, etc.) and used as-is.
-// See manifest.json's img-src/connect-src/host_permissions for the domains
-// this requires.
+// Lets you add tweets yourself to the DB
 
 import { db } from '../../utils/db.js';
-import { state } from '../state.js';
-import { totalCount } from '../dom.js';
+import { fakeTweetBtn } from '../dom.js';
 import { loadData } from './tweets.js';
 
 let fakeTweetModalEls = null; // built lazily on first use
 
 export function createFakeTweetButton() {
-    if (!totalCount.parentElement || document.getElementById('fake-tweet-btn')) return;
-
-    const btn = document.createElement('button');
-    btn.id = 'fake-tweet-btn';
-    btn.className = 'icon-btn';
-    btn.title = 'Create a fake tweet to store an image + note';
-    const icon = document.createElement('i');
-    icon.className = 'bi bi-image';
-    btn.appendChild(icon);
-    btn.appendChild(document.createTextNode(' Create Fake Tweet'));
-    btn.addEventListener('click', openFakeTweetModal);
-    totalCount.parentElement.appendChild(btn);
+    fakeTweetBtn.addEventListener('click', openFakeTweetModal);
 }
 
 function openFakeTweetModal() {

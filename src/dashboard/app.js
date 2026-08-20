@@ -12,9 +12,9 @@ import { initCarousel } from './features/carousel.js';
 
 import { loadHiddenTagsState ,loadTagGroupState, tagGroupInputKeydown, addTagGroupAction, openTagGroupsModal, closeTagGroupsModal, toggleHiddenTagsBtnAction } from './features/tagGroups.js';
 import { loadSearchTabsState, applyActiveTabSilently, renderSearchTabs, addSearchTab } from './features/searchTabs.js';
-import { createMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
-import { createImportButton, exportTweets, exportJSON } from './features/importExport.js';
-import { createFakeTweetButton } from './features/fakeTweet.js';
+import { createMediaFolderButton as initMediaFolderButton, initMediaFolder } from './features/mediaFolder.js';
+import { createImportButton as initImportButton, exportTweets, exportJSON } from './features/importExport.js';
+import { createFakeTweetButton as initFakeTweetButton } from './features/fakeTweet.js';
 import { createRecentlyRemovedButton } from './features/recentlyRemoved.js';
 import { closeTagModal, saveTags, tagInputUpdate, tagInputKeydown,
     addTagToEditor, removeTagFromEditor } from './features/tagModal.js';
@@ -34,21 +34,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
     setupEventListeners();
     renderSearchTabs();
-    createMediaFolderButton();
     await initMediaFolder();
-    createImportButton();
-    createFakeTweetButton();
     createRecentlyRemovedButton();
         initCarousel();
 });
 
 function setupEventListeners() {
+    //header
+    initImportButton();
+    initMediaFolderButton();
+    initFakeTweetButton();
+    initViewModeSwitch();
+
+    //sidebar
     initSidebarResize();
     setupEventHandlersMassTagging();
     setupEventHandlersTagAll();
 
 
-    initViewModeSwitch();
 
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 

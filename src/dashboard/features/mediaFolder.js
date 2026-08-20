@@ -3,32 +3,14 @@
 // original filenames) instead of hitting the network.
 
 import { state, MEDIA_DB_NAME, MEDIA_DB_STORE, MEDIA_HANDLE_KEY } from '../state.js';
-import { totalCount } from '../dom.js';
+import { totalCount, mediaFolderBtn, mediaFolderClearBtn } from '../dom.js';
 import { updateUI } from './tweets.js';
 
-let mediaFolderBtn = null;
-let mediaFolderClearBtn = null;
-
 export function createMediaFolderButton() {
-    if (mediaFolderBtn || !totalCount.parentElement) return;
-    mediaFolderBtn = document.createElement('button');
-    mediaFolderBtn.id = 'media-folder-btn';
-    mediaFolderBtn.className = 'icon-btn';
-    mediaFolderBtn.textContent = 'Choose Media Folder';
     mediaFolderBtn.addEventListener('click', chooseMediaFolder);
-    totalCount.parentElement.appendChild(mediaFolderBtn);
 
-    mediaFolderClearBtn = document.createElement('button');
-    mediaFolderClearBtn.id = 'media-folder-clear-btn';
-    mediaFolderClearBtn.className = 'icon-btn';
-    mediaFolderClearBtn.title = 'Stop using the local media folder and load media from the network instead';
-    const clearIcon = document.createElement('i');
-    clearIcon.className = 'bi bi-x-circle';
-    mediaFolderClearBtn.appendChild(clearIcon);
-    mediaFolderClearBtn.appendChild(document.createTextNode(' Cancel Media Folder'));
     mediaFolderClearBtn.style.display = 'none'; // only shown once a folder is set
     mediaFolderClearBtn.addEventListener('click', clearMediaFolder);
-    totalCount.parentElement.appendChild(mediaFolderClearBtn);
 }
 
 function updateMediaFolderButton() {

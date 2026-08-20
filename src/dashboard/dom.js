@@ -34,3 +34,9 @@ export const tagMatchModeBtn = document.getElementById('tag-match-mode-btn');
 export const tagMatchModeLabel = document.getElementById('tag-match-mode-label');
 
 export const viewModeSwitch = document.getElementById('view-mode-switch');
+
+export const mediaFolderBtn = document.getElementById('media-folder-btn');
+export const mediaFolderClearBtn = document.getElementById('media-folder-clear-btn');
+
+export const importBtn = document.getElementById('import-btn');
+export const fakeTweetBtn = document.getElementById('fake-tweet-btn');
