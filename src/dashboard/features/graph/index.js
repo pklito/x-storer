@@ -5,8 +5,8 @@ import { tagGroupOf, groupColorOf } from '../tagGroups.js';
 import { drag, bindHoverHandlers, setCurrentSelection, resetHover, enableGraphListeners, disableGraphListeners } from './interactions.js';
 import { buildLegend } from './legend.js';
 import { buildToolbar, updateToolbarStats } from './toolbar.js';
+import { tweetsGraph } from '../../dom.js';
 
-const CONTAINER_ID = 'force-graph-container';
 const NEUTRAL_COLOR = '#7c8ba1';
 
 let lastTweets = [];
@@ -32,17 +32,16 @@ let nodeSize = null;
 let nodeRadius = null;
 let edgeWidth = null;
 
-function getContainer() {
-    return document.getElementById(CONTAINER_ID);
-}
 
 export function stopGraph(){
     disableGraphListeners();
     eraseForceGraph();
+    tweetsGraph.style.hidden = true;
 }
 
 export function startGraph(tweets = null){
     enableGraphListeners();
+    tweetsGraph.style.hidden = false;
     if (tweets)
         renderForceGraph(tweets);
 }
@@ -139,7 +138,7 @@ function applyNodeShapes(sel) {
 }
 function eraseForceGraph(){
     resetHover();
-    getContainer()?.replaceChildren();
+    tweetsGraph?.replaceChildren();
     simulation?.stop();
 }
 // Full (re)build: tears down and recreates the DOM and simulation from
@@ -150,8 +149,7 @@ export function renderForceGraph(tweets) {
     lastTweets = tweets;
     eraseForceGraph();
 
-    const root = getContainer();
-    if (!root) return;
+    if (!tweetsGraph) return;
 
     const built = buildGraphData(tweets);
     nodes = built.nodes;
@@ -163,7 +161,7 @@ export function renderForceGraph(tweets) {
         const empty = document.createElement('div');
         empty.className = 'force-graph-empty';
         empty.textContent = 'No tweets match the current filters.';
-        root.appendChild(empty);
+        tweetsGraph.appendChild(empty);
         return;
     }
 
@@ -174,14 +172,14 @@ export function renderForceGraph(tweets) {
         onDataChange: updateGraphData,
         onVisualChange: updateHulls,
     });
-    root.appendChild(toolbarEl);
+    tweetsGraph.appendChild(toolbarEl);
 
     canvasWrap = document.createElement('div');
     canvasWrap.className = 'force-graph-canvas-wrap';
-    root.appendChild(canvasWrap);
+    tweetsGraph.appendChild(canvasWrap);
 
-    width = canvasWrap.clientWidth || root.clientWidth || 900;
-    height = Math.max(400, (root.clientHeight || 700) - 56);
+    width = canvasWrap.clientWidth || tweetsGraph.clientWidth || 900;
+    height = Math.max(400, (tweetsGraph.clientHeight || 700) - 56);
 
     const svg = d3.select(canvasWrap)
         .append('svg')
@@ -240,7 +238,7 @@ export function renderForceGraph(tweets) {
         nodes.forEach(n => positionCache.set(n.id, { x: n.x, y: n.y }));
     });
 
-    root.appendChild(buildLegend());
+    tweetsGraph.appendChild(buildLegend());
 }
 
 // Config-driven data update, for the Max tweets / Links per tweet
@@ -252,8 +250,7 @@ export function renderForceGraph(tweets) {
 // removed. The simulation itself is reused; it's just nudged with a
 // small alpha bump rather than torn down and rebuilt.
 export function updateGraphData() {
-    const root = getContainer();
-    if (!root || !simulation || !canvasWrap) {
+    if (!tweetsGraph || !simulation || !canvasWrap) {
         renderForceGraph(lastTweets);
         return;
     }

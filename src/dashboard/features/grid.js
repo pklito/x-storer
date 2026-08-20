@@ -8,18 +8,20 @@ import { exportTweets } from './importExport.js';
 import { resolveLocalMediaFile, resolveLocalVideoFile } from './mediaFolder.js';
 import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
 import { tagGroupOf, groupColorOf, hexToRgba, GROUP_TINT_ALPHA } from './tagGroups.js';
-import { startGraph } from './graph/index.js';
+
 
 let masonryColumns = [];
 let masonryColumnHeights = [];
 let masonryResizeObserver = null;
 
 export function startGrid(tweets = null){
+    tweetsGrid.style.hidden = false;
     if (tweets)
         startGrid();
 }
 export function stopGrid(){
     eraseGrid();
+    tweetsGrid.style.hidden = true;
 }
 
 function eraseGrid(){

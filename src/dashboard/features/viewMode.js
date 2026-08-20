@@ -5,6 +5,8 @@
 import { state } from '../state.js';
 import { viewModeSwitch } from '../dom.js';
 import { updateUI } from './tweets.js';
+import { startGraph, stopGraph } from './graph/index.js';
+import { startGrid, stopGrid } from './grid.js';
 
 function applyViewModeUI(mode) {
     if (!viewModeSwitch) return;
@@ -24,7 +26,19 @@ export function setViewMode(mode) {
     if (mode !== 'grid' && mode !== 'graph') return;
     state.viewMode = mode;
     applyViewModeUI(mode);
+    applyViewModeContainers(mode);
     updateUI();
+}
+
+function applyViewModeContainers(mode){
+    if (mode === 'grid'){
+        stopGraph();
+        startGrid();
+    }
+    else{
+        stopGrid();
+        startGraph();
+    }
 }
 
 /** Call once on load — syncs the switch to whatever state.viewMode

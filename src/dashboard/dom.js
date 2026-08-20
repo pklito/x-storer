@@ -3,6 +3,7 @@
 
 export const massTagBtn = document.getElementById('mass-tags-btn');
 export const tweetsGrid = document.getElementById('tweets-grid');
+export const tweetsGraph = document.getElementById('force-graph-container');
 export const feedTitle = document.getElementById('feed-title');
 export const tagList = document.getElementById('tag-list');
 export const tagModal = document.getElementById('tag-modal');

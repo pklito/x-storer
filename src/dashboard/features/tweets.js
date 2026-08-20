@@ -126,10 +126,10 @@ export function updateUI() {
         feedTitle.textContent = 'All Bookmarks';
     }
     state.currentShownTweets = tweets
-    if(state.viewMode == 'graph')
+    if(state.viewMode === 'graph')
         renderForceGraph(tweets);
     else
-        renderGrid(tweets); // swapped out for the force graph for now — flip back any time
+        renderGrid(tweets);
     renderTagsSidebar();
 }
 
