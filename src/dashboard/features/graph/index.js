@@ -1,5 +1,5 @@
 import { config, NODE_SIZE_RANGE } from './config.js';
-import { buildGraphData, positionCache } from './graphData.js';
+import { buildGraphData } from './graphData.js';
 import { hullGeometry } from './hulls.js';
 import { tagGroupOf, groupColorOf } from '../tagGroups.js';
 import { drag, bindHoverHandlers, setCurrentSelection, resetHover, enableGraphListeners, disableGraphListeners } from './interactions.js';
@@ -197,8 +197,8 @@ export function renderForceGraph(tweets) {
     simulation = d3.forceSimulation(nodes)
         .force('link', d3.forceLink(links).id(d => d.id).distance(20).strength(0.35))
         .force('charge', d3.forceManyBody().strength(-40))
-        .force('x', d3.forceX().strength(v => v.tags?.length ? 0.1 : 0.07))
-        .force('y', d3.forceY().strength(v => v.tags?.length ? 0.1 : 0.07))
+        .force('x', d3.forceX(width/2).strength(v => v.tags?.length ? 0.1 : 0.07))
+        .force('y', d3.forceY(height/2).strength(v => v.tags?.length ? 0.1 : 0.07))
         .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 2).strength(0.9));
 
     hullGroup = zoomGroup.append('g').attr('class', 'force-graph-hulls');
@@ -229,13 +229,6 @@ export function renderForceGraph(tweets) {
             .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
             .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
         nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
-    });
-
-    // Cache positions once it settles so the next full render starts
-    // from where things already were instead of re-simulating from
-    // scratch.
-    simulation.on('end', () => {
-        nodes.forEach(n => positionCache.set(n.id, { x: n.x, y: n.y }));
     });
 
     tweetsGraph.appendChild(buildLegend());
@@ -272,9 +265,6 @@ export function updateGraphData() {
     // where it was instead of dropping it in fresh.
     const oldById = new Map(nodes.map(n => [n.id, n]));
     const freshIds = new Set(freshNodes.map(n => n.id));
-    nodes.forEach(n => {
-        if (!freshIds.has(n.id)) positionCache.set(n.id, { x: n.x, y: n.y });
-    });
 
     // Reuse existing node objects (and therefore their live sim state)
     // wherever the id already existed; only genuinely new tweets get a
@@ -327,7 +317,7 @@ export function updateGraphData() {
     bindHoverHandlers(nodeSel);
 
     const untaggedCount = nodes.filter(n => n.tags.length === 0).length;
-    updateToolbarStats(root, lastTweets, nodes.length, untaggedCount, links.length);
+    updateToolbarStats(tweetsGraph, lastTweets, nodes.length, untaggedCount, links.length);
 
     // A gentle nudge, not a restart from alpha=1 — existing nodes keep
     // their position and drift only as much as the new/changed links

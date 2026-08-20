@@ -5,9 +5,6 @@ import { config } from './config.js';
 
 export const IGNORED_TAGS = ['video', 'gif', 'text-only', 'cw', 'old-untagged','art'];
 
-// Node positions persist across re-renders (keyed by tweet id) so
-// filtering doesn't restart the whole layout from scratch every time.
-export const positionCache = new Map();
 
 function tweetNodeId(t, i) {
     return `${t.id ?? t.tweetId ?? `${t.timestamp || 'na'}-${i}`}`;
@@ -64,8 +61,7 @@ export function buildGraphData(tweets) {
         );
 
         const id = tweetNodeId(t, i);
-        const cached = positionCache.get(id);
-        nodes.push({ id, tweet: t, tags, x: cached?.x, y: cached?.y });
+        nodes.push({ id, tweet: t, tags, x: Math.random()*900, y: Math.random()*450 });
 
         tags.forEach(tag => {
             tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
