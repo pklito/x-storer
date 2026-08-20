@@ -6,7 +6,7 @@
 
 import { db } from '../../utils/db.js';
 import { state } from '../state.js';
-import { fakeTweetBtn } from '../dom.js';
+import { importBtn } from '../dom.js';
 
 import { loadData } from './tweets.js';
 // NOTE: saveHiddenTagsState is currently not exported in its source file —
@@ -76,7 +76,7 @@ function applySettings(settings) {
 
 export function createImportButton() {
     
-    fakeTweetBtn.addEventListener('click', () => {
+    importBtn.addEventListener('click', () => {
         if (!importFileInput) {
             importFileInput = document.createElement('input');
             importFileInput.type = 'file';
