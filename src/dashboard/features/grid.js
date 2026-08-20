@@ -8,14 +8,22 @@ import { exportTweets } from './importExport.js';
 import { resolveLocalMediaFile, resolveLocalVideoFile } from './mediaFolder.js';
 import { updateUI, getBuiltInTagsForTweet, getAllTagCounts } from './tweets.js';
 import { tagGroupOf, groupColorOf, hexToRgba, GROUP_TINT_ALPHA } from './tagGroups.js';
+import { startGraph } from './graph/index.js';
 
 let masonryColumns = [];
 let masonryColumnHeights = [];
 let masonryResizeObserver = null;
 
-export function renderGrid(tweets) {
+export function startGrid(tweets = null){
+    if (tweets)
+        startGrid();
+}
+export function stopGrid(){
+    eraseGrid();
+}
+
+function eraseGrid(){
     state.renderToken++; // invalidate any batch loop still running from a previous render
-    const myToken = state.renderToken;
 
     // Object URLs from the previous render's local media are no longer referenced
     state.activeObjectUrls.forEach(url => URL.revokeObjectURL(url));
@@ -27,8 +35,16 @@ export function renderGrid(tweets) {
     }
 
     tweetsGrid.replaceChildren();
-    state.filteredTweetsCache = tweets;
     state.renderedCount = 0;
+
+}
+
+export function renderGrid(tweets) {
+    eraseGrid();
+    const myToken = state.renderToken;
+
+
+    state.filteredTweetsCache = tweets;
 
     if (tweets.length === 0) {
         const empty = document.createElement('div');

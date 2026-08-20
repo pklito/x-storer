@@ -1,5 +1,5 @@
 import { getTooltip, showTooltip, positionTooltip } from './tooltip.js';
-
+import {state} from '../../state.js'
 // Hover highlight/tooltip only shows while Shift is held — otherwise a
 // dense mesh lights up and re-lights constantly as the cursor passes
 // over it. This state (and the window listeners below) live at module
@@ -27,23 +27,36 @@ function refreshHoverVisual() {
     }
 }
 
-window.addEventListener('keydown', (e) => {
+export function enableGraphListeners(){
+    window.addEventListener('keydown', onShiftDown);
+    window.addEventListener('keyup', onShiftUp);
+    window.addEventListener('blur', onBlur);
+}
+
+export function disableGraphListeners(){
+    window.removeEventListener('keydown', onShiftDown);
+    window.removeEventListener('keyup', onShiftUp);
+    window.removeEventListener('blur', onBlur);
+}
+
+function onShiftDown(e){
     if (e.key !== 'Shift' || hover.shiftDown) return;
     hover.shiftDown = true;
     refreshHoverVisual();
-});
-window.addEventListener('keyup', (e) => {
+}
+
+function onShiftUp(e) {
     if (e.key !== 'Shift') return;
     hover.shiftDown = false;
     refreshHoverVisual();
-});
+}
 // In case Shift was released while the window didn't have focus (e.g. an
 // alt-tab), don't leave the highlight stuck on.
-window.addEventListener('blur', () => {
+function onBlur() {
     if (!hover.shiftDown) return;
     hover.shiftDown = false;
     refreshHoverVisual();
-});
+}
 
 // Call once per render, after the node/link selections exist, so the
 // shared hover state points at the current render's selections.
@@ -84,6 +97,7 @@ export function bindHoverHandlers(nodeSel) {
 }
 
 export function drag(sim) {
+    if (state.viewMode != 'graph') return;
     return d3.drag()
         .on('start', (event, d) => {
             if (!event.active) sim.alphaTarget(0.15).restart();

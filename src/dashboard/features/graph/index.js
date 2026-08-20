@@ -2,7 +2,7 @@ import { config, NODE_SIZE_RANGE } from './config.js';
 import { buildGraphData, positionCache } from './graphData.js';
 import { hullGeometry } from './hulls.js';
 import { tagGroupOf, groupColorOf } from '../tagGroups.js';
-import { drag, bindHoverHandlers, setCurrentSelection, resetHover } from './interactions.js';
+import { drag, bindHoverHandlers, setCurrentSelection, resetHover, enableGraphListeners, disableGraphListeners } from './interactions.js';
 import { buildLegend } from './legend.js';
 import { buildToolbar, updateToolbarStats } from './toolbar.js';
 
@@ -10,7 +10,6 @@ const CONTAINER_ID = 'force-graph-container';
 const NEUTRAL_COLOR = '#7c8ba1';
 
 let lastTweets = [];
-let resizeQueued = false;
 
 // Live render state. These persist across updateGraphData()/updateHulls()
 // calls (config-driven updates) and are only torn down and recreated by
@@ -35,6 +34,17 @@ let edgeWidth = null;
 
 function getContainer() {
     return document.getElementById(CONTAINER_ID);
+}
+
+export function stopGraph(){
+    disableGraphListeners();
+    eraseForceGraph();
+}
+
+export function startGraph(tweets = null){
+    enableGraphListeners();
+    if (tweets)
+        renderForceGraph(tweets);
 }
 
 // Recomputes the size/width scales used both for drawing and (via the
@@ -127,14 +137,18 @@ function applyNodeShapes(sel) {
         el.style('fill', (d.group && groupColorOf(d.group)) || NEUTRAL_COLOR);
     });
 }
-
+function eraseForceGraph(){
+    resetHover();
+    getContainer()?.replaceChildren();
+    simulation?.stop();
+}
 // Full (re)build: tears down and recreates the DOM and simulation from
 // scratch. Use this when the underlying tweet list changes or the panel
 // resizes — never call it for a config-slider change, since it restarts
 // the layout instead of nudging it.
 export function renderForceGraph(tweets) {
     lastTweets = tweets;
-    resetHover();
+    eraseForceGraph();
 
     const root = getContainer();
     if (!root) return;
@@ -143,9 +157,6 @@ export function renderForceGraph(tweets) {
     nodes = built.nodes;
     links = built.links;
     const shownCount = built.shownCount;
-
-    root.replaceChildren();
-    simulation?.stop();
 
     if (nodes.length === 0) {
         simulation = null;
@@ -341,15 +352,3 @@ export function updateHulls() {
     drawHullGeometry(hullSel);
     applyHullOpacity();
 }
-
-// Re-render on resize (debounced) so the SVG viewBox tracks the panel
-// size. This stays a full rebuild — the canvas dimensions themselves
-// changed, not just a config value.
-window.addEventListener('resize', () => {
-    if (resizeQueued) return;
-    resizeQueued = true;
-    setTimeout(() => {
-        resizeQueued = false;
-        if (lastTweets.length) renderForceGraph(lastTweets);
-    }, 250);
-});
