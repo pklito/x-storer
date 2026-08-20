@@ -712,16 +712,34 @@ body.sidebar-resizing {
     border-color: var(--accent-color);
 }
 
+.feed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.feed-header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
 .main-actions {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .view-mode-switch {
     position: relative;
     display: flex;
     width: 152px;
+    flex-shrink: 0;
+    align-self: flex-start;
     background: rgba(127, 127, 127, 0.08);
     border: 1px solid var(--card-border);
     border-radius: 20px;

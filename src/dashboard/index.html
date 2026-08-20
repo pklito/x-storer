@@ -79,14 +79,31 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="feed-header">
-                <h1 class="feed-title" id="feed-title">All Bookmarks</h1>
-                <div class="main-actions">
-                    <div class="view-mode-switch" id="view-mode-switch" role="tablist" aria-label="View mode">
-                        <button type="button" class="view-mode-option active" data-mode="grid" role="tab" aria-selected="true">GRID</button>
-                        <button type="button" class="view-mode-option" data-mode="graph" role="tab" aria-selected="false">GRAPH</button>
-                        <span class="view-mode-thumb" aria-hidden="true"></span>
+                <div class="feed-header-info">
+                    <h1 class="feed-title" id="feed-title">All Bookmarks</h1>
+                    <div class="main-actions">
+                        <span id="total-count" class="main-content-count">0 items</span>
+
+                        <button id="media-folder-btn" class="icon-btn">Choose Media Folder</button>
+                        <button id="media-folder-clear-btn" class="icon-btn"
+                            title="Stop using the local media folder and load media from the network instead">
+                            <i class="bi bi-x-circle"></i> Cancel Media Folder
+                        </button>
+
+                        <button id="import-btn" class="icon-btn" title="Import a previously exported JSON file">
+                            <i class="bi bi-upload"></i> Import
+                        </button>
+
+                        <button id="fake-tweet-btn" class="icon-btn" title="Create a fake tweet to store an image + note">
+                            <i class="bi bi-image"></i> Create Fake Tweet
+                        </button>
                     </div>
-                    <span id="total-count" class="main-content-count">0 items</span>
+                </div>
+
+                <div class="view-mode-switch" id="view-mode-switch" role="tablist" aria-label="View mode">
+                    <button type="button" class="view-mode-option" data-mode="grid" role="tab" aria-selected="false">GRID</button>
+                    <button type="button" class="view-mode-option active" data-mode="graph" role="tab" aria-selected="true">GRAPH</button>
+                    <span class="view-mode-thumb" aria-hidden="true"></span>
                 </div>
             </header>
 

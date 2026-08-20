@@ -1,54 +1,38 @@
-// viewMode.js — GRID / GRAPH switch in the feed header.
-// Persists the choice in localStorage and toggles #tweets-grid /
-// #force-graph-container via a class, so it doesn't fight with whatever
-// display value the grid/graph rendering code sets on its own.
+// viewMode.js — GRID / GRAPH switch in the feed header. Writes straight
+// to state.viewMode and re-runs updateUI(), which already branches on it
+// (renderForceGraph vs renderGrid) — this file just drives that switch.
 
-import {state} from '../state.js';
-import {updateUI} from './tweets.js'
-const STORAGE_KEY = 'xb-view-mode';
+import { state } from '../state.js';
+import { viewModeSwitch } from '../dom.js';
+import { updateUI } from './tweets.js';
 
-const switchEl = document.getElementById('view-mode-switch');
-const gridEl = document.getElementById('tweets-grid');
-const graphEl = document.getElementById('force-graph-container');
-
-function applyViewMode(mode) {
-    if (!switchEl) return;
-
-    switchEl.dataset.active = mode;
-    switchEl.querySelectorAll('.view-mode-option').forEach(btn => {
+function applyViewModeUI(mode) {
+    if (!viewModeSwitch) return;
+    viewModeSwitch.dataset.active = mode;
+    viewModeSwitch.querySelectorAll('.view-mode-option').forEach(btn => {
         const isActive = btn.dataset.mode === mode;
         btn.classList.toggle('active', isActive);
         btn.setAttribute('aria-selected', String(isActive));
     });
-
-    gridEl?.classList.toggle('view-hidden', mode !== 'grid');
-    graphEl?.classList.toggle('view-hidden', mode !== 'graph');
-
-    state.viewMode = mode
-    document.dispatchEvent(new CustomEvent('viewmodechange', { detail: { mode } }));
 }
 
-/** Returns the current mode: 'grid' or 'graph'. */
 export function getViewMode() {
-    return switchEl?.dataset.active === 'graph' ? 'graph' : 'grid';
+    return state.viewMode === 'grid' ? 'grid' : 'graph';
 }
 
-/** Sets the mode programmatically (e.g. from a saved tab config). */
 export function setViewMode(mode) {
     if (mode !== 'grid' && mode !== 'graph') return;
-    localStorage.setItem(STORAGE_KEY, mode);
-    applyViewMode(mode);
+    state.viewMode = mode;
+    applyViewModeUI(mode);
     updateUI();
 }
 
-/** Call once on load to wire up clicks and restore the last-used mode. */
+/** Call once on load — syncs the switch to whatever state.viewMode
+ *  already is (default 'graph', per tweets.js) and wires up clicks. */
 export function initViewModeSwitch() {
-    if (!switchEl) return;
-
-    const saved = localStorage.getItem(STORAGE_KEY);
-    applyViewMode(saved === 'graph' ? 'graph' : 'grid');
-
-    switchEl.addEventListener('click', (e) => {
+    if (!viewModeSwitch) return;
+    applyViewModeUI(getViewMode());
+    viewModeSwitch.addEventListener('click', (e) => {
         const btn = e.target.closest('.view-mode-option');
         if (btn) setViewMode(btn.dataset.mode);
     });
