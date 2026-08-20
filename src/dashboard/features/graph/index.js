@@ -44,49 +44,12 @@ export function startGraph(tweets = null){
         renderForceGraph(tweets);
 }
 
-// Recomputes the size/width scales used both for drawing and (via the
-// nodeRadius/nodeSize closures forces below already reference) for the
-// simulation's own force accessors. Forces that cache their per-node
-// values at initialize time (collide, x, y) pick these up automatically
-// the next time simulation.nodes(...) runs, since those force accessors
-// close over these same `let` bindings rather than snapshotting them.
-function computeScales(nodesArr, linksArr) {
-    const maxWeight = d3.max(linksArr, d => d.weight) || 1;
-    edgeWidth = d3.scaleLinear().domain([1, maxWeight]).range([1, 3]).clamp(true);
-
-    const maxTagsPerTweet = d3.max(nodesArr, d => d.tags.length) || 1;
-    nodeSize = d3.scaleLinear().domain([1, maxTagsPerTweet]).range(NODE_SIZE_RANGE).clamp(true);
-    nodeRadius = d => nodeSize(Math.max(1, d.tags.length)) / 2;
-}
-
-// Ensures each node's shape element matches d.shape (square/circle) and
-// is sized/colored correctly, adding or removing the child element only
-// when the shape actually needs to change. Safe to call on a selection
-// mixing untouched, updated, and brand-new nodes.
-function applyNodeShapes(sel) {
-    sel.each(function (d) {
-        const g = d3.select(this);
-        const wantTag = d.shape === 'square' ? 'rect' : 'circle';
-        let el = g.select('.force-graph-planet');
-        const currentTag = el.empty() ? null : el.node().tagName.toLowerCase();
-        if (currentTag !== wantTag) {
-            el.remove();
-            el = g.append(wantTag).attr('class', 'force-graph-planet');
-        }
-        const size = nodeSize(Math.max(1, d.tags.length));
-        if (wantTag === 'rect') {
-            el.attr('x', -size / 2).attr('y', -size / 2).attr('width', size).attr('height', size);
-        } else {
-            el.attr('r', size / 2);
-        }
-        el.style('fill', (d.group && groupColorOf(d.group)) || NEUTRAL_COLOR);
-    });
-}
 function eraseForceGraph(){
     resetHover();
     tweetsGraph?.replaceChildren();
     simulation?.stop();
 }
+
 // Full (re)build: tears down and recreates the DOM and simulation from
 // scratch. Use this when the underlying tweet list changes or the panel
 // resizes — never call it for a config-slider change, since it restarts
@@ -269,4 +232,46 @@ export function updateGraphData() {
     // their position and drift only as much as the new/changed links
     // pull them.
     simulation.alpha(Math.max(simulation.alpha(), 0.3)).restart();
+}
+
+// ------
+// MISC
+// ------
+// Recomputes the size/width scales used both for drawing and (via the
+// nodeRadius/nodeSize closures forces below already reference) for the
+// simulation's own force accessors. Forces that cache their per-node
+// values at initialize time (collide, x, y) pick these up automatically
+// the next time simulation.nodes(...) runs, since those force accessors
+// close over these same `let` bindings rather than snapshotting them.
+function computeScales(nodesArr, linksArr) {
+    const maxWeight = d3.max(linksArr, d => d.weight) || 1;
+    edgeWidth = d3.scaleLinear().domain([1, maxWeight]).range([1, 3]).clamp(true);
+
+    const maxTagsPerTweet = d3.max(nodesArr, d => d.tags.length) || 1;
+    nodeSize = d3.scaleLinear().domain([1, maxTagsPerTweet]).range(NODE_SIZE_RANGE).clamp(true);
+    nodeRadius = d => nodeSize(Math.max(1, d.tags.length)) / 2;
+}
+
+// Ensures each node's shape element matches d.shape (square/circle) and
+// is sized/colored correctly, adding or removing the child element only
+// when the shape actually needs to change. Safe to call on a selection
+// mixing untouched, updated, and brand-new nodes.
+function applyNodeShapes(sel) {
+    sel.each(function (d) {
+        const g = d3.select(this);
+        const wantTag = d.shape === 'square' ? 'rect' : 'circle';
+        let el = g.select('.force-graph-planet');
+        const currentTag = el.empty() ? null : el.node().tagName.toLowerCase();
+        if (currentTag !== wantTag) {
+            el.remove();
+            el = g.append(wantTag).attr('class', 'force-graph-planet');
+        }
+        const size = nodeSize(Math.max(1, d.tags.length));
+        if (wantTag === 'rect') {
+            el.attr('x', -size / 2).attr('y', -size / 2).attr('width', size).attr('height', size);
+        } else {
+            el.attr('r', size / 2);
+        }
+        el.style('fill', (d.group && groupColorOf(d.group)) || NEUTRAL_COLOR);
+    });
 }
