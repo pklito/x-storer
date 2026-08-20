@@ -796,9 +796,13 @@ body.sidebar-resizing {
    11. Tweet Grid (Masonry — JS-based shortest-column distribution)
    ========================================================================== */
 .tweets-grid {
-    display: none;
+    display: flex;
     gap: 1rem;
     align-items: flex-start;
+}
+
+.tweets-grid.hidden {
+    display: none;
 }
 
 .masonry-column {

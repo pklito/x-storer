@@ -36,12 +36,12 @@ let edgeWidth = null;
 export function stopGraph(){
     disableGraphListeners();
     eraseForceGraph();
-    tweetsGraph.style.hidden = true;
+    tweetsGraph.classList.add('hidden');
 }
 
 export function startGraph(tweets = null){
     enableGraphListeners();
-    tweetsGraph.style.hidden = false;
+    tweetsGraph.classList.remove('hidden');
     if (tweets)
         renderForceGraph(tweets);
 }

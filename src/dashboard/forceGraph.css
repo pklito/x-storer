@@ -12,6 +12,10 @@
     overflow: hidden;
 }
 
+.force-graph-container.hidden {
+    display: none;
+}
+
 .force-graph-empty {
     margin: auto;
     color: var(--text-muted, #6b7280);
