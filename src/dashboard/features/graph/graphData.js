@@ -51,7 +51,7 @@ export function buildGraphData(tweets, positionCache) {
             return;
 
         const id = tweetNodeId(t, i);
-        var p = positionCache?.has(id) ? positionCache[id] : {x: Math.random()*900, y: Math.random()*450}
+        var p = positionCache.has(id) ? positionCache[id] : {x: Math.random()*900, y: Math.random()*450}
         nodes.push({ id, tweet: t, tags, x: p.x, y: p.y });
 
         tags.forEach(tag => {
@@ -94,7 +94,7 @@ export function buildGraphData(tweets, positionCache) {
     // Untagged tweets never appear in tagToNodeIds, so this loop never
     // gives them a link — which is correct, there's no shared tag to
     // link them through.
-    const budget = new Map(nodes.map(n => [n.id, config.linksPerTweet + (Math.random() < 0.5 ? 0 : 1)]));
+    const budget = new Map(nodes.map(n => [n.id, config.linksPerTweet + (Math.random() < 0.5 ? -1 : 0)]));
     const degree = new Map(nodes.map(n => [n.id, 0]));
     const linkMap = new Map();
 
