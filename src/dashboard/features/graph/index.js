@@ -44,7 +44,12 @@ export function startGraph(tweets = null){
         renderForceGraph(tweets);
 }
 
+const positionCache = new Map()
 function eraseForceGraph(){
+    positionCache.clear()
+    nodes.forEach((e) => {
+        positionCache[e.id] = {x:e.x, y:e.y}
+    })
     resetHover();
     tweetsGraph?.replaceChildren();
     simulation?.stop();
@@ -58,9 +63,7 @@ export function renderForceGraph(tweets) {
     lastTweets = tweets;
     eraseForceGraph();
 
-    if (!tweetsGraph) return;
-
-    const built = buildGraphData(tweets);
+    const built = buildGraphData(tweets, positionCache);
     nodes = built.nodes;
     links = built.links;
     const shownCount = built.shownCount;
@@ -157,7 +160,7 @@ export function updateGraphData() {
         return;
     }
 
-    const built = buildGraphData(lastTweets);
+    const built = buildGraphData(lastTweets, positionCache);
     const freshNodes = built.nodes;
     const freshLinks = built.links;
 

@@ -32,7 +32,7 @@ function shuffle(arr) {
 
 
 
-export function buildGraphData(tweets) {
+export function buildGraphData(tweets, positionCache) {
     const capped = tweets.length > config.maxTweets
         ? [...tweets]
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
@@ -51,7 +51,8 @@ export function buildGraphData(tweets) {
             return;
 
         const id = tweetNodeId(t, i);
-        nodes.push({ id, tweet: t, tags, x: Math.random()*900, y: Math.random()*450 });
+        var p = positionCache?.has(id) ? positionCache[id] : {x: Math.random()*900, y: Math.random()*450}
+        nodes.push({ id, tweet: t, tags, x: p.x, y: p.y });
 
         tags.forEach(tag => {
             tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
