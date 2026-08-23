@@ -41,3 +41,9 @@ export const mediaFolderClearBtn = document.getElementById('media-folder-clear-b
 
 export const importBtn = document.getElementById('import-btn');
 export const fakeTweetBtn = document.getElementById('fake-tweet-btn');
+
+export const forceGraphToolbar = document.getElementById('force-graph-toolbar');
+export const forceGraphEmpty = document.getElementById('force-graph-empty');
+export const forceGraphCanvasWrap = document.getElementById('force-graph-canvas-wrap');
+export const forceGraphSvg = document.getElementById('force-graph-svg');
+export const forceGraphLegend = document.getElementById('force-graph-legend');

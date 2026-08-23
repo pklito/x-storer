@@ -5,7 +5,7 @@ import { tagGroupOf, groupColorOf } from '../tagGroups.js';
 import { drag, bindHoverHandlers, setCurrentSelection, resetHover, enableGraphListeners, disableGraphListeners } from './interactions.js';
 import { buildLegend } from './legend.js';
 import { buildToolbar, updateToolbarStats } from './toolbar.js';
-import { tweetsGraph } from '../../dom.js';
+import { tweetsGraph, forceGraphToolbar, forceGraphEmpty, forceGraphCanvasWrap, forceGraphSvg, forceGraphLegend } from '../../dom.js';
 
 const NEUTRAL_COLOR = '#7c8ba1';
 
@@ -51,14 +51,25 @@ function eraseForceGraph(){
         positionCache.set(e.id,{x:e.x, y:e.y});
     })
     resetHover();
-    tweetsGraph?.replaceChildren();
+
+    // Clear the dynamic slots, but leave the persistent skeleton
+    // (canvas-wrap/svg/zoom-group) in place — renderForceGraph now
+    // reuses it instead of rebuilding it.
+    forceGraphToolbar?.replaceChildren();
+    forceGraphLegend?.replaceChildren();
+    if (zoomGroup) {
+        zoomGroup.select('.force-graph-hulls').selectAll('*').remove();
+        zoomGroup.select('.force-graph-links-tweet').selectAll('*').remove();
+        zoomGroup.select('.force-graph-nodes').selectAll('*').remove();
+    }
     simulation?.stop();
 }
 
-// Full (re)build: tears down and recreates the DOM and simulation from
-// scratch. Use this when the underlying tweet list changes or the panel
-// resizes — never call it for a config-slider change, since it restarts
-// the layout instead of nudging it.
+// Full (re)build: repopulates the pre-existing DOM skeleton (see
+// index.html) and recreates the simulation from scratch. Use this when
+// the underlying tweet list changes or the panel resizes — never call it
+// for a config-slider change, since it restarts the layout instead of
+// nudging it.
 export function renderForceGraph(tweets, reset = true) {
     lastTweets = tweets;
     eraseForceGraph();
@@ -70,12 +81,12 @@ export function renderForceGraph(tweets, reset = true) {
 
     if (nodes.length === 0) {
         simulation = null;
-        const empty = document.createElement('div');
-        empty.className = 'force-graph-empty';
-        empty.textContent = 'No tweets match the current filters.';
-        tweetsGraph.appendChild(empty);
+        forceGraphCanvasWrap.classList.add('hidden');
+        forceGraphEmpty.classList.remove('hidden');
         return;
     }
+    forceGraphEmpty.classList.add('hidden');
+    forceGraphCanvasWrap.classList.remove('hidden');
 
     //counts
     const untaggedCount = nodes.filter(n => n.tweet.tags.length === 0).length;
@@ -85,22 +96,17 @@ export function renderForceGraph(tweets, reset = true) {
         onDataChange: updateGraphData,
         onVisualChange: () => updateHulls(nodes),
     });
-    tweetsGraph.appendChild(toolbarEl);
+    forceGraphToolbar.appendChild(toolbarEl);
 
-    canvasWrap = document.createElement('div');
-    canvasWrap.className = 'force-graph-canvas-wrap';
-    tweetsGraph.appendChild(canvasWrap);
-
+    canvasWrap = forceGraphCanvasWrap;
     width = canvasWrap.clientWidth || tweetsGraph.clientWidth || 900;
     height = Math.max(400, (tweetsGraph.clientHeight || 700) - 56);
 
-    const svg = d3.select(canvasWrap)
-      .append('svg')
-        .attr('class', 'force-graph-svg')
+    const svg = d3.select(forceGraphSvg)
         .attr('viewBox', [0, 0, width, height]);
 
     // Here starts the actual logic
-    zoomGroup = svg.append('g').attr('class', 'zoom-group');
+    zoomGroup = svg.select('.zoom-group');
 
     svg.call(d3.zoom()
         .scaleExtent([0.15, 4])
@@ -115,19 +121,17 @@ export function renderForceGraph(tweets, reset = true) {
         .force('y', d3.forceY(height/2).strength(v => v.tweet.tags?.length ? 0.1 : 0.13))
         .force('collide', d3.forceCollide().radius(d => nodeRadius(d)).strength(0.9));
 
-    setHullGroup(zoomGroup.append('g').attr('class', 'force-graph-hulls'));
+    setHullGroup(zoomGroup.select('.force-graph-hulls'));
     joinHulls(computeHullEntries(nodes, taggedCount));
     applyHullOpacity();
 
-    linkSel = zoomGroup.append('g')
-        .attr('class', 'force-graph-links force-graph-links-tweet')
+    linkSel = zoomGroup.select('.force-graph-links-tweet')
         .selectAll('line')
         .data(links, d => d.id)
         .join('line')
         .attr('stroke-width', d => edgeWidth(d.weight));
 
-    nodeSel = zoomGroup.append('g')
-        .attr('class', 'force-graph-nodes')
+    nodeSel = zoomGroup.select('.force-graph-nodes')
         .selectAll('g')
         .data(nodes, d => d.id)
         .join(enter => enter.append('g').call(drag(simulation)));
@@ -145,7 +149,7 @@ export function renderForceGraph(tweets, reset = true) {
         nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
     });
 
-    tweetsGraph.appendChild(buildLegend());
+    forceGraphLegend.appendChild(buildLegend());
 }
 
 export function updateGraphData() {

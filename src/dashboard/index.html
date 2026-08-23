@@ -121,7 +121,23 @@
                 <!-- Tweet Cards injected here -->
             </div>
             <div class="force-graph-container hidden" id="force-graph-container">
-                <!-- Force-directed tag graph rendered here by render/forceGraph.js -->
+                <div id="force-graph-toolbar"></div>
+
+                <div class="force-graph-empty hidden" id="force-graph-empty">
+                    No tweets match the current filters.
+                </div>
+
+                <div class="force-graph-canvas-wrap" id="force-graph-canvas-wrap">
+                    <svg class="force-graph-svg" id="force-graph-svg" viewBox="0 0 900 600">
+                        <g class="zoom-group">
+                            <g class="force-graph-hulls"></g>
+                            <g class="force-graph-links force-graph-links-tweet"></g>
+                            <g class="force-graph-nodes"></g>
+                        </g>
+                    </svg>
+                </div>
+
+                <div id="force-graph-legend"></div>
             </div>
         </main>
     </div>
