@@ -146,18 +146,12 @@ export function renderForceGraph(tweets, reset = true) {
     forceGraphLegend.appendChild(buildLegend());
 }
 
-// ------
-// MISC
-// ------
-// Recomputes the size/width scales used both for drawing and (via the
-// nodeRadius/nodeSize closures forces below already reference) for the
-// simulation's own force accessors. Forces that cache their per-node
-// values at initialize time (collide, x, y) pick these up automatically
-// the next time simulation.nodes(...) runs, since those force accessors
-// close over these same `let` bindings rather than snapshotting them.
 function computeScales(nodesArr, linksArr) {
-    edgeWidth = d3.scaleLinear().domain([1, 3]).range([1, 3]).clamp(true);
-    nodeSize = d3.scaleLinear().domain([1, 5]).range(NODE_SIZE_RANGE).clamp(true);
+    const maxWeight = d3.max(linksArr, d => d.weight) || 1;
+    edgeWidth = d3.scaleLinear().domain([1, maxWeight]).range([1, 3]).clamp(true);
+
+    const maxTagsPerTweet = d3.max(nodesArr, d => d.tweet.tags.length) || 1;
+    nodeSize = d3.scaleLinear().domain([1, maxTagsPerTweet]).range(NODE_SIZE_RANGE).clamp(true);
     nodeRadius = d => nodeSize(Math.max(1, d.tweet.tags.length)) / 2;
 }
 
