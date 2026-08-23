@@ -93,7 +93,7 @@ export function renderForceGraph(tweets, reset = true) {
     const taggedCount = nodes.length - untaggedCount;
 
     const toolbarEl = buildToolbar(tweets, shownCount, untaggedCount, links.length, {
-        onDataChange: updateGraphData,
+        onDataChange: renderForceGraph.bind(null, lastTweets, false),
         onVisualChange: () => updateHulls(nodes),
     });
     forceGraphToolbar.appendChild(toolbarEl);
@@ -150,84 +150,6 @@ export function renderForceGraph(tweets, reset = true) {
     });
 
     forceGraphLegend.appendChild(buildLegend());
-}
-
-export function updateGraphData() {
-    const built = buildGraphData(lastTweets, positionCache);
-    const freshNodes = built.nodes;
-    const freshLinks = built.links;
-
-    // if (freshNodes.length === 0) {
-    //     renderForceGraph(lastTweets);
-    //     return;
-    // }
-
-    resetHover();
-
-    // Anything about to drop out gets its last known position cached,
-    // same as the simulation's own "end" handler does, so re-adding it
-    // later (e.g. the user raises Max tweets back up) restores it near
-    // where it was instead of dropping it in fresh.
-    const oldById = new Map(nodes.map(n => [n.id, n]));
-    const freshIds = new Set(freshNodes.map(n => n.id));
-
-    // Reuse existing node objects (and therefore their live sim state)
-    // wherever the id already existed; only genuinely new tweets get a
-    // fresh object.
-    nodes = freshNodes.map(fn => {
-        const old = oldById.get(fn.id);
-        if (!old) return fn;
-        old.tweet = fn.tweet;
-        old.tags = fn.tags;
-        old.dominantTag = fn.dominantTag;
-        old.group = fn.group;
-        old.shape = fn.shape;
-        return old;
-    });
-
-    const oldLinksByKey = new Map(links.map(l => [l.id, l]));
-    links = freshLinks.map(fl => {
-        const old = oldLinksByKey.get(fl.id);
-        if (!old) return fl;
-        old.weight = fl.weight;
-        old.tags = fl.tags;
-        return old;
-    });
-
-    computeScales(nodes, links);
-
-    // Order matters: nodes first, so forceLink's internal id map is
-    // rebuilt from the current node set before it resolves any brand-new
-    // link's string source/target. Links that already point at live node
-    // objects are left alone (d3-force only resolves string ids).
-    simulation.nodes(nodes);
-    simulation.force('link').links(links);
-
-    linkSel = zoomGroup.select('.force-graph-links-tweet')
-        .selectAll('line')
-        .data(links, d => d.id)
-        .join('line')
-        .attr('stroke-width', d => edgeWidth(d.weight));
-
-    nodeSel = zoomGroup.select('.force-graph-nodes')
-        .selectAll('g')
-        .data(nodes, d => d.id)
-        .join(enter => enter.append('g').call(drag(simulation)));
-    nodeSel.attr('class', d => `force-graph-node force-graph-node-tweet${d.tweet.tags.length === 0 ? ' force-graph-node-untagged' : ''}`);
-    applyNodeShapes(nodeSel);
-
-    updateHulls(nodes);
-
-    setCurrentSelection(nodeSel, linkSel, links);
-    bindHoverHandlers(nodeSel);
-
-    const untaggedCount = nodes.filter(n => n.tweet.tags.length === 0).length;
-    updateToolbarStats(tweetsGraph, lastTweets, nodes.length, untaggedCount, links.length);
-
-    // A gentle nudge, not a restart from alpha=1 — existing nodes keep
-    // their position and drift only as much as the new/changed links
-    // pull them.
-    simulation.alpha(Math.max(simulation.alpha(), 0.3)).restart();
 }
 
 // ------
