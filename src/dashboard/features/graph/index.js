@@ -11,12 +11,6 @@ const NEUTRAL_COLOR = '#7c8ba1';
 
 let lastTweets = [];
 
-// Live render state. These persist across updateGraphData()/updateHulls()
-// calls (config-driven updates) and are only torn down and recreated by
-// renderForceGraph() itself (new tweet list, or a resize). Keeping them
-// module-scoped — rather than local to renderForceGraph — is what lets a
-// config change touch just the pieces that actually need to change
-// instead of rebuilding the whole graph.
 let simulation = null;
 let nodes = [];
 let links = [];
@@ -45,9 +39,9 @@ export function startGraph(tweets = null){
 }
 
 const positionCache = new Map()
-function eraseForceGraph(){
+function eraseForceGraph(currNodes){
     positionCache.clear()
-    nodes.forEach((e) => {
+    currNodes?.forEach((e) => {
         positionCache.set(e.id,{x:e.x, y:e.y});
     })
     resetHover();
@@ -72,7 +66,7 @@ function eraseForceGraph(){
 // nudging it.
 export function renderForceGraph(tweets, reset = true) {
     lastTweets = tweets;
-    eraseForceGraph();
+    eraseForceGraph(nodes);
 
     const built = buildGraphData(tweets, positionCache);
     nodes = built.nodes;

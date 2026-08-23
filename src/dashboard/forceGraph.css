@@ -4,13 +4,14 @@
     display: flex;
     flex-direction: column;
     width: 100%;
-    /* flex:1 (not height:100%) so this only ever grows to fill whatever
-       space its flex parent actually gives it, instead of sizing off
-       its own content/min-height and overflowing the viewport. Requires
-       the ancestor chain (.main-content, .app-container, html/body) to
-       be display:flex + min-height:0 all the way down — see note below. */
-    flex: 1 1 auto;
-    min-height: 0;
+    /* .main-content / .app-container are unbounded (the page itself
+       scrolls — see .sidebar's position:sticky for how the rest of this
+       layout copes with that), so this can't rely on a percentage height
+       or flex:1 up the tree. Same viewport-relative approach as
+       .sidebar's `height: calc(100vh - 3rem)`, so the graph is always
+       bounded to (roughly) one screen instead of growing with content. */
+    height: calc(100vh - 3rem);
+    max-height: calc(100vh - 3rem);
     position: relative;
     background: var(--bg-panel, #f7f8fa);
     border-radius: 10px;
@@ -25,10 +26,6 @@
     margin: auto;
     color: var(--text-muted, #6b7280);
     font-size: 14px;
-}
-
-.force-graph-empty.hidden{
-    display: none;
 }
 
 /* Toolbar */

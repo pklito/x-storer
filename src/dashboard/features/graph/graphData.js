@@ -5,6 +5,12 @@ import { config } from './config.js';
 
 export const IGNORED_TAGS = ['video', 'gif', 'text-only', 'cw', 'old-untagged','art'];
 
+/** @type {Map<string,string[]>} */
+const TAG_TO_IDS = new Map();
+/** @type {Map<string, {tags:string[], connections:number}>} */
+const ID_TO_DATA = new Map();
+const NODES = [];
+const NODE_LINKS = [];
 
 // Fake tweets dont  have ids?
 function tweetNodeId(t, i) {
@@ -23,15 +29,16 @@ function pickRandom(arr, n) {
 }
 
 
-function buildNodeConnections(tagToNodeIds, tags, tweetId){
-    const links = []
+function buildNodeConnections(tags, tweetId){
+    if (config.linksPerTweet < 1)
+        return;
     const tagSet = new Set(tags);
     while(tagSet.size > 0){
         //Populate a nodefrequency map, 
         /** @type {Map<string, Set>} */
         const nodeFrequency = new Map()
         tagSet.forEach((e) => {
-            tagToNodeIds.get(e)?.forEach((id) => {
+            TAG_TO_IDS.get(e)?.forEach((id) => {
                 if(!nodeFrequency.has(id)) nodeFrequency.set(id, new Set());
                 nodeFrequency.get(id).add(e)
             })
@@ -43,18 +50,31 @@ function buildNodeConnections(tagToNodeIds, tags, tweetId){
         for(let i = 0; i < config.linksPerTweet; i++){
             if(nodeFrequency.size === 0)
                 break;
-            var bestNode = [];
-            if(i % 2 === 1)
-                bestNode = [...nodeFrequency.entries()].reduce((max, entry) => (max[1] > entry[1]) ? max : entry);
-            else
-                bestNode = [...nodeFrequency.entries()].reduce((max, entry) => (max[1] >= entry[1]) ? max : entry);
-            var link = {source : tweetId, target: bestNode[0]}
-            links.push(link);
+            let evalEntry = (entry) => {
+                const connections = ID_TO_DATA.get(entry[0])?.connections ?? 0;
+                return (10 * (entry[1].size))
+                    - Math.max(4, connections)
+                    - (connections == 1 ? 1 : 0) + 4;
+            };
+
+            var bestNode = [...nodeFrequency.entries()]
+                .reduce((max, entry) =>
+                    evalEntry(max) >= evalEntry(entry) ? max : entry
+                );
+
+            var link = {
+                source: tweetId,
+                target: bestNode[0]
+            };
+
+            NODE_LINKS.push(link);
+            ID_TO_DATA.get(tweetId).connections += 1;
+            ID_TO_DATA.get(bestNode[0]).connections += 1;
+
             nodeFrequency.delete(bestNode[0]);
         }
         bestNode[1].forEach((e)=>{tagSet.delete(e);});
     }
-    return links;
 }
 
 /**
@@ -69,40 +89,37 @@ export function buildGraphData(tweets, positionCache) {
             .slice(0, config.maxTweets)
         : tweets;
 
-    /** @type {Map<string,string[]>} */
-    const tagToNodeIds = new Map();
-    const nodes = [];
-    const nodeLinks = [];
-
+    //Reset the variables for a new graph
+    TAG_TO_IDS.clear();
+    ID_TO_DATA.clear();
+    NODES.length = 0;
+    NODE_LINKS.length = 0;
+    
     capped.forEach((t, i) => {
         /** @type {string[]} */
         const tags = (t.tags || []).filter(tag =>!IGNORED_TAGS.includes(tag));
         if(!config.showUntaggedTweets && !tags.length)
             return;
         const id = t.id;
-
+        ID_TO_DATA.set(id, {tags:tags, connections: 0})
         //Create links
-        nodeLinks.push(...buildNodeConnections(tagToNodeIds, tags, id));
+        buildNodeConnections(tags, id);
         //Create Node
-        if(!positionCache.has(id)){
-            console.log(`${id} was missing`);
-            
-        }
         var p = positionCache.has(id) ? positionCache.get(id) : {x: Math.random()*900, y: Math.random()*450}
-        nodes.push({ id: id, tweet: t, x: p.x, y: p.y });
+        NODES.push({ id: id, tweet: t, x: p.x, y: p.y });
 
         
 
         // POST 
         tags.forEach(tag => {
-            if (!tagToNodeIds.has(tag)) tagToNodeIds.set(tag, []);
-            tagToNodeIds.get(tag).push(id);
+            if (!TAG_TO_IDS.has(tag)) TAG_TO_IDS.set(tag, []);
+            TAG_TO_IDS.get(tag).push(id);
         });
     });
 
     return {
-        nodes,
-        links: nodeLinks,
-        shownCount: nodes.length,
+        nodes: NODES,
+        links: NODE_LINKS,
+        shownCount: NODES.length,
     };
 }
