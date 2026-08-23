@@ -14,7 +14,9 @@ export function hullGeometry(tagNodes, pad = HULL_PAD) {
     const pts = tagNodes.map(n => [n.x, n.y]);
     if (pts.some(p => p[0] == null || p[1] == null)) return null;
 
-    if (pts.length >= 3) {
+    if (pts.length <= 3) {
+        return;
+    }
         const hull = d3.polygonHull(pts);
         if (hull) {
             const centroid = d3.polygonCentroid(hull);
@@ -27,7 +29,7 @@ export function hullGeometry(tagNodes, pad = HULL_PAD) {
             const top = padded.reduce((a, b) => (b[1] < a[1] ? b : a));
             return { d: 'M' + padded.map(p => p.join(',')).join('L') + 'Z', label: { x: top[0], y: top[1] - 8 } };
         }
-    }
+    
 
     // <3 points, or collinear: a circle around whatever points there are.
     const cx = d3.mean(pts, p => p[0]);
