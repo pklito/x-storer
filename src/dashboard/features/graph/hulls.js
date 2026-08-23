@@ -52,7 +52,7 @@ export function setHullGroup(g) {
 export function computeHullEntries(nodesArr) {
     const tagToNodes = new Map();
     nodesArr.forEach(n => {
-        n.tags.forEach(tag => {
+        n.tweet.tags.forEach(tag => {
             if (!tagToNodes.has(tag)) tagToNodes.set(tag, []);
             tagToNodes.get(tag).push(n);
         });

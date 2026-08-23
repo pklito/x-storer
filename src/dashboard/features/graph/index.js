@@ -78,7 +78,7 @@ export function renderForceGraph(tweets, reset = true) {
     }
 
     //counts
-    const untaggedCount = nodes.filter(n => n.tags.length === 0).length;
+    const untaggedCount = nodes.filter(n => n.tweet.tags.length === 0).length;
     const taggedCount = nodes.length - untaggedCount;
 
     const toolbarEl = buildToolbar(tweets, shownCount, untaggedCount, links.length, {
@@ -131,7 +131,7 @@ export function renderForceGraph(tweets, reset = true) {
         .selectAll('g')
         .data(nodes, d => d.id)
         .join(enter => enter.append('g').call(drag(simulation)));
-    nodeSel.attr('class', d => `force-graph-node force-graph-node-tweet${d.tags.length === 0 ? ' force-graph-node-untagged' : ''}`);
+    nodeSel.attr('class', d => `force-graph-node force-graph-node-tweet${d.tweet.tags.length === 0 ? ' force-graph-node-untagged' : ''}`);
     applyNodeShapes(nodeSel);
 
     setCurrentSelection(nodeSel, linkSel, links);
@@ -209,7 +209,7 @@ export function updateGraphData() {
         .selectAll('g')
         .data(nodes, d => d.id)
         .join(enter => enter.append('g').call(drag(simulation)));
-    nodeSel.attr('class', d => `force-graph-node force-graph-node-tweet${d.tags.length === 0 ? ' force-graph-node-untagged' : ''}`);
+    nodeSel.attr('class', d => `force-graph-node force-graph-node-tweet${d.tweet.tags.length === 0 ? ' force-graph-node-untagged' : ''}`);
     applyNodeShapes(nodeSel);
 
     updateHulls(nodes);
@@ -217,7 +217,7 @@ export function updateGraphData() {
     setCurrentSelection(nodeSel, linkSel, links);
     bindHoverHandlers(nodeSel);
 
-    const untaggedCount = nodes.filter(n => n.tags.length === 0).length;
+    const untaggedCount = nodes.filter(n => n.tweet.tags.length === 0).length;
     updateToolbarStats(tweetsGraph, lastTweets, nodes.length, untaggedCount, links.length);
 
     // A gentle nudge, not a restart from alpha=1 — existing nodes keep
@@ -238,7 +238,7 @@ export function updateGraphData() {
 function computeScales(nodesArr, linksArr) {
     edgeWidth = d3.scaleLinear().domain([1, 3]).range([1, 3]).clamp(true);
     nodeSize = d3.scaleLinear().domain([1, 5]).range(NODE_SIZE_RANGE).clamp(true);
-    nodeRadius = d => nodeSize(Math.max(1, d.tags.length)) / 2;
+    nodeRadius = d => nodeSize(Math.max(1, d.tweet.tags.length)) / 2;
 }
 
 // Ensures each node's shape element matches d.shape (square/circle) and
@@ -255,7 +255,7 @@ function applyNodeShapes(sel) {
             el.remove();
             el = g.append(wantTag).attr('class', 'force-graph-planet');
         }
-        const size = nodeSize(Math.max(1, d.tags.length));
+        const size = nodeSize(Math.max(1, d.tweet.tags.length));
         if (wantTag === 'rect') {
             el.attr('x', -size / 2).attr('y', -size / 2).attr('width', size).attr('height', size);
         } else {

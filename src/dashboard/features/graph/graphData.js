@@ -23,8 +23,27 @@ function pickRandom(arr, n) {
 }
 
 
-function connectNode(tagToNodeIds, tweet){
-    
+function buildNodeConnections(tagToNodeIds, tags, tweetId){
+    const links = []
+    const tagSet = new Set(tags);
+    while(tagSet.size > 0){
+        //Populate a nodefrequency map, 
+        /** @type {Map<string, Set>} */
+        const nodeFrequency = new Map()
+        tagSet.forEach((e) => {
+            tagToNodeIds.get(e)?.forEach((id) => {
+                if(!nodeFrequency.has(id)) nodeFrequency.set(id, new Set());
+                nodeFrequency.get(id).add(e)
+            })
+        })
+
+        if(nodeFrequency.size == 0)
+            break;
+        var bestNode = [...nodeFrequency.entries()].reduce((max, entry) => max[1] > entry[1] ? max : entry);
+        var link = {source : tweetId, target: bestNode[0]}
+        links.push(link);
+        bestNode[1].forEach((e)=>{tagSet.delete(e);});
+    }
 }
 
 /**
@@ -46,45 +65,16 @@ export function buildGraphData(tweets, positionCache) {
 
     capped.forEach((t, i) => {
         /** @type {string[]} */
-        const tags = (t.tags || []).filter(tag =>
-            !IGNORED_TAGS.includes(tag));
-
+        const tags = (t.tags || []).filter(tag =>!IGNORED_TAGS.includes(tag));
         if(!config.showUntaggedTweets && !tags.length)
             return;
-
         const id = t.id;
-        /** @type {Set} */
-        const tagSet = new Set(tags)
-        //Finding the best links for each tag:
-        while(tagSet.size > 0){
 
-            //Populate a nodefrequency map, 
-            /** @type {Map<string, Set>} */
-            const nodeFrequency = new Map()
-            tagSet.forEach((e) => {
-                tagToNodeIds.get(e)?.forEach((id) => {
-                    if(!nodeFrequency.has(id)) nodeFrequency.set(id, new Set());
-                    nodeFrequency.get(id).add(e)
-                })
-            })
-
-            var maxNode = null;
-            var maxNodeTags = new Set();
-            nodeFrequency.forEach((set, id) => {
-                if(set.size > maxNodeTags.size){
-                    maxNodeTags = set;
-                    maxNode = id;
-                }
-            })
-            if(!maxNode)
-                break;
-            var link = {source : t.id, target: maxNode}
-            nodeLinks.push(link);
-            maxNodeTags.forEach((e)=>{tagSet.delete(e);});
-        }
-
+        //Create links
+        nodeLinks.concat(buildNodeConnections(tagToNodeIds, tags, id));
+        //Create Node
         var p = positionCache.has(id) ? positionCache[id] : {x: Math.random()*900, y: Math.random()*450}
-        nodes.push({ id, tweet: t, tags, x: p.x, y: p.y });
+        nodes.push({ id: id, tweet: t, x: p.x, y: p.y });
 
         
 

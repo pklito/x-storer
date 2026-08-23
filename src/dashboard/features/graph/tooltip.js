@@ -18,8 +18,8 @@ export function showTooltip(el, event, d, links) {
     const t = d.tweet;
     const who = t.authorHandle ? `@${t.authorHandle}` : (t.authorName || 'unknown');
     const text = (t.text || '').slice(0, 140) + ((t.text || '').length > 140 ? '…' : '');
-    const tagList = d.tags.length
-        ? d.tags.map(tag => tag === d.dominantTag ? `<strong>#${escapeHtml(tag)}</strong>` : `#${escapeHtml(tag)}`).join(' ')
+    const tagList = d.tweet.tags.length
+        ? d.tweet.tags.map(tag => tag === d.dominantTag ? `<strong>#${escapeHtml(tag)}</strong>` : `#${escapeHtml(tag)}`).join(' ')
         : '<em>no tags</em>';
     const linkCount = links.filter(l => l.source.id === d.id || l.target.id === d.id).length;
     el.innerHTML = `
