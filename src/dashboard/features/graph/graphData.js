@@ -39,7 +39,7 @@ function buildNodeConnections(tagToNodeIds, tags, tweetId){
 
         if(nodeFrequency.size == 0)
             break;
-        var bestNode = [...nodeFrequency.entries()].reduce((max, entry) => max[1] > entry[1] ? max : entry);
+        var bestNode = [...nodeFrequency.entries()].reduce((max, entry) => max[1] >= entry[1] ? max : entry);
         var link = {source : tweetId, target: bestNode[0]}
         links.push(link);
         bestNode[1].forEach((e)=>{tagSet.delete(e);});
