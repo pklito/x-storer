@@ -83,10 +83,7 @@ export function applyHullOpacity() {
     hullGroup.selectAll('.force-graph-hull-shape').style('fill-opacity', config.hullOpacity);
 }
 
-// Positions hull paths/labels immediately from current node.x/y. Needed
-// whenever we redraw hulls outside of a tick (e.g. a pure hull-threshold
-// change, where the simulation isn't running and no tick will fire).
-export function drawHullGeometry(sel) {
+function drawHullGeometry(sel) {
     sel.each(function (d) {
         const geo = hullGeometry(d.nodes);
         if (!geo) return;

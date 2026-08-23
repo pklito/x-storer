@@ -23,7 +23,7 @@ export function showTooltip(el, event, d, links) {
         : '<em>no tags</em>';
     const linkCount = links.filter(l => l.source.id === d.id || l.target.id === d.id).length;
     el.innerHTML = `
-        <div class="force-graph-tooltip-title">${escapeHtml(who)}</div>
+        <div class="force-graph-tooltip-title">${esczapeHtml(who)}</div>
         <div class="force-graph-tooltip-count">${escapeHtml(text)}</div>
         <div class="force-graph-tooltip-related">${tagList} &middot; ${linkCount} link${linkCount === 1 ? '' : 's'}</div>
     `;

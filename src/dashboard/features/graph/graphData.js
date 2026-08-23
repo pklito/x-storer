@@ -44,6 +44,7 @@ function buildNodeConnections(tagToNodeIds, tags, tweetId){
         links.push(link);
         bestNode[1].forEach((e)=>{tagSet.delete(e);});
     }
+    return links;
 }
 
 /**
@@ -71,7 +72,7 @@ export function buildGraphData(tweets, positionCache) {
         const id = t.id;
 
         //Create links
-        nodeLinks.concat(buildNodeConnections(tagToNodeIds, tags, id));
+        nodeLinks.push(...buildNodeConnections(tagToNodeIds, tags, id));
         //Create Node
         var p = positionCache.has(id) ? positionCache[id] : {x: Math.random()*900, y: Math.random()*450}
         nodes.push({ id: id, tweet: t, x: p.x, y: p.y });

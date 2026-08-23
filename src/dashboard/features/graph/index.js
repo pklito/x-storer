@@ -111,8 +111,8 @@ export function renderForceGraph(tweets, reset = true) {
     simulation = d3.forceSimulation(nodes)
         .force('link', d3.forceLink(links).id(d => d.id).distance(15).strength(0.7))
         .force('charge', d3.forceManyBody().strength(-50))
-        .force('x', d3.forceX(v => v.tags?.length ? width/2 : -width/4).strength(v => v.tags?.length ? 0.1 : 0.3))
-        .force('y', d3.forceY(height/2).strength(v => v.tags?.length ? 0.1 : 0.13))
+        .force('x', d3.forceX(v => v.tags?.length ? width/2 : -width/4).strength(v => v.tweet.tags?.length ? 0.1 : 0.3))
+        .force('y', d3.forceY(height/2).strength(v => v.tweet.tags?.length ? 0.1 : 0.13))
         .force('collide', d3.forceCollide().radius(d => nodeRadius(d)).strength(0.9));
 
     setHullGroup(zoomGroup.append('g').attr('class', 'force-graph-hulls'));
