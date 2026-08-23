@@ -49,7 +49,7 @@ export function setHullGroup(g) {
 // tags actually get a drawn hull. Operates on whatever node set is
 // passed in, so it works the same whether called after a full rebuild
 // or from updateHulls() against the live (unchanged) node set.
-export function computeHullEntries(nodesArr, taggedCount) {
+export function computeHullEntries(nodesArr) {
     const tagToNodes = new Map();
     nodesArr.forEach(n => {
         n.tags.forEach(tag => {
@@ -59,7 +59,7 @@ export function computeHullEntries(nodesArr, taggedCount) {
     });
     return Array.from(tagToNodes.entries())
         .map(([tag, tagNodes]) => ({ tag, group: tagGroupOf(tag), nodes: tagNodes }))
-        .filter(entry => (entry.nodes.length / (taggedCount || 1)) >= config.groupHullThreshold);
+        .filter(entry => (entry.nodes.length / nodesArr.length) >= config.groupHullThreshold);
 }
 
 export function joinHulls(entries) {
@@ -111,9 +111,7 @@ export function drawHulls() {
 // since node state itself lives in index.js, not here.
 export function updateHulls(nodesArr) {
     if (!hullGroup || !nodesArr || nodesArr.length === 0) return;
-    const untaggedCount = nodesArr.filter(n => n.tags.length === 0).length;
-    const taggedCount = nodesArr.length - untaggedCount;
-    joinHulls(computeHullEntries(nodesArr, taggedCount));
+    joinHulls(computeHullEntries(nodesArr));
     drawHullGeometry(hullSel);
     applyHullOpacity();
 }

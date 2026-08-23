@@ -22,15 +22,10 @@ function pickRandom(arr, n) {
     return picked;
 }
 
-function shuffle(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-}
 
+function connectNode(tagToNodeIds, tweet){
+    
+}
 
 /**
  * 
@@ -44,7 +39,6 @@ export function buildGraphData(tweets, positionCache) {
             .slice(0, config.maxTweets)
         : tweets;
 
-    const tagCounts = new Map();
     /** @type {Map<string,string[]>} */
     const tagToNodeIds = new Map();
     const nodes = [];
@@ -58,11 +52,13 @@ export function buildGraphData(tweets, positionCache) {
         if(!config.showUntaggedTweets && !tags.length)
             return;
 
-        const id = tweetNodeId(t, i);
+        const id = t.id;
         /** @type {Set} */
         const tagSet = new Set(tags)
         //Finding the best links for each tag:
         while(tagSet.size > 0){
+
+            //Populate a nodefrequency map, 
             /** @type {Map<string, Set>} */
             const nodeFrequency = new Map()
             tagSet.forEach((e) => {
@@ -94,39 +90,10 @@ export function buildGraphData(tweets, positionCache) {
 
         // POST 
         tags.forEach(tag => {
-            tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
             if (!tagToNodeIds.has(tag)) tagToNodeIds.set(tag, []);
             tagToNodeIds.get(tag).push(id);
         });
     });
-
-    // Dominant tag = the most common of a tweet's own tags, within the
-    // current filter — decides which group color the square gets.
-    // Tweets with no (remaining) tags have no dominant tag/group and
-    // fall back to the neutral node color at render time.
-    nodes.forEach(n => {
-        if (n.tags.length === 0) {
-            n.dominantTag = null;
-            n.group = null;
-            return;
-        }
-        n.dominantTag = n.tags.reduce((best, tag) =>
-            (tagCounts.get(tag) || 0) > (tagCounts.get(best) || 0) ? tag : best, n.tags[0]);
-        n.group = tagGroupOf(n.dominantTag);
-    });
-    // Shape: a tweet is a square if its links reach neighbors through
-    // more than one distinct tag — i.e. it bridges more than one topic
-    // in this mesh.
-    // const incidentTags = new Map(nodes.map(n => [n.id, new Set()]));
-    // linkMap.forEach(link => {
-    //     link.tags.forEach(tag => {
-    //         incidentTags.get(link.source).add(tag);
-    //         incidentTags.get(link.target).add(tag);
-    //     });
-    // });
-    // nodes.forEach(n => {
-    //     n.shape = incidentTags.get(n.id).size > 1 ? 'square' : 'circle';
-    // });
 
     return {
         nodes,
