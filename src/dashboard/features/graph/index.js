@@ -48,7 +48,7 @@ const positionCache = new Map()
 function eraseForceGraph(){
     positionCache.clear()
     nodes.forEach((e) => {
-        positionCache[e.id] = {x:e.x, y:e.y}
+        positionCache.set(e.id,{x:e.x, y:e.y});
     })
     resetHover();
     tweetsGraph?.replaceChildren();
