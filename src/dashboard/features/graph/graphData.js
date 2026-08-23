@@ -17,6 +17,14 @@ function tweetNodeId(t, i) {
     return `${t.id ?? t.tweetId ?? `${t.timestamp || 'na'}-${i}`}`;
 }
 
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
 function pickRandom(arr, n) {
     if (arr.length <= n) return arr.slice();
     const pool = arr.slice();
@@ -52,12 +60,10 @@ function buildNodeConnections(tags, tweetId){
                 break;
             let evalEntry = (entry) => {
                 const connections = ID_TO_DATA.get(entry[0])?.connections ?? 0;
-                return (10 * (entry[1].size))
-                    - Math.max(4, connections)
-                    - (connections == 1 ? 1 : 0) + 4;
+                return (10 * (entry[1].size));
             };
 
-            var bestNode = [...nodeFrequency.entries()]
+            var bestNode = shuffle([...nodeFrequency.entries()])
                 .reduce((max, entry) =>
                     evalEntry(max) >= evalEntry(entry) ? max : entry
                 );
