@@ -3,7 +3,7 @@
 // module that needs to read or write a tunable can just import `config`.
 export const config = {
     maxTweets: 1200,           // cap on nodes shown at once, for perf/legibility
-    linksPerTweet: 4,         // each tweet's total link budget is linksPerTweet..linksPerTweet+1,
+    linksPerTweet: 1,         // each tweet's total link budget is linksPerTweet..linksPerTweet+1,
                                // spread across its tags
     groupHullThreshold: 0.1,
     showUntaggedTweets : false,

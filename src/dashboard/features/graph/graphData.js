@@ -6,6 +6,7 @@ import { config } from './config.js';
 export const IGNORED_TAGS = ['video', 'gif', 'text-only', 'cw', 'old-untagged','art'];
 
 
+// Fake tweets dont  have ids?
 function tweetNodeId(t, i) {
     return `${t.id ?? t.tweetId ?? `${t.timestamp || 'na'}-${i}`}`;
 }
@@ -31,19 +32,26 @@ function shuffle(arr) {
 }
 
 
-
+/**
+ * 
+ * @param {Object[]} tweets 
+ * @param {Map} positionCache 
+ * @returns 
+ */
 export function buildGraphData(tweets, positionCache) {
     const capped = tweets.length > config.maxTweets
         ? [...tweets]
-            .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
             .slice(0, config.maxTweets)
         : tweets;
 
     const tagCounts = new Map();
+    /** @type {Map<string,string[]>} */
     const tagToNodeIds = new Map();
     const nodes = [];
+    const nodeLinks = [];
 
     capped.forEach((t, i) => {
+        /** @type {string[]} */
         const tags = (t.tags || []).filter(tag =>
             !IGNORED_TAGS.includes(tag));
 
@@ -51,9 +59,40 @@ export function buildGraphData(tweets, positionCache) {
             return;
 
         const id = tweetNodeId(t, i);
+        /** @type {Set} */
+        const tagSet = new Set(tags)
+        //Finding the best links for each tag:
+        while(tagSet.size > 0){
+            /** @type {Map<string, Set>} */
+            const nodeFrequency = new Map()
+            tagSet.forEach((e) => {
+                tagToNodeIds.get(e)?.forEach((id) => {
+                    if(!nodeFrequency.has(id)) nodeFrequency.set(id, new Set());
+                    nodeFrequency.get(id).add(e)
+                })
+            })
+
+            var maxNode = null;
+            var maxNodeTags = new Set();
+            nodeFrequency.forEach((set, id) => {
+                if(set.size > maxNodeTags.size){
+                    maxNodeTags = set;
+                    maxNode = id;
+                }
+            })
+            if(!maxNode)
+                break;
+            var link = {source : t.id, target: maxNode}
+            nodeLinks.push(link);
+            maxNodeTags.forEach((e)=>{tagSet.delete(e);});
+        }
+
         var p = positionCache.has(id) ? positionCache[id] : {x: Math.random()*900, y: Math.random()*450}
         nodes.push({ id, tweet: t, tags, x: p.x, y: p.y });
 
+        
+
+        // POST 
         tags.forEach(tag => {
             tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
             if (!tagToNodeIds.has(tag)) tagToNodeIds.set(tag, []);
@@ -75,79 +114,23 @@ export function buildGraphData(tweets, positionCache) {
             (tagCounts.get(tag) || 0) > (tagCounts.get(best) || 0) ? tag : best, n.tags[0]);
         n.group = tagGroupOf(n.dominantTag);
     });
-
-    // Each tweet gets a total link budget, decided once up front — not
-    // a budget per tag. Without that, a tweet with 3 tags gets 3
-    // separate connectivity passes (one per tag), each handing out its
-    // own 2-3 links, so two clusters sharing several tags end up with
-    // several independent link attempts between them and everything
-    // over-connects. Here, once a tweet has spent its budget, later
-    // tags it belongs to are skipped entirely — so its total degree
-    // stays close to the target regardless of how many tags it has.
-    //
-    // Picks are still biased toward whichever candidates currently have
-    // the fewest links, so a popular tag's tweets don't just keep
-    // re-selecting each other and snowballing into tight cliques.
-    // Links are deduped across tags, accumulating weight/shared tags
-    // for edge thickness and tooltips.
-    //
-    // Untagged tweets never appear in tagToNodeIds, so this loop never
-    // gives them a link — which is correct, there's no shared tag to
-    // link them through.
-    const budget = new Map(nodes.map(n => [n.id, config.linksPerTweet + (Math.random() < 0.5 ? -1 : 0)]));
-    const degree = new Map(nodes.map(n => [n.id, 0]));
-    const linkMap = new Map();
-
-    shuffle(Array.from(tagToNodeIds.keys())).forEach(tag => {
-        const idsInTag = tagToNodeIds.get(tag);
-        shuffle(idsInTag).forEach(id => {
-            const remaining = budget.get(id) - degree.get(id);
-            if (remaining <= 0) return; // budget already spent via an earlier shared tag
-
-            const others = idsInTag.filter(oid => oid !== id);
-            if (others.length === 0) return;
-
-            const count = Math.min(others.length, remaining);
-            const lowestDegreeFirst = shuffle(others).sort((a, b) => degree.get(a) - degree.get(b));
-            const pool = lowestDegreeFirst.slice(0, Math.min(others.length, count + 3));
-
-            pickRandom(pool, count).forEach(otherId => {
-                const key = id < otherId ? `${id}|${otherId}` : `${otherId}|${id}`;
-                let link = linkMap.get(key);
-                if (!link) {
-                    // `id` is the stable key used for DOM/simulation data
-                    // joins across re-renders (see index.js) — keep it
-                    // distinct from d3-force's own `.index`.
-                    link = { id: key, source: id, target: otherId, weight: 0, tags: new Set() };
-                    linkMap.set(key, link);
-                    degree.set(id, degree.get(id) + 1);
-                    degree.set(otherId, degree.get(otherId) + 1);
-                }
-                link.weight += 1;
-                link.tags.add(tag);
-            });
-        });
-    });
-
     // Shape: a tweet is a square if its links reach neighbors through
     // more than one distinct tag — i.e. it bridges more than one topic
-    // in this mesh. A tweet whose links all happen to run through a
-    // single shared tag (or an untagged tweet, which has none) stays a
-    // circle.
-    const incidentTags = new Map(nodes.map(n => [n.id, new Set()]));
-    linkMap.forEach(link => {
-        link.tags.forEach(tag => {
-            incidentTags.get(link.source).add(tag);
-            incidentTags.get(link.target).add(tag);
-        });
-    });
-    nodes.forEach(n => {
-        n.shape = incidentTags.get(n.id).size > 1 ? 'square' : 'circle';
-    });
+    // in this mesh.
+    // const incidentTags = new Map(nodes.map(n => [n.id, new Set()]));
+    // linkMap.forEach(link => {
+    //     link.tags.forEach(tag => {
+    //         incidentTags.get(link.source).add(tag);
+    //         incidentTags.get(link.target).add(tag);
+    //     });
+    // });
+    // nodes.forEach(n => {
+    //     n.shape = incidentTags.get(n.id).size > 1 ? 'square' : 'circle';
+    // });
 
     return {
         nodes,
-        links: Array.from(linkMap.values()),
+        links: nodeLinks,
         shownCount: nodes.length,
     };
 }

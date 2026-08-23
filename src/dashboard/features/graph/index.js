@@ -59,7 +59,7 @@ function eraseForceGraph(){
 // scratch. Use this when the underlying tweet list changes or the panel
 // resizes — never call it for a config-slider change, since it restarts
 // the layout instead of nudging it.
-export function renderForceGraph(tweets) {
+export function renderForceGraph(tweets, reset = true) {
     lastTweets = tweets;
     eraseForceGraph();
 
@@ -77,6 +77,7 @@ export function renderForceGraph(tweets) {
         return;
     }
 
+    //counts
     const untaggedCount = nodes.filter(n => n.tags.length === 0).length;
     const taggedCount = nodes.length - untaggedCount;
 
@@ -94,10 +95,11 @@ export function renderForceGraph(tweets) {
     height = Math.max(400, (tweetsGraph.clientHeight || 700) - 56);
 
     const svg = d3.select(canvasWrap)
-        .append('svg')
+      .append('svg')
         .attr('class', 'force-graph-svg')
         .attr('viewBox', [0, 0, width, height]);
 
+    // Here starts the actual logic
     zoomGroup = svg.append('g').attr('class', 'zoom-group');
 
     svg.call(d3.zoom()
@@ -107,11 +109,11 @@ export function renderForceGraph(tweets) {
     computeScales(nodes, links);
 
     simulation = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(15).strength(0.35))
-        .force('charge', d3.forceManyBody().strength(-30))
+        .force('link', d3.forceLink(links).id(d => d.id).distance(15).strength(0.7))
+        .force('charge', d3.forceManyBody().strength(-50))
         .force('x', d3.forceX(v => v.tags?.length ? width/2 : -width/4).strength(v => v.tags?.length ? 0.1 : 0.3))
         .force('y', d3.forceY(height/2).strength(v => v.tags?.length ? 0.1 : 0.13))
-        .force('collide', d3.forceCollide().radius(d => nodeRadius(d) + 2).strength(0.9));
+        .force('collide', d3.forceCollide().radius(d => nodeRadius(d)).strength(0.9));
 
     setHullGroup(zoomGroup.append('g').attr('class', 'force-graph-hulls'));
     joinHulls(computeHullEntries(nodes, taggedCount));
@@ -146,28 +148,15 @@ export function renderForceGraph(tweets) {
     tweetsGraph.appendChild(buildLegend());
 }
 
-// Config-driven data update, for the Max tweets / Links per tweet
-// sliders — the only two knobs that actually change which tweets or
-// links exist. Rebuilds graph data, then merges it onto the *existing*
-// node/link objects (by id) so any node present both before and after
-// keeps its live x/y/vx/vy/fx/fy — it never jumps or restarts. Only
-// nodes/links that are genuinely new or genuinely gone get added or
-// removed. The simulation itself is reused; it's just nudged with a
-// small alpha bump rather than torn down and rebuilt.
 export function updateGraphData() {
-    if (!tweetsGraph || !simulation || !canvasWrap) {
-        renderForceGraph(lastTweets);
-        return;
-    }
-
     const built = buildGraphData(lastTweets, positionCache);
     const freshNodes = built.nodes;
     const freshLinks = built.links;
 
-    if (freshNodes.length === 0) {
-        renderForceGraph(lastTweets);
-        return;
-    }
+    // if (freshNodes.length === 0) {
+    //     renderForceGraph(lastTweets);
+    //     return;
+    // }
 
     resetHover();
 
@@ -247,11 +236,8 @@ export function updateGraphData() {
 // the next time simulation.nodes(...) runs, since those force accessors
 // close over these same `let` bindings rather than snapshotting them.
 function computeScales(nodesArr, linksArr) {
-    const maxWeight = d3.max(linksArr, d => d.weight) || 1;
-    edgeWidth = d3.scaleLinear().domain([1, maxWeight]).range([1, 3]).clamp(true);
-
-    const maxTagsPerTweet = d3.max(nodesArr, d => d.tags.length) || 1;
-    nodeSize = d3.scaleLinear().domain([1, maxTagsPerTweet]).range(NODE_SIZE_RANGE).clamp(true);
+    edgeWidth = d3.scaleLinear().domain([1, 3]).range([1, 3]).clamp(true);
+    nodeSize = d3.scaleLinear().domain([1, 5]).range(NODE_SIZE_RANGE).clamp(true);
     nodeRadius = d => nodeSize(Math.max(1, d.tags.length)) / 2;
 }
 
