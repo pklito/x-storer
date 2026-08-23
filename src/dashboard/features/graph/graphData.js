@@ -39,9 +39,19 @@ function buildNodeConnections(tagToNodeIds, tags, tweetId){
 
         if(nodeFrequency.size == 0)
             break;
-        var bestNode = [...nodeFrequency.entries()].reduce((max, entry) => max[1] >= entry[1] ? max : entry);
-        var link = {source : tweetId, target: bestNode[0]}
-        links.push(link);
+        
+        for(let i = 0; i < config.linksPerTweet; i++){
+            if(nodeFrequency.size === 0)
+                break;
+            var bestNode = [];
+            if(i % 2 === 1)
+                bestNode = [...nodeFrequency.entries()].reduce((max, entry) => (max[1] > entry[1]) ? max : entry);
+            else
+                bestNode = [...nodeFrequency.entries()].reduce((max, entry) => (max[1] >= entry[1]) ? max : entry);
+            var link = {source : tweetId, target: bestNode[0]}
+            links.push(link);
+            nodeFrequency.delete(bestNode[0]);
+        }
         bestNode[1].forEach((e)=>{tagSet.delete(e);});
     }
     return links;
@@ -74,7 +84,11 @@ export function buildGraphData(tweets, positionCache) {
         //Create links
         nodeLinks.push(...buildNodeConnections(tagToNodeIds, tags, id));
         //Create Node
-        var p = positionCache.has(id) ? positionCache[id] : {x: Math.random()*900, y: Math.random()*450}
+        if(!positionCache.has(id)){
+            console.log(`${id} was missing`);
+            
+        }
+        var p = positionCache.has(id) ? positionCache.get(id) : {x: Math.random()*900, y: Math.random()*450}
         nodes.push({ id: id, tweet: t, x: p.x, y: p.y });
 
         
