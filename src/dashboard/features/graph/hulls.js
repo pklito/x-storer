@@ -59,7 +59,7 @@ export function computeHullEntries(nodesArr) {
     });
     return Array.from(tagToNodes.entries())
         .map(([tag, tagNodes]) => ({ tag, group: tagGroupOf(tag), nodes: tagNodes }))
-        .filter(entry => (entry.nodes.length / nodesArr.length) >= config.groupHullThreshold);
+        .filter(entry => (entry.nodes.length / nodesArr.length) <= config.groupHullThreshold);
 }
 
 export function joinHulls(entries) {

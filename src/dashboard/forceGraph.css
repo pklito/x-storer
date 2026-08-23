@@ -248,3 +248,7 @@
     border-radius: 50%;
     flex-shrink: 0;
 }
+
+.force-graph-empty.hidden{
+    display: none;
+}
