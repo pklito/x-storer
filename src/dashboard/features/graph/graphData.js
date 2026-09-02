@@ -112,7 +112,7 @@ export function buildGraphData(tweets, positionCache) {
         buildNodeConnections(tags, id);
         //Create Node
         var p = positionCache.has(id) ? positionCache.get(id) : {x: Math.random()*900, y: Math.random()*450}
-        NODES.push({ id: id, tweet: t, x: p.x, y: p.y });
+        NODES.push({ id: id, tweet: t, x: p.x, y: p.y, group: tagGroupOf(t.tags[0]) });
 
         
 
