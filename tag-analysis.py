@@ -26,20 +26,42 @@ flat clustering. The idea:
       the printout/JSON once per parent) instead of being pushed off into the
       descriptive list or forced to pick just one parent.
 
+If the export has a settings.tagGroupAssignments map (your existing manual
+tag groups), it's loaded automatically and used two ways:
+
+    1. Every tag printed anywhere is annotated with its manual group, e.g.
+       "minecraft (563) [Source/Game]", so you can eyeball how well the
+       data-driven structure lines up with your existing groups.
+    2. A GROUP CONSISTENCY REPORT shows, per manual group, how its member
+       tags actually got classified (tree node / descriptive / alias / rare),
+       and labels each group "folder-like", "descriptor-like", or "mixed"
+       based on that split -- directly answering "which of my groups are
+       actually consistent vs. a grab-bag."
+    3. Optional --group-roots flag: for groups that come back "folder-like",
+       wraps their discovered ROOT tags under a synthetic top-level node
+       named after the group (e.g. a "[Source/Game]" node containing
+       "minecraft", "zelda", "pokemon", etc. as its children), giving you a
+       ready-made top folder layer wherever your manual groups and the data
+       already agree. Mixed / descriptor-like groups are left alone rather
+       than forced into this.
+
 Output: an indented tree printout, a list of alias/merge-candidate pairs, a
-list of descriptive tags (empty if --force-tree is set), and a list of rare
-tags. Also optional JSON dump of the tree structure for use elsewhere (e.g.
-to actually build folders).
+list of descriptive tags (empty if --force-tree is set), a list of rare
+tags, and (if group data is present) a group consistency report. Also
+optional JSON dump of the tree structure for use elsewhere (e.g. to actually
+build folders).
 
 Usage:
     python3 tag_tree.py export.json
-    python3 tag_tree.py export.json --min-count 3 --parent-thresh 0.8 --merge-thresh 0.9 --spread 2
+    python3 tag_tree.py export.json --min-count 3 --parent-thresh 0.8 --merge-thresh 0.9 --pmi-thresh -0.4
     python3 tag_tree.py export.json --force-tree
+    python3 tag_tree.py export.json --group-roots
     python3 tag_tree.py export.json --json-out tree.json
 """
 
 import argparse
 import json
+import math
 import sys
 from collections import defaultdict
 
@@ -55,7 +77,14 @@ def load_tagsets(path):
             tag = str(tag)
             if tag:
                 tag_to_tweets[tag].add(i)
-    return tag_to_tweets, len(tweets)
+    tag_group = dict(data.get("settings", {}).get("tagGroupAssignments", {}) or {})
+    return tag_to_tweets, len(tweets), tag_group
+
+
+def tag_label(tag, counts, tag_group):
+    group = tag_group.get(tag)
+    group_note = f" [{group}]" if group else ""
+    return f"{tag} ({counts[tag]}){group_note}"
 
 
 def containment(a_set, b_set):
@@ -63,6 +92,38 @@ def containment(a_set, b_set):
     if not a_set:
         return 0.0
     return len(a_set & b_set) / len(a_set)
+
+
+def avg_pmi_vs_set(tag, other_tags, tag_to_tweets, n_total, alpha=0.5):
+    """
+    Average pointwise mutual information between `tag` and every tag in
+    `other_tags` (excluding itself), computed over ALL pairs -- including
+    pairs that never co-occur, which is the point: a true category tag
+    should be strongly UNDER-represented (very negative PMI) against most
+    other categories precisely because it almost never co-occurs with them,
+    not just among the few tags it happens to share a tweet with.
+    Additive smoothing (alpha) avoids log(0) for zero co-occurrence pairs
+    while still letting them pull the average sharply negative.
+    """
+    tset = tag_to_tweets[tag]
+    ta = len(tset)
+    if ta == 0:
+        return 0.0
+    pmis = []
+    for other in other_tags:
+        if other == tag:
+            continue
+        oset = tag_to_tweets[other]
+        oc = len(oset)
+        if oc == 0:
+            continue
+        co = len(tset & oset)
+        expected = (ta * oc) / n_total
+        pmi = math.log((co + alpha) / (expected + alpha))
+        pmis.append(pmi)
+    if not pmis:
+        return 0.0
+    return sum(pmis) / len(pmis)
 
 
 def outranks(tag_to_tweets, a, b):
@@ -80,7 +141,7 @@ def outranks(tag_to_tweets, a, b):
     return a < b
 
 
-def build_tree(tag_to_tweets, min_count, parent_thresh, merge_thresh, force_tree=False):
+def build_tree(tag_to_tweets, n_tweets, min_count, parent_thresh, merge_thresh, force_tree=False):
     tags = [t for t, s in tag_to_tweets.items() if len(s) >= min_count]
     rare = [t for t, s in tag_to_tweets.items() if len(s) < min_count]
 
@@ -156,6 +217,21 @@ def build_tree(tag_to_tweets, min_count, parent_thresh, merge_thresh, force_tree
     # 5. Among roots: split into "true category roots" vs "descriptive".
     #    Skipped entirely when force_tree is set -- every root is kept as a
     #    real tree root, per the --force-tree contract of "no descriptive bucket".
+    #
+    #    IMPORTANT: this compares each childless root against the FULL root
+    #    candidate pool (which, at this point, still includes eventual
+    #    descriptors -- they haven't been separated out yet). That's fine
+    #    for the PMI check specifically because it's symmetric: a true
+    #    category tag ends up with a strongly negative average PMI against
+    #    the pool (it rarely co-occurs with almost everything in it, since
+    #    most of the pool are OTHER categories it's mutually exclusive
+    #    with), while a real descriptor's average PMI sits close to zero
+    #    (it co-occurs with everything in the pool at roughly the rate
+    #    chance would predict). A naive "count any co-occurrence as spread"
+    #    check does NOT have this property -- it can't tell "rarely
+    #    co-occurs with almost everything, but happens to touch one
+    #    descriptor a few times" apart from "co-occurs broadly" -- which is
+    #    exactly the failure mode this PMI version fixes.
     root_set = set(roots)
     descriptive = []
     true_roots = []
@@ -166,19 +242,8 @@ def build_tree(tag_to_tweets, min_count, parent_thresh, merge_thresh, force_tree
             if children_of.get(r):
                 true_roots.append(r)
                 continue
-            # how many DISTINCT other roots does this tag co-occur with?
-            other_root_hits = set()
-            for i in tag_to_tweets[r]:
-                for other in root_set:
-                    if other == r:
-                        continue
-                    if i in tag_to_tweets[other]:
-                        other_root_hits.add(other)
-            spread = len(other_root_hits)
-            if spread >= 1:  # placeholder, real cutoff applied by caller via --spread
-                descriptive.append((r, spread))
-            else:
-                true_roots.append(r)
+            avg_pmi = avg_pmi_vs_set(r, root_set, tag_to_tweets, n_tweets)
+            descriptive.append((r, avg_pmi))  # thresholding happens in finalize_descriptive
 
     return {
         "tags": tags,
@@ -194,27 +259,140 @@ def build_tree(tag_to_tweets, min_count, parent_thresh, merge_thresh, force_tree
     }
 
 
-def finalize_descriptive(result, spread_thresh):
-    """Apply the --spread cutoff to decide final descriptive vs true-root split.
-    No-op passthrough when force_tree was used (descriptive_raw is already empty)."""
+def finalize_descriptive(result, pmi_thresh):
+    """
+    Apply the --pmi-thresh cutoff to decide final descriptive vs true-root
+    split. Each childless root candidate carries an avg_pmi score (see
+    avg_pmi_vs_set): scores <= pmi_thresh (i.e. clearly under-represented
+    against the other root candidates, on average) stay a true root;
+    everything else becomes descriptive. No-op passthrough when force_tree
+    was used (descriptive_raw is already empty in that case).
+    """
     descriptive = []
     true_roots = list(result["true_roots"])
-    for tag, spread in result["descriptive_raw"]:
-        if spread >= spread_thresh:
-            descriptive.append(tag)
-        else:
+    for tag, avg_pmi in result["descriptive_raw"]:
+        if avg_pmi <= pmi_thresh:
             true_roots.append(tag)
-    return sorted(true_roots, key=lambda t: -result["counts"][t]), sorted(descriptive, key=lambda t: -result["counts"][t])
+        else:
+            descriptive.append(tag)
+    true_roots = sorted(true_roots, key=lambda t: -result["counts"][t])
+    descriptive = sorted(descriptive, key=lambda t: -result["counts"][t])
+    # stash for build_group_report to consume without recomputation
+    result["_descriptive_final"] = descriptive
+    result["true_roots_set"] = set(true_roots)
+    return true_roots, descriptive
 
 
-def print_tree(tag, children_of, counts, depth=0, alias_map=None):
+def print_tree(tag, children_of, counts, depth=0, alias_map=None, tag_group=None,
+                synthetic=False):
     prefix = "  " * depth + ("└─ " if depth > 0 else "")
     alias_note = ""
     if alias_map and tag in alias_map:
         alias_note = f"  [alias: {alias_map[tag]}]"
-    print(f"{prefix}{tag} ({counts[tag]}){alias_note}")
+    if synthetic:
+        print(f"{prefix}[{tag}]  (synthetic group node)")
+    else:
+        print(f"{prefix}{tag_label(tag, counts, tag_group or {})}{alias_note}")
     for child in sorted(children_of.get(tag, []), key=lambda c: -counts[c]):
-        print_tree(child, children_of, counts, depth + 1, alias_map)
+        print_tree(child, children_of, counts, depth + 1, alias_map, tag_group)
+
+
+def build_group_report(result, tag_group):
+    """
+    For each manual tag group, classify every member tag (that made it past
+    --min-count) as one of: tree (root or nested node), descriptive, alias
+    (secondary/duplicate half of a pair), or rare. Then label the group
+    folder-like / descriptor-like / mixed based on the tree-vs-descriptive split.
+    Tags not present in tag_group, or present but never used, are ignored here.
+    """
+    tags = set(result["tags"])
+    aliased = {s for _, s, _, _ in result["alias_pairs"]}
+    in_tree = set(result["parent_of"].keys()) | set(result["children_of"].keys())
+    descriptive_set = set(result.get("_descriptive_final", []))
+
+    group_members = defaultdict(list)
+    for tag, group in tag_group.items():
+        group_members[group].append(tag)
+
+    report = {}
+    for group, members in group_members.items():
+        buckets = {"tree": [], "descriptive": [], "alias": [], "rare": [], "unused": []}
+        for tag in members:
+            if tag in aliased:
+                buckets["alias"].append(tag)
+            elif tag in descriptive_set:
+                buckets["descriptive"].append(tag)
+            elif tag in in_tree or tag in result.get("true_roots_set", set()):
+                buckets["tree"].append(tag)
+            elif tag in tags:
+                # in the tag pool but ended up isolated (no parent/children,
+                # not flagged descriptive e.g. under --force-tree) -> tree/root
+                buckets["tree"].append(tag)
+            elif tag in result["rare"]:
+                buckets["rare"].append(tag)
+            else:
+                buckets["unused"].append(tag)  # tag in group map but 0 occurrences in data
+
+        scored = len(buckets["tree"]) + len(buckets["descriptive"])
+        if scored == 0:
+            verdict = "n/a (no classified members)"
+        else:
+            tree_frac = len(buckets["tree"]) / scored
+            if tree_frac >= 0.8:
+                verdict = "folder-like"
+            elif tree_frac <= 0.2:
+                verdict = "descriptor-like"
+            else:
+                verdict = "mixed"
+        report[group] = {"buckets": buckets, "verdict": verdict}
+    return report
+
+
+def print_group_report(report, counts):
+    print("\n===== GROUP CONSISTENCY REPORT =====")
+    for group in sorted(report.keys(), key=lambda g: g):
+        info = report[group]
+        b = info["buckets"]
+        print(f"\n  {group}  ->  {info['verdict']}")
+        if b["tree"]:
+            print(f"    tree:        {', '.join(sorted(b['tree'], key=lambda t: -counts.get(t, 0)))}")
+        if b["descriptive"]:
+            print(f"    descriptive: {', '.join(sorted(b['descriptive'], key=lambda t: -counts.get(t, 0)))}")
+        if b["alias"]:
+            print(f"    alias:       {', '.join(b['alias'])}")
+        if b["rare"]:
+            print(f"    rare:        {', '.join(b['rare'])}")
+        if b["unused"]:
+            print(f"    unused:      {', '.join(b['unused'])}")
+
+
+def apply_group_roots(true_roots, children_of, tag_group, group_report):
+    """
+    For groups verdict == 'folder-like', wrap their member tags that are
+    currently top-level true_roots under a synthetic '[GroupName]' node.
+    Returns a new top-level list mixing real roots (ungrouped/mixed groups)
+    and synthetic group nodes, plus an updated children_of map (copy) that
+    includes the synthetic node -> real roots edges.
+    """
+    new_children_of = defaultdict(list, {k: list(v) for k, v in children_of.items()})
+    true_root_set = set(true_roots)
+    grouped_away = set()
+    synthetic_nodes = []
+
+    for group, info in group_report.items():
+        if info["verdict"] != "folder-like":
+            continue
+        members_in_roots = [t for t in info["buckets"]["tree"] if t in true_root_set]
+        if len(members_in_roots) < 2:
+            continue  # not worth a synthetic wrapper for a single tag
+        synth_name = group
+        new_children_of[synth_name] = sorted(members_in_roots)
+        synthetic_nodes.append(synth_name)
+        grouped_away.update(members_in_roots)
+
+    remaining_top = [t for t in true_roots if t not in grouped_away]
+    new_top_level = synthetic_nodes + remaining_top
+    return new_top_level, new_children_of, set(synthetic_nodes)
 
 
 def main():
@@ -226,62 +404,95 @@ def main():
                      help="min fraction of a tag's tweets that must also carry the candidate parent tag (default 0.8)")
     ap.add_argument("--merge-thresh", type=float, default=0.9,
                      help="min MUTUAL containment fraction to flag two tags as aliases/duplicates (default 0.9)")
-    ap.add_argument("--spread", type=int, default=2,
-                     help="a childless root co-occurring with this many or more OTHER roots is reclassified as descriptive (default 2, ignored if --force-tree is set)")
+    ap.add_argument("--pmi-thresh", type=float, default=-0.4,
+                     help="a childless root with average PMI (vs the other root candidates) at or below this "
+                          "is kept as a true category root (it's clearly under-represented against most other "
+                          "roots, i.e. mutually exclusive/folder-like); above it, it's reclassified as "
+                          "descriptive. More negative = stricter (fewer tags kept as roots). Default -0.4. "
+                          "Ignored if --force-tree is set.")
     ap.add_argument("--force-tree", action="store_true",
                      help="disable the descriptive bucket entirely and allow tags to have MULTIPLE parents "
                           "(e.g. 'minecraft' nested under both 'art' and 'gamedev' if it qualifies as a subset of both)")
+    ap.add_argument("--group-roots", action="store_true",
+                     help="wrap root tags belonging to a 'folder-like' manual tag group under a synthetic "
+                          "[GroupName] top-level node (requires settings.tagGroupAssignments in the export)")
     ap.add_argument("--json-out", default=None, help="optional path to dump the tree as JSON")
     args = ap.parse_args()
 
-    tag_to_tweets, n_tweets = load_tagsets(args.json_path)
+    tag_to_tweets, n_tweets, tag_group = load_tagsets(args.json_path)
     print(f"Loaded {n_tweets} tweets, {len(tag_to_tweets)} distinct tags.")
+    if tag_group:
+        print(f"Found {len(tag_group)} manual tag-group assignments in settings.tagGroupAssignments.")
 
-    result = build_tree(tag_to_tweets, args.min_count, args.parent_thresh, args.merge_thresh,
+    result = build_tree(tag_to_tweets, n_tweets, args.min_count, args.parent_thresh, args.merge_thresh,
                          force_tree=args.force_tree)
-    true_roots, descriptive = finalize_descriptive(result, args.spread)
+    true_roots, descriptive = finalize_descriptive(result, args.pmi_thresh)
 
     alias_map = {}
     for primary, secondary, c1, c2 in result["alias_pairs"]:
         alias_map[primary] = f"{secondary} (mutual containment {c1:.2f}/{c2:.2f})"
 
+    group_report = build_group_report(result, tag_group) if tag_group else {}
+
+    top_level = true_roots
+    children_of = result["children_of"]
+    synthetic_nodes = set()
+    if args.group_roots:
+        if not tag_group:
+            print("\n(--group-roots requested but no settings.tagGroupAssignments found in the export; skipping)")
+        else:
+            top_level, children_of, synthetic_nodes = apply_group_roots(
+                true_roots, result["children_of"], tag_group, group_report)
+
     print("\n===== TAG TREE =====")
     if args.force_tree:
         print("(--force-tree: nodes with multiple qualifying parents appear once under EACH parent)")
-    for r in true_roots:
-        print_tree(r, result["children_of"], result["counts"], alias_map=alias_map)
+    if synthetic_nodes:
+        print("(--group-roots: [GroupName] nodes are synthetic wrappers, not data-derived tags)")
+    for r in sorted(top_level, key=lambda t: (t not in synthetic_nodes, -result["counts"].get(t, 0))):
+        print_tree(r, children_of, result["counts"], alias_map=alias_map, tag_group=tag_group,
+                   synthetic=(r in synthetic_nodes))
 
     if result["alias_pairs"]:
         print("\n===== ALIAS / MERGE CANDIDATES (near-duplicate tags) =====")
         for primary, secondary, c1, c2 in sorted(result["alias_pairs"], key=lambda x: -result["counts"][x[0]]):
-            print(f"  {primary} ({result['counts'][primary]})  <->  {secondary} ({result['counts'][secondary]})"
+            print(f"  {tag_label(primary, result['counts'], tag_group)}  <->  "
+                  f"{tag_label(secondary, result['counts'], tag_group)}"
                   f"   containment: {secondary}->{primary}={c1:.2f}, {primary}->{secondary}={c2:.2f}")
 
     if descriptive:
         print("\n===== DESCRIPTIVE / NON-HIERARCHICAL TAGS =====")
         for tag in descriptive:
-            print(f"  {tag} ({result['counts'][tag]})")
+            print(f"  {tag_label(tag, result['counts'], tag_group)}")
 
     if result["rare"]:
         print(f"\n===== RARE TAGS (< {args.min_count} uses) =====")
         for tag in sorted(result["rare"], key=lambda t: -len(tag_to_tweets[t])):
-            print(f"  {tag} ({len(tag_to_tweets[tag])})")
+            print(f"  {tag_label(tag, {t: len(tag_to_tweets[t]) for t in [tag]}, tag_group)}")
+
+    if group_report:
+        print_group_report(group_report, result["counts"])
 
     if args.json_out:
-        def node_to_dict(tag):
+        def node_to_dict(tag, is_synthetic=False):
             return {
                 "tag": tag,
-                "count": result["counts"][tag],
-                "children": [node_to_dict(c) for c in
-                             sorted(result["children_of"].get(tag, []), key=lambda c: -result["counts"][c])]
+                "synthetic_group_node": is_synthetic,
+                "count": None if is_synthetic else result["counts"].get(tag),
+                "group": None if is_synthetic else tag_group.get(tag),
+                "children": [node_to_dict(c, c in synthetic_nodes) for c in
+                             sorted(children_of.get(tag, []),
+                                    key=lambda c: -result["counts"].get(c, 0))]
             }
         out = {
-            "tree": [node_to_dict(r) for r in true_roots],
+            "tree": [node_to_dict(r, r in synthetic_nodes) for r in top_level],
             "aliases": [{"primary": p, "secondary": s, "contain_s_to_p": c1, "contain_p_to_s": c2}
                         for p, s, c1, c2 in result["alias_pairs"]],
             "descriptive": descriptive,
             "rare": result["rare"],
             "force_tree": args.force_tree,
+            "group_report": {g: {"verdict": info["verdict"], **info["buckets"]}
+                              for g, info in group_report.items()},
         }
         with open(args.json_out, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=2)
