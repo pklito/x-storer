@@ -7,7 +7,7 @@ This extension is based off this existing extension [XBookmarks](https://chromew
 made originally by [Alessandro](https://github.com/alamparelli)
 
 ### Features / Improvements:  
-- Improved partial rendering for large amounts of tweets at once (tested at ~6000 tweets)
+- Batching rendering to allow much larger amounts of tweets being displayed (tested at ~9000 tweets)
 - tweet tagging
   - group tags into the same color
   - hide certain tags by default
