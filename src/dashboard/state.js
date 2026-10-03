@@ -7,6 +7,7 @@
 
 export const state = {
     viewMode : 'grid',
+    shuffleSeed: null,
     allTweets: [],
     selectedTags: new Set(),   // tags included via normal click
     excludedTags: new Set(),   // tags excluded via shift-click
@@ -59,5 +60,7 @@ export const MEDIA_HANDLE_KEY = 'mediaRoot';
 export const RECENTLY_REMOVED_KEY = 'xb_recently_removed';
 export const HIDDEN_TAGS_KEY = 'xbookmarks_hidden_tags_v1';
 export const SIDEBAR_WIDTH_KEY = 'xbookmarks_sidebar_width_v1';
+export const SHUFFLE_SEED_KEY = 'xbookmarks_shuffle_seed_v1';
+export const MAX_SHUFFLE_SEED = 10;
 
 export const BUILT_IN_TAG_NAMES = ['video', 'gif', 'text-only', 'cw', 'untagged', 'fake'];

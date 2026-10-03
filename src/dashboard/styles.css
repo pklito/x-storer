@@ -792,6 +792,24 @@ body.sidebar-resizing {
     display: none !important;
 }
 
+.shuffle-group {
+    display: inline-flex;
+    align-items: stretch;
+}
+.shuffle-group .icon-btn.active {
+    color: var(--accent, #1d9bf0);
+}
+.shuffle-seed-input {
+    width: 72px;
+    margin-left: 4px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border, #333);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+}
+
 /* ==========================================================================
    11. Tweet Grid (Masonry — JS-based shortest-column distribution)
    ========================================================================== */

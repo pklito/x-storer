@@ -114,8 +114,28 @@ export function getExclusionOverlapCount(tag) {
     return wouldBeTweets.reduce((n, t) => n + (getEffectiveTags(t).includes(tag) ? 1 : 0), 0);
 }
 
+function seededRank(seed, id) {
+    let h = (seed ^ 0x9e3779b9) >>> 0;
+    const s = String(id);
+    for (let i = 0; i < s.length; i++) {
+        h = Math.imul(h ^ s.charCodeAt(i), 0x85ebca6b);
+        h ^= h >>> 13;
+    }
+    h = Math.imul(h ^ (h >>> 16), 0xc2b2ae35);
+    h ^= h >>> 15;
+    return (h >>> 0) / 4294967296;
+}
+
+export function shuffleTweets(tweets, seed) {
+    if (seed === null || seed === undefined) return tweets;
+    return tweets
+        .map(t => ({ t, r: seededRank(seed, t.id) }))
+        .sort((a, b) => a.r - b.r)
+        .map(x => x.t);
+}
+
 export function updateUI() {
-    const tweets = getFilteredTweets();
+    const tweets = shuffleTweets(getFilteredTweets(), state.shuffleSeed);
 
     const parts = [];
     if (state.selectedTags.size > 0) parts.push(Array.from(state.selectedTags).map(t => '#' + t).join(', '));

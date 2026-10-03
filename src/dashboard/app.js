@@ -1,4 +1,4 @@
-import { state, SIDEBAR_WIDTH_KEY } from './state.js';
+import { state, SIDEBAR_WIDTH_KEY, SHUFFLE_SEED_KEY, MAX_SHUFFLE_SEED } from './state.js';
 // import {
 //     tagModal, tagInput, tagEditorContainer, 
 //     suggestionsBox,  configureTagsBtn, tagGroupsModal,
@@ -52,7 +52,10 @@ function setupEventListeners() {
     setupEventHandlersTagAll();
 
 
-
+    DOM.shuffleBtn.addEventListener('click', () => {
+        state.shuffleSeed = Math.floor(Math.random() * 2 ** 32);
+        updateUI();
+    });
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);

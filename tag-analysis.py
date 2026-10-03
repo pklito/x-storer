@@ -44,6 +44,15 @@ tag groups), it's loaded automatically and used two ways:
        ready-made top folder layer wherever your manual groups and the data
        already agree. Mixed / descriptor-like groups are left alone rather
        than forced into this.
+    4. Optional --group-override / --group-overrides-file: manually force a
+       group's verdict instead of trusting the automatic classification --
+       e.g. --group-override "Quality=descriptive" pulls every "Quality"
+       member tag out of the tree even if some happened to look root-like,
+       and --group-override "Source/Game=folder" pulls every member into the
+       tree even if some looked too spread-out. Only affects the root-vs-
+       descriptive decision, not genuine nested subset relationships found in
+       the data. Any tag whose placement was changed this way is marked with
+       a "*" next to its group name wherever it's printed.
 
 Output: an indented tree printout, a list of alias/merge-candidate pairs, a
 list of descriptive tags (empty if --force-tree is set), a list of rare
@@ -56,6 +65,8 @@ Usage:
     python3 tag_tree.py export.json --min-count 3 --parent-thresh 0.8 --merge-thresh 0.9 --pmi-thresh -0.4
     python3 tag_tree.py export.json --force-tree
     python3 tag_tree.py export.json --group-roots
+    python3 tag_tree.py export.json --group-override "Quality=descriptive" --group-override "Source/Game=folder"
+    python3 tag_tree.py export.json --group-overrides-file overrides.json --group-roots
     python3 tag_tree.py export.json --json-out tree.json
 """
 
@@ -81,10 +92,90 @@ def load_tagsets(path):
     return tag_to_tweets, len(tweets), tag_group
 
 
-def tag_label(tag, counts, tag_group):
+def tag_label(tag, counts, tag_group, overridden_tags=None):
     group = tag_group.get(tag)
-    group_note = f" [{group}]" if group else ""
+    star = "*" if overridden_tags and tag in overridden_tags else ""
+    group_note = f" [{group}{star}]" if group else ""
     return f"{tag} ({counts[tag]}){group_note}"
+
+
+def parse_overrides(cli_overrides, overrides_file):
+    """
+    Build {group_name: 'folder'|'descriptive'} from --group-override entries
+    (list of 'Group=folder' strings) and/or a --group-overrides-file JSON
+    ({"Group": "folder", ...}). CLI entries win if the same group appears in
+    both.
+    """
+    overrides = {}
+    if overrides_file:
+        with open(overrides_file, "r", encoding="utf-8") as f:
+            file_overrides = json.load(f)
+        for k, v in file_overrides.items():
+            v = str(v).strip().lower()
+            if v not in ("folder", "descriptive"):
+                print(f"Warning: unknown override value '{v}' for group '{k}' in {overrides_file}, ignoring",
+                      file=sys.stderr)
+                continue
+            overrides[k] = v
+    for item in (cli_overrides or []):
+        if "=" not in item:
+            print(f"Warning: malformed --group-override '{item}', expected Group=folder|descriptive",
+                  file=sys.stderr)
+            continue
+        k, v = item.split("=", 1)
+        k, v = k.strip(), v.strip().lower()
+        if v not in ("folder", "descriptive"):
+            print(f"Warning: unknown override value '{v}' for group '{k}', ignoring", file=sys.stderr)
+            continue
+        overrides[k] = v
+    return overrides
+
+
+def apply_group_overrides(true_roots, descriptive, children_of, tag_group, overrides):
+    """
+    Reclassify root-candidate tags according to manual group overrides:
+      - group forced 'folder': any currently-descriptive member becomes a true root.
+      - group forced 'descriptive': any currently-root member (with or without
+        children) becomes descriptive; if it had children, they're promoted to
+        top-level roots rather than orphaned.
+    Only touches tags that were root candidates in the first place (i.e. either
+    a true root or in the descriptive bucket) -- tags nested via a real subset
+    relationship are left untouched, since overriding genuine containment data
+    would be arbitrary rather than principled.
+    Returns (true_roots, descriptive, children_of, overridden_tags) -- all new
+    objects; inputs are not mutated. Note: this is a single pass, so a child
+    promoted out of a demoted parent is not itself re-checked against its own
+    group's override in the same run (rare edge case; override that child's
+    group too if you need the cascade).
+    """
+    if not overrides:
+        return list(true_roots), list(descriptive), children_of, set()
+
+    true_root_set = set(true_roots)
+    descriptive_set = set(descriptive)
+    new_children_of = defaultdict(list, {k: list(v) for k, v in children_of.items()})
+    overridden_tags = set()
+
+    # folder override: promote childless descriptive tags into the tree
+    for tag in list(descriptive_set):
+        group = tag_group.get(tag)
+        if group and overrides.get(group) == "folder":
+            descriptive_set.discard(tag)
+            true_root_set.add(tag)
+            overridden_tags.add(tag)
+
+    # descriptive override: demote roots (promoting any children up) out of the tree
+    for tag in list(true_root_set):
+        group = tag_group.get(tag)
+        if group and overrides.get(group) == "descriptive":
+            true_root_set.discard(tag)
+            descriptive_set.add(tag)
+            overridden_tags.add(tag)
+            kids = new_children_of.pop(tag, [])
+            for c in kids:
+                true_root_set.add(c)
+
+    return list(true_root_set), list(descriptive_set), new_children_of, overridden_tags
 
 
 def containment(a_set, b_set):
@@ -284,7 +375,7 @@ def finalize_descriptive(result, pmi_thresh):
 
 
 def print_tree(tag, children_of, counts, depth=0, alias_map=None, tag_group=None,
-                synthetic=False):
+                synthetic=False, overridden_tags=None):
     prefix = "  " * depth + ("└─ " if depth > 0 else "")
     alias_note = ""
     if alias_map and tag in alias_map:
@@ -292,23 +383,27 @@ def print_tree(tag, children_of, counts, depth=0, alias_map=None, tag_group=None
     if synthetic:
         print(f"{prefix}[{tag}]  (synthetic group node)")
     else:
-        print(f"{prefix}{tag_label(tag, counts, tag_group or {})}{alias_note}")
+        print(f"{prefix}{tag_label(tag, counts, tag_group or {}, overridden_tags)}{alias_note}")
     for child in sorted(children_of.get(tag, []), key=lambda c: -counts[c]):
-        print_tree(child, children_of, counts, depth + 1, alias_map, tag_group)
+        print_tree(child, children_of, counts, depth + 1, alias_map, tag_group,
+                   overridden_tags=overridden_tags)
 
 
-def build_group_report(result, tag_group):
+def build_group_report(result, tag_group, true_roots, descriptive, children_of, overrides=None):
     """
     For each manual tag group, classify every member tag (that made it past
     --min-count) as one of: tree (root or nested node), descriptive, alias
     (secondary/duplicate half of a pair), or rare. Then label the group
-    folder-like / descriptor-like / mixed based on the tree-vs-descriptive split.
+    folder-like / descriptor-like / mixed based on the tree-vs-descriptive
+    split -- unless the group has a manual override, in which case that
+    verdict is used directly and flagged "(user override)".
     Tags not present in tag_group, or present but never used, are ignored here.
     """
+    overrides = overrides or {}
     tags = set(result["tags"])
     aliased = {s for _, s, _, _ in result["alias_pairs"]}
-    in_tree = set(result["parent_of"].keys()) | set(result["children_of"].keys())
-    descriptive_set = set(result.get("_descriptive_final", []))
+    in_tree = set(result["parent_of"].keys()) | set(children_of.keys()) | set(true_roots)
+    descriptive_set = set(descriptive)
 
     group_members = defaultdict(list)
     for tag, group in tag_group.items():
@@ -322,42 +417,50 @@ def build_group_report(result, tag_group):
                 buckets["alias"].append(tag)
             elif tag in descriptive_set:
                 buckets["descriptive"].append(tag)
-            elif tag in in_tree or tag in result.get("true_roots_set", set()):
+            elif tag in in_tree:
                 buckets["tree"].append(tag)
             elif tag in tags:
-                # in the tag pool but ended up isolated (no parent/children,
-                # not flagged descriptive e.g. under --force-tree) -> tree/root
                 buckets["tree"].append(tag)
             elif tag in result["rare"]:
                 buckets["rare"].append(tag)
             else:
                 buckets["unused"].append(tag)  # tag in group map but 0 occurrences in data
 
-        scored = len(buckets["tree"]) + len(buckets["descriptive"])
-        if scored == 0:
-            verdict = "n/a (no classified members)"
+        if group in overrides:
+            verdict = ("folder-like" if overrides[group] == "folder" else "descriptor-like") + "  [user override]"
         else:
-            tree_frac = len(buckets["tree"]) / scored
-            if tree_frac >= 0.8:
-                verdict = "folder-like"
-            elif tree_frac <= 0.2:
-                verdict = "descriptor-like"
+            scored = len(buckets["tree"]) + len(buckets["descriptive"])
+            if scored == 0:
+                verdict = "n/a (no classified members)"
             else:
-                verdict = "mixed"
+                tree_frac = len(buckets["tree"]) / scored
+                if tree_frac >= 0.8:
+                    verdict = "folder-like"
+                elif tree_frac <= 0.2:
+                    verdict = "descriptor-like"
+                else:
+                    verdict = "mixed"
         report[group] = {"buckets": buckets, "verdict": verdict}
     return report
 
 
-def print_group_report(report, counts):
+def print_group_report(report, counts, overridden_tags=None):
+    overridden_tags = overridden_tags or set()
+
+    def mark(t):
+        return t + ("*" if t in overridden_tags else "")
+
     print("\n===== GROUP CONSISTENCY REPORT =====")
+    if overridden_tags:
+        print("  (* = this tag's tree/descriptive placement was set via --group-override)")
     for group in sorted(report.keys(), key=lambda g: g):
         info = report[group]
         b = info["buckets"]
         print(f"\n  {group}  ->  {info['verdict']}")
         if b["tree"]:
-            print(f"    tree:        {', '.join(sorted(b['tree'], key=lambda t: -counts.get(t, 0)))}")
+            print(f"    tree:        {', '.join(mark(t) for t in sorted(b['tree'], key=lambda t: -counts.get(t, 0)))}")
         if b["descriptive"]:
-            print(f"    descriptive: {', '.join(sorted(b['descriptive'], key=lambda t: -counts.get(t, 0)))}")
+            print(f"    descriptive: {', '.join(mark(t) for t in sorted(b['descriptive'], key=lambda t: -counts.get(t, 0)))}")
         if b["alias"]:
             print(f"    alias:       {', '.join(b['alias'])}")
         if b["rare"]:
@@ -380,7 +483,7 @@ def apply_group_roots(true_roots, children_of, tag_group, group_report):
     synthetic_nodes = []
 
     for group, info in group_report.items():
-        if info["verdict"] != "folder-like":
+        if not info["verdict"].startswith("folder-like"):
             continue
         members_in_roots = [t for t in info["buckets"]["tree"] if t in true_root_set]
         if len(members_in_roots) < 2:
@@ -416,6 +519,12 @@ def main():
     ap.add_argument("--group-roots", action="store_true",
                      help="wrap root tags belonging to a 'folder-like' manual tag group under a synthetic "
                           "[GroupName] top-level node (requires settings.tagGroupAssignments in the export)")
+    ap.add_argument("--group-override", action="append", default=None, metavar="Group=folder|descriptive",
+                     help="force a manual tag group's verdict, overriding the data-driven classification for its "
+                          "member tags (e.g. --group-override 'Quality=descriptive'). Repeatable.")
+    ap.add_argument("--group-overrides-file", default=None,
+                     help="JSON file of {\"GroupName\": \"folder\"|\"descriptive\", ...} for defining many "
+                          "overrides at once. Combined with --group-override (CLI wins on conflicts).")
     ap.add_argument("--json-out", default=None, help="optional path to dump the tree as JSON")
     args = ap.parse_args()
 
@@ -424,34 +533,45 @@ def main():
     if tag_group:
         print(f"Found {len(tag_group)} manual tag-group assignments in settings.tagGroupAssignments.")
 
+    overrides = parse_overrides(args.group_override, args.group_overrides_file)
+    if overrides:
+        print(f"Applying {len(overrides)} group override(s): " +
+              ", ".join(f"{g}={v}" for g, v in overrides.items()))
+
     result = build_tree(tag_to_tweets, n_tweets, args.min_count, args.parent_thresh, args.merge_thresh,
                          force_tree=args.force_tree)
     true_roots, descriptive = finalize_descriptive(result, args.pmi_thresh)
+    true_roots, descriptive, children_of, overridden_tags = apply_group_overrides(
+        true_roots, descriptive, result["children_of"], tag_group, overrides)
+    true_roots = sorted(true_roots, key=lambda t: -result["counts"].get(t, 0))
+    descriptive = sorted(descriptive, key=lambda t: -result["counts"].get(t, 0))
 
     alias_map = {}
     for primary, secondary, c1, c2 in result["alias_pairs"]:
         alias_map[primary] = f"{secondary} (mutual containment {c1:.2f}/{c2:.2f})"
 
-    group_report = build_group_report(result, tag_group) if tag_group else {}
+    group_report = build_group_report(result, tag_group, true_roots, descriptive, children_of,
+                                       overrides=overrides) if tag_group else {}
 
     top_level = true_roots
-    children_of = result["children_of"]
     synthetic_nodes = set()
     if args.group_roots:
         if not tag_group:
             print("\n(--group-roots requested but no settings.tagGroupAssignments found in the export; skipping)")
         else:
             top_level, children_of, synthetic_nodes = apply_group_roots(
-                true_roots, result["children_of"], tag_group, group_report)
+                true_roots, children_of, tag_group, group_report)
 
     print("\n===== TAG TREE =====")
     if args.force_tree:
         print("(--force-tree: nodes with multiple qualifying parents appear once under EACH parent)")
     if synthetic_nodes:
         print("(--group-roots: [GroupName] nodes are synthetic wrappers, not data-derived tags)")
+    if overridden_tags:
+        print("(* next to a group name = this tag's tree/descriptive placement was set via --group-override)")
     for r in sorted(top_level, key=lambda t: (t not in synthetic_nodes, -result["counts"].get(t, 0))):
         print_tree(r, children_of, result["counts"], alias_map=alias_map, tag_group=tag_group,
-                   synthetic=(r in synthetic_nodes))
+                   synthetic=(r in synthetic_nodes), overridden_tags=overridden_tags)
 
     if result["alias_pairs"]:
         print("\n===== ALIAS / MERGE CANDIDATES (near-duplicate tags) =====")
@@ -463,7 +583,7 @@ def main():
     if descriptive:
         print("\n===== DESCRIPTIVE / NON-HIERARCHICAL TAGS =====")
         for tag in descriptive:
-            print(f"  {tag_label(tag, result['counts'], tag_group)}")
+            print(f"  {tag_label(tag, result['counts'], tag_group, overridden_tags)}")
 
     if result["rare"]:
         print(f"\n===== RARE TAGS (< {args.min_count} uses) =====")
@@ -471,7 +591,7 @@ def main():
             print(f"  {tag_label(tag, {t: len(tag_to_tweets[t]) for t in [tag]}, tag_group)}")
 
     if group_report:
-        print_group_report(group_report, result["counts"])
+        print_group_report(group_report, result["counts"], overridden_tags)
 
     if args.json_out:
         def node_to_dict(tag, is_synthetic=False):
@@ -480,6 +600,7 @@ def main():
                 "synthetic_group_node": is_synthetic,
                 "count": None if is_synthetic else result["counts"].get(tag),
                 "group": None if is_synthetic else tag_group.get(tag),
+                "group_override_applied": tag in overridden_tags,
                 "children": [node_to_dict(c, c in synthetic_nodes) for c in
                              sorted(children_of.get(tag, []),
                                     key=lambda c: -result["counts"].get(c, 0))]
@@ -491,6 +612,7 @@ def main():
             "descriptive": descriptive,
             "rare": result["rare"],
             "force_tree": args.force_tree,
+            "group_overrides_applied": overrides,
             "group_report": {g: {"verdict": info["verdict"], **info["buckets"]}
                               for g, info in group_report.items()},
         }

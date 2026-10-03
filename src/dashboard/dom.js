@@ -42,6 +42,9 @@ export const mediaFolderClearBtn = document.getElementById('media-folder-clear-b
 export const importBtn = document.getElementById('import-btn');
 export const fakeTweetBtn = document.getElementById('fake-tweet-btn');
 
+export const shuffleBtn = document.getElementById('shuffle-btn');
+export const shuffleSeedInput = document.getElementById('shuffle-seed-input');
+
 export const forceGraphToolbar = document.getElementById('force-graph-toolbar');
 export const forceGraphEmpty = document.getElementById('force-graph-empty');
 export const forceGraphCanvasWrap = document.getElementById('force-graph-canvas-wrap');

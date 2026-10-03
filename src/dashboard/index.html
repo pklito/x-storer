@@ -84,7 +84,7 @@
                     <div class="main-actions">
                         <span id="total-count" class="main-content-count">0 items</span>
 
-                        <button id="media-folder-btn" class="icon-btn">Choose Media Folder</button>
+                       <button id="media-folder-btn" class="icon-btn">Choose Media Folder</button>
                         <button id="media-folder-clear-btn" class="icon-btn hidden"
                             title="Stop using the local media folder and load media from the network instead">
                             <i class="bi bi-x-circle"></i> Cancel Media Folder
@@ -97,6 +97,13 @@
                         <button id="fake-tweet-btn" class="icon-btn" title="Create a fake tweet to store an image + note">
                             <i class="bi bi-image"></i> Create Fake Tweet
                         </button>
+                        <div class="shuffle-group">
+                            <button id="shuffle-btn" class="icon-btn" title="Shuffle the order with a new random seed">
+                                <i class="bi bi-shuffle"></i> Shuffle
+                            </button>
+                            <input type="number" id="shuffle-seed-input" class="shuffle-seed-input hidden"
+                                min="1" max="1024" step="1" title="Seed (1–1024). Clear it to turn shuffling off.">
+                        </div>
                     </div>
                 </div>
 
