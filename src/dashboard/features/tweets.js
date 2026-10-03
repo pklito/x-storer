@@ -1,5 +1,5 @@
 import { db } from '../../utils/db.js';
-import { state } from '../state.js';
+import { state, SHUFFLE_SEED_KEY } from '../state.js';
 import { feedTitle } from '../dom.js';
 import { renderGrid } from './grid.js';
 import { renderForceGraph } from './graph/index.js';
@@ -240,4 +240,34 @@ export function getTagsByGroup(includeGroupAssignments = false) {
         tagsByGroup.get(g).push(tag);
     }); 
     return tagsByGroup;
+}
+
+import * as DOM from '../dom.js';
+function syncShuffleUI() {
+    const on = state.shuffleSeed !== null || state.shuffleSeed == 0;
+    DOM.shuffleSeedInput.classList.toggle('hidden', !on);
+    DOM.shuffleBtn.classList.toggle('active', on);
+    if (on) DOM.shuffleSeedInput.value = state.shuffleSeed;
+}
+
+export function loadShuffleState() {
+    try {
+        const saved = parseInt(localStorage.getItem(SHUFFLE_SEED_KEY), 10);
+        state.shuffleSeed = Number.isNaN(saved) ? null : clamp(saved, 1, MAX_SHUFFLE_SEED);
+    } catch (err) {
+        console.error('Failed to load shuffle seed:', err);
+    }
+    syncShuffleUI();
+}
+
+export function setShuffleSeed(seed) {
+    state.shuffleSeed = seed;
+    try {
+        if (seed === null) localStorage.removeItem(SHUFFLE_SEED_KEY);
+        else localStorage.setItem(SHUFFLE_SEED_KEY, String(seed));
+    } catch (err) {
+        console.error('Failed to save shuffle seed:', err);
+    }
+    syncShuffleUI();
+    updateUI();
 }

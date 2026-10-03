@@ -809,7 +809,9 @@ body.sidebar-resizing {
     color: inherit;
     font: inherit;
 }
-
+.shuffle-seed-input.hidden {
+    display: none;
+}
 /* ==========================================================================
    11. Tweet Grid (Masonry — JS-based shortest-column distribution)
    ========================================================================== */

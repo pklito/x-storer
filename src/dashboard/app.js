@@ -7,7 +7,7 @@ import { state, SIDEBAR_WIDTH_KEY, SHUFFLE_SEED_KEY, MAX_SHUFFLE_SEED } from './
 // } from './dom.js';
 import * as DOM from './dom.js';
 
-import { loadData, updateUI, getFilteredTweets } from './features/tweets.js';
+import { loadData, updateUI, getFilteredTweets, setShuffleSeed, loadShuffleState } from './features/tweets.js';
 import { initCarousel } from './features/carousel.js';
 
 import { loadHiddenTagsState ,loadTagGroupState, tagGroupInputKeydown, addTagGroupAction, openTagGroupsModal, closeTagGroupsModal, toggleHiddenTagsBtnAction } from './features/tagGroups.js';
@@ -27,6 +27,7 @@ import { clearTagsBtnAction, tagSearchInputUpdate, toggleTagMatchMode } from './
 import { initViewModeSwitch, getViewMode } from './features/viewMode.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    loadShuffleState();
     loadHiddenTagsState();
     loadTagGroupState();
     loadSearchTabsState();
@@ -53,9 +54,15 @@ function setupEventListeners() {
 
 
     DOM.shuffleBtn.addEventListener('click', () => {
-        state.shuffleSeed = Math.floor(Math.random() * 2 ** 32);
-        updateUI();
+        setShuffleSeed(Math.floor(Math.random() * MAX_SHUFFLE_SEED) + 1);
     });
+
+    // 'change' fires on Enter/blur, so it doesn't re-render on every keystroke.
+    DOM.shuffleSeedInput.addEventListener('change', () => {
+        const v = parseInt(DOM.shuffleSeedInput.value, 10);
+        setShuffleSeed(Number.isNaN(v) ? null : clamp(v, 1, MAX_SHUFFLE_SEED));
+    });
+    
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
