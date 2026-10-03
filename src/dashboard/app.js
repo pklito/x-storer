@@ -27,6 +27,7 @@ import { clearTagsBtnAction, tagSearchInputUpdate, toggleTagMatchMode } from './
 import { initViewModeSwitch, getViewMode } from './features/viewMode.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+    DOM.mediaFolderBtn.style.display = 'none';
     loadShuffleState();
     loadHiddenTagsState();
     loadTagGroupState();
@@ -62,7 +63,7 @@ function setupEventListeners() {
         const v = parseInt(DOM.shuffleSeedInput.value, 10);
         setShuffleSeed(Number.isNaN(v) ? null : clamp(v, 1, MAX_SHUFFLE_SEED));
     });
-    
+
     DOM.searchInput.addEventListener('input', searchInputUpdate);
 
     document.getElementById('close-modal').addEventListener('click', closeTagModal);
